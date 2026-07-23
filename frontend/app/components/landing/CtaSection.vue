@@ -1,5 +1,5 @@
 <template>
-  <section class="cta-section" id="get-started">
+  <section class="cta-section reveal" id="get-started">
     <div class="cta-inner">
       <h2 class="cta-headline">Ready to issue your first certificate?</h2>
       <p class="cta-sub">No credit card required. Set up in minutes.</p>
@@ -12,10 +12,12 @@
 
 <style scoped>
 .cta-section {
-  background: color-mix(in srgb, var(--accent-light) 18%, var(--canvas));
+  background: var(--surface-hover);
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
   padding: 88px 40px;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 300px;
 }
 
 .cta-inner {
@@ -57,6 +59,11 @@
 
 .cta-btn:hover {
   background: var(--accent-text);
+}
+
+.cta-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
 }
 
 @media (max-width: 640px) {

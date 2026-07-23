@@ -1,5 +1,5 @@
 <template>
-  <section class="trust-bar">
+  <section class="trust-bar reveal">
     <div class="trust-inner">
       <p class="trust-label">Trusted by institutions worldwide</p>
       <div class="trust-logos">

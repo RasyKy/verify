@@ -81,6 +81,11 @@
   background: var(--accent-text);
 }
 
+.cta-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
 @media (max-width: 640px) {
   .header-inner {
     padding: 0 20px;
