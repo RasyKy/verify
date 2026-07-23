@@ -2,11 +2,19 @@
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
-  modules: ['@nuxt/ui', '@nuxtjs/supabase'],
+  modules: ['@nuxt/ui', '@nuxtjs/supabase', '@nuxtjs/sitemap', '@nuxtjs/robots'],
   css: ['~/assets/css/main.css'],
+  app: {
+    head: {
+      htmlAttrs: { lang: 'en' },
+    },
+  },
   colorMode: {
     preference: 'light',
     fallback: 'light',
+  },
+  routeRules: {
+    '/': { prerender: true },
   },
   supabase: {
     redirect: false,

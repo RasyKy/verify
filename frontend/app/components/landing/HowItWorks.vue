@@ -5,13 +5,18 @@
       <h2 class="section-headline">From issue to verification in four steps.</h2>
 
       <div class="steps">
-        <div v-for="(step, i) in steps" :key="step.title" class="step">
-          <!-- Connector line (between steps) -->
-          <div v-if="i < steps.length - 1" class="connector" aria-hidden="true" />
+        <!-- Single track spanning from step 1 icon center to step 4 icon center -->
+        <div class="track" aria-hidden="true" />
 
-          <div class="step-number">{{ String(i + 1).padStart(2, '0') }}</div>
+        <div
+          v-for="(step, i) in steps"
+          :key="step.title"
+          class="step"
+          :style="`--step-i: ${i}; --tint-bg: var(--tint-${step.tint}); --tint-icon: var(--tint-${step.tint}-icon)`"
+        >
           <div class="step-icon-wrap">
             <UIcon :name="step.icon" class="step-icon" />
+            <span class="step-num" aria-hidden="true">{{ String(i + 1).padStart(2, '0') }}</span>
           </div>
           <h3 class="step-title">{{ step.title }}</h3>
           <p class="step-body">{{ step.body }}</p>
@@ -27,21 +32,25 @@ const steps = [
     icon: 'i-heroicons-building-library',
     title: 'Create',
     body: 'Set up your institution profile and define the credential types you issue.',
+    tint: 'green',
   },
   {
     icon: 'i-heroicons-paper-airplane',
     title: 'Issue',
-    body: 'Enter recipient details and hit Issue. Verify seals the certificate and sends the recipient a direct link by email — done.',
+    body: 'Enter recipient details and hit Issue. Verify seals the certificate and sends the recipient a direct link by email.',
+    tint: 'green',
   },
   {
     icon: 'i-heroicons-share',
     title: 'Recipient shares',
-    body: 'The recipient gets their certificate link by email and can share it immediately — no account and no sign-up required.',
+    body: 'The recipient gets their certificate link by email and can share it immediately. No account or sign-up required.',
+    tint: 'blue',
   },
   {
     icon: 'i-heroicons-magnifying-glass-circle',
     title: 'Anyone verifies',
-    body: 'Employers or anyone else scans the QR or visits the URL — instant, tamper-evident confirmation, no account needed.',
+    body: 'Employers or anyone else scans the QR or visits the URL for instant, tamper-evident confirmation. No account needed.',
+    tint: 'blue',
   },
 ]
 </script>
@@ -49,9 +58,11 @@ const steps = [
 <style scoped>
 .hiw {
   padding: 96px 40px;
-  background: var(--surface-hover);
+  background: color-mix(in srgb, var(--accent-light) 5%, var(--canvas));
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
+  content-visibility: auto;
+  contain-intrinsic-size: auto 400px;
 }
 
 .hiw-inner {
@@ -66,6 +77,7 @@ const steps = [
   text-transform: uppercase;
   color: var(--accent);
   margin-bottom: 12px;
+  text-align: center;
 }
 
 .section-headline {
@@ -75,55 +87,45 @@ const steps = [
   letter-spacing: -0.015em;
   line-height: 1.2;
   margin: 0 0 56px;
+  text-align: center;
 }
 
 /* ── Steps grid ── */
 .steps {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
+  position: relative;
   gap: 0;
-  position: relative;
 }
 
-.step {
-  position: relative;
-  padding: 0 32px 0 0;
-}
-
-.step:last-child {
-  padding-right: 0;
-}
-
-/* Connector line between steps */
-.connector {
+/* Single track from center of step 1's icon to center of step 4's icon.
+   12.5% = half of one equal column in a 4-column grid. */
+.track {
   position: absolute;
-  top: 44px; /* aligns with center of icon */
-  right: 0;
-  width: calc(100% - 52px); /* gap between icons */
-  left: 52px;
-  height: 1px;
+  top: 22px; /* half of 44px icon chip */
+  left: 12.5%;
+  right: 12.5%;
+  height: 1.5px;
   background: var(--border-strong);
-  pointer-events: none;
   z-index: 0;
 }
 
-/* Large step number */
-.step-number {
-  font-size: 13px;
-  font-weight: 700;
-  font-family: ui-monospace, 'Cascadia Code', monospace;
-  color: var(--text-tertiary);
-  margin-bottom: 16px;
-  letter-spacing: 0.05em;
+/* ── Step ── */
+.step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 0 16px;
+  position: relative;
+  z-index: 1;
 }
 
-/* Icon */
 .step-icon-wrap {
   width: 44px;
   height: 44px;
   border-radius: 10px;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--tint-bg, var(--tint-green));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -135,21 +137,39 @@ const steps = [
 .step-icon {
   width: 20px;
   height: 20px;
-  color: var(--accent);
+  color: var(--tint-icon, var(--tint-green-icon));
+}
+
+/* Step number badge pinned to top-left corner of the icon chip */
+.step-num {
+  position: absolute;
+  top: -7px;
+  left: -7px;
+  font-size: 9px;
+  font-weight: 700;
+  font-family: ui-monospace, 'Cascadia Code', monospace;
+  letter-spacing: 0.02em;
+  color: var(--text-tertiary);
+  background: var(--canvas);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 3px;
+  line-height: 1.4;
 }
 
 .step-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--text-primary);
   margin: 0 0 8px;
 }
 
 .step-body {
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.65;
   color: var(--text-secondary);
   margin: 0;
+  max-width: 200px;
 }
 
 /* ── Responsive ── */
@@ -168,12 +188,18 @@ const steps = [
     gap: 32px 24px;
   }
 
-  .connector {
+  .track {
     display: none;
   }
 
   .step {
     padding: 0;
+    text-align: left;
+    align-items: flex-start;
+  }
+
+  .step-body {
+    max-width: none;
   }
 }
 
@@ -181,19 +207,5 @@ const steps = [
   .steps {
     grid-template-columns: 1fr;
   }
-}
-
-/* ── Scroll reveal ── */
-@media (prefers-reduced-motion: no-preference) {
-  .reveal {
-    opacity: 0;
-    transform: translateY(16px);
-    animation: fadeUp 0.55s ease forwards;
-    animation-delay: 0.05s;
-  }
-}
-
-@keyframes fadeUp {
-  to { opacity: 1; transform: translateY(0); }
 }
 </style>

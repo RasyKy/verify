@@ -1,0 +1,174 @@
+<script setup lang="ts">
+import { ACTION_META, ACTION_LABELS, timeAgo } from '~/composables/useAdminMockData'
+
+definePageMeta({ layout: 'admin' })
+
+const { totalOrgs, totalCerts, activeIssuers, verificationsLast30, monthlyCerts, auditEvents } = useAdminMockData()
+
+const recentActivity = computed(() => auditEvents.value.slice(0, 8))
+
+const tintStyle = (tint: string) => {
+  const map: Record<string, { bg: string; icon: string }> = {
+    green:  { bg: 'var(--tint-green)',            icon: 'var(--tint-green-icon)'  },
+    blue:   { bg: 'var(--tint-blue)',             icon: 'var(--tint-blue-icon)'   },
+    amber:  { bg: 'var(--tint-amber)',            icon: 'var(--tint-amber-icon)'  },
+    red:    { bg: 'var(--status-revoked-bg)',     icon: 'var(--status-revoked-text)' },
+  }
+  return map[tint] ?? map.green
+}
+</script>
+
+<template>
+  <div>
+    <AdminPageHeader title="Overview" description="Platform-wide snapshot across all organizations." />
+
+    <!-- Stat cards -->
+    <div class="stats-grid">
+      <AdminStatCard label="Total organizations"   :value="totalOrgs"           icon="i-heroicons-building-office-2" tint="green"  />
+      <AdminStatCard label="Total certificates"    :value="totalCerts"          icon="i-heroicons-document-text"     tint="blue"   />
+      <AdminStatCard label="Active issuers"        :value="activeIssuers"       icon="i-heroicons-users"             tint="amber"  />
+      <AdminStatCard label="Verifications (30d)"   :value="verificationsLast30" icon="i-heroicons-magnifying-glass"  tint="violet" />
+    </div>
+
+    <!-- Chart + Activity -->
+    <div class="lower-grid">
+      <div class="card">
+        <h2 class="card-title">Certificates issued per month</h2>
+        <AdminMiniBarChart :data="monthlyCerts" :max-height="120" />
+      </div>
+
+      <div class="card">
+        <h2 class="card-title">Recent activity</h2>
+        <ul class="activity-list">
+          <li v-for="event in recentActivity" :key="event.id" class="activity-item">
+            <div
+              class="activity-icon"
+              :style="`background: ${tintStyle(ACTION_META[event.action].tint).bg}`"
+            >
+              <UIcon
+                :name="ACTION_META[event.action].icon"
+                class="size-3.5"
+                :style="`color: ${tintStyle(ACTION_META[event.action].tint).icon}`"
+              />
+            </div>
+            <div class="activity-body">
+              <span class="activity-actor">{{ event.actorName }}</span>
+              <span class="activity-action"> · {{ ACTION_LABELS[event.action] }}</span>
+              <p class="activity-target">{{ event.targetLabel }}</p>
+            </div>
+            <span class="activity-time">{{ timeAgo(event.timestamp) }}</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.lower-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  background: var(--surface);
+}
+
+.card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 20px;
+}
+
+/* Activity list */
+.activity-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.activity-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.activity-item:last-child {
+  border-bottom: none;
+}
+
+.activity-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.activity-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.activity-actor {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.activity-action {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.activity-target {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin: 2px 0 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.activity-time {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .stats-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .lower-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

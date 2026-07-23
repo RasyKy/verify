@@ -1,3 +1,7 @@
+<script setup lang="ts">
+useScrollReveal()
+</script>
+
 <template>
   <div class="landing-shell">
     <LandingHeader />

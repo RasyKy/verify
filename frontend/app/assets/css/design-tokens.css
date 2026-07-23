@@ -1,6 +1,6 @@
 :root {
   /* Canvas & surfaces */
-  --canvas:        #FBFBFA;
+  --canvas:        #FFFFFF;
   --surface:       #FFFFFF;
   --surface-hover: #F7F7F5;
 
@@ -17,6 +17,16 @@
   --accent:       #0F7B6C;
   --accent-light: #EAF5F3;
   --accent-text:  #0A5C52;
+
+  /* Pastel tints — chip backgrounds + narrow card washes only, never text/borders/buttons */
+  --tint-green:        #EAF5F3;
+  --tint-green-icon:   #0F7B6C;
+  --tint-blue:         #E8EEF9;
+  --tint-blue-icon:    #4A72BF;
+  --tint-amber:        #FDF3DC;
+  --tint-amber-icon:   #B58A2E;
+  --tint-violet:       #EDE8F9;
+  --tint-violet-icon:  #7C5CB8;
 
   /*
    * Remap Tailwind's teal scale to our dark green.
