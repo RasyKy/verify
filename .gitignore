@@ -2,6 +2,7 @@
 .env
 .env.local
 .env.*.local
+!.env.example
 
 # Dependencies
 node_modules/
@@ -21,5 +22,7 @@ contracts/cache/
 # Misc
 .DS_Store
 *.log
-*.md
-!README.md
+
+# Scratch notes only — project docs under docs/ MUST stay tracked.
+# (Was `*.md`, which silently ignored docs/api-schema.md, ER diagrams, etc.)
+/notes/
