@@ -31,11 +31,27 @@ export const adminClient = createClient(
   serverAuthOptions
 );
 
-export const anonClient = createClient(
-  env.SUPABASE_URL,
-  env.SUPABASE_ANON_KEY,
-  serverAuthOptions
-);
+/**
+ * The anon client is optional in development (SUPABASE_ANON_KEY may be unset),
+ * and nothing uses it yet. Create it lazily so a half-filled .env doesn't crash
+ * the whole process at import time — supabase-js throws synchronously on an
+ * undefined key. Callers that genuinely need RLS-bound access get a clear error
+ * instead of a cryptic constructor failure at boot.
+ */
+let _anonClient = null;
+export function getAnonClient() {
+  if (!env.SUPABASE_ANON_KEY) {
+    throw new Error(
+      'SUPABASE_ANON_KEY is not set — the RLS-bound anon client is unavailable.'
+    );
+  }
+  _anonClient ??= createClient(
+    env.SUPABASE_URL,
+    env.SUPABASE_ANON_KEY,
+    serverAuthOptions
+  );
+  return _anonClient;
+}
 
 /**
  * Supabase returns errors in-band rather than throwing. Wrapping every call

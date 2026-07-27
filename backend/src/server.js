@@ -11,11 +11,19 @@ import { logger } from './lib/logger.js';
 
 const app = createApp();
 
+// Features left inert by an incomplete .env — visible at boot rather than
+// discovered when a request needs them.
+for (const warning of env.warnings) logger.warn(warning);
+
 const server = app.listen(env.PORT, () => {
   logger.info(`Verify backend listening on :${env.PORT}`, {
     env: env.NODE_ENV,
     chainId: env.CHAIN_ID,
     origins: env.allowedOrigins,
+    blockchain: env.blockchainEnabled ? 'enabled' : 'disabled',
+    // Field name avoids the literal key `email`, which the PII redactor
+    // pseudonymizes — this is a feature flag, not an address.
+    emailService: env.emailEnabled ? 'enabled' : 'disabled',
     jwtMode: env.usesLegacyJwtSecret
       ? 'HS256 (legacy secret)'
       : 'JWKS (asymmetric)',
