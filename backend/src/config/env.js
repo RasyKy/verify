@@ -145,8 +145,27 @@ function load(source = process.env) {
     );
   }
 
+  // Normalise SUPABASE_URL to a bare origin. A very common mistake is pasting
+  // the full REST endpoint (…/rest/v1/) or the dashboard URL with a trailing
+  // slash — supabase-js then appends its own /rest/v1, producing a doubled path
+  // so every query 404s with PGRST125. Reducing to origin makes that harmless.
+  let supabaseUrl = parsed.SUPABASE_URL;
+  try {
+    const origin = new URL(supabaseUrl).origin;
+    if (origin !== supabaseUrl.replace(/\/+$/, '')) {
+      warnings.push(
+        `SUPABASE_URL contained an extra path or trailing slash; using "${origin}". ` +
+          `Set SUPABASE_URL="${origin}" in .env to silence this.`
+      );
+    }
+    supabaseUrl = origin;
+  } catch {
+    // Unreachable: z.url() already guaranteed it parses.
+  }
+
   return Object.freeze({
     ...parsed,
+    SUPABASE_URL: supabaseUrl,
     isProduction,
     isTest: parsed.NODE_ENV === 'test',
     blockchainEnabled,

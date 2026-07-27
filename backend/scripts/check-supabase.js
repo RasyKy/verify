@@ -12,14 +12,22 @@
 /* eslint-disable no-console -- diagnostic script, stdout is the point */
 import { createClient } from '@supabase/supabase-js';
 
-const url = process.env.SUPABASE_URL;
+const rawUrl = process.env.SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_KEY;
 
-if (!url || !key) {
+if (!rawUrl || !key) {
   console.error(
     '✗ SUPABASE_URL and/or SUPABASE_SERVICE_KEY are not set in .env'
   );
   process.exit(1);
+}
+
+// Normalise to bare origin, matching src/config/env.js — a pasted …/rest/v1/
+// URL otherwise makes every query 404 with PGRST125.
+const url = new URL(rawUrl).origin;
+if (url !== rawUrl.replace(/\/+$/, '')) {
+  console.log(`⚠ SUPABASE_URL had an extra path/slash — using "${url}"`);
+  console.log(`  Set SUPABASE_URL="${url}" in .env\n`);
 }
 
 console.log(`Project: ${new URL(url).host}\n`);
@@ -44,9 +52,9 @@ let reachable = false;
 let present = 0;
 
 for (const table of TABLES) {
-  const { error } = await supabase
-    .from(table)
-    .select('*', { head: true, count: 'exact' });
+  // A real (non-HEAD) select: HEAD requests return no body, so a 404/error is
+  // NOT surfaced by supabase-js and a broken URL reads as a false "present".
+  const { error } = await supabase.from(table).select('*').limit(1);
 
   if (!error) {
     reachable = true;
@@ -54,6 +62,7 @@ for (const table of TABLES) {
     console.log(`  ✓ ${table}`);
   } else if (
     error.code === '42P01' || // undefined_table
+    error.code === 'PGRST205' || // schema cache: table not found
     /does not exist|Could not find the table/i.test(error.message)
   ) {
     reachable = true; // we reached PostgREST; the table just isn't there
