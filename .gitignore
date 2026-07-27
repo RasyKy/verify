@@ -26,3 +26,6 @@ contracts/cache/
 # Scratch notes only — project docs under docs/ MUST stay tracked.
 # (Was `*.md`, which silently ignored docs/api-schema.md, ER diagrams, etc.)
 /notes/
+
+# Local Claude Code project instructions — not shared with the team
+/CLAUDE.md

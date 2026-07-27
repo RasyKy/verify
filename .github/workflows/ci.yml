@@ -88,7 +88,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: contracts
+        working-directory: blockchain
     steps:
       - uses: actions/checkout@v4
 
@@ -96,7 +96,7 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-          cache-dependency-path: contracts/package-lock.json
+          cache-dependency-path: blockchain/package-lock.json
 
       - run: npm ci
 
