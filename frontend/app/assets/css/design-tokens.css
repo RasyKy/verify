@@ -1,0 +1,57 @@
+:root {
+  /* Canvas & surfaces */
+  --canvas:        #FFFFFF;
+  --surface:       #FFFFFF;
+  --surface-hover: #F7F7F5;
+
+  /* Borders */
+  --border:        #E9E9E7;
+  --border-strong: #D3D1CE;
+
+  /* Text */
+  --text-primary:   #37352F;
+  --text-secondary: #787774;
+  --text-tertiary:  #AEACAA;
+
+  /* Accent — sophisticated dark forest green */
+  --accent:       #0F7B6C;
+  --accent-light: #EAF5F3;
+  --accent-text:  #0A5C52;
+
+  /* Pastel tints — chip backgrounds + narrow card washes only, never text/borders/buttons */
+  --tint-green:        #EAF5F3;
+  --tint-green-icon:   #0F7B6C;
+  --tint-blue:         #E8EEF9;
+  --tint-blue-icon:    #4A72BF;
+  --tint-amber:        #FDF3DC;
+  --tint-amber-icon:   #B58A2E;
+  --tint-violet:       #EDE8F9;
+  --tint-violet-icon:  #7C5CB8;
+
+  /*
+   * Remap Tailwind's teal scale to our dark green.
+   * UButton color="primary" (teal), bg-teal-* classes, and text-teal-*
+   * all automatically pick up these overrides — no per-component work needed.
+   */
+  --color-teal-50:  #EAF5F3;
+  --color-teal-100: #D5EAE6;
+  --color-teal-200: #BDDDD8;
+  --color-teal-300: #8FC7BF;
+  --color-teal-400: #5CAAA0;
+  --color-teal-500: #328E81;
+  --color-teal-600: #0F7B6C;
+  --color-teal-700: #0A5C52;
+  --color-teal-800: #084840;
+  --color-teal-900: #053530;
+  --color-teal-950: #02221E;
+
+  /* Status pill colors */
+  --status-valid-bg:        #ECFDF5;
+  --status-valid-text:      #065F46;
+  --status-revoked-bg:      #FEF2F2;
+  --status-revoked-text:    #991B1B;
+  --status-expired-bg:      #F3F4F6;
+  --status-expired-text:    #6B7280;
+  --status-unclaimed-bg:    #FFFBEB;
+  --status-unclaimed-text:  #92400E;
+}
