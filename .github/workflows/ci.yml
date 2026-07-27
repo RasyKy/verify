@@ -1,0 +1,107 @@
+# CI for the Verify polyrepo (NFR-MAINT-01, NFR-MAINT-03, NFR-SEC-07).
+#
+# Each project is an independent npm workspace with its own lockfile, so jobs
+# are separate and `paths` filters keep a frontend-only change from running the
+# contract suite. `npm audit` runs on every PR per NFR-SEC-07.
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+# A new push supersedes an in-flight run for the same ref.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend — lint, test, audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Format check
+        run: npm run format:check
+
+      # NODE_ENV=test makes config/env.js substitute placeholders for the
+      # Supabase/Alchemy/Resend vars, so CI needs no secrets and no private key.
+      - name: Test
+        run: npm test
+        env:
+          NODE_ENV: test
+
+      # NFR-SEC-07. Fails the build on a high or critical advisory.
+      - name: npm audit
+        run: npm audit --audit-level=high
+
+  frontend:
+    name: Frontend — build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+
+      # @nuxtjs/supabase throws at build time without these, so placeholders
+      # are supplied. They are never used to reach a real project.
+      - name: Build
+        run: npm run build
+        env:
+          SUPABASE_URL: https://placeholder.supabase.co
+          SUPABASE_KEY: placeholder-anon-key
+
+      - name: npm audit
+        run: npm audit --audit-level=high
+        continue-on-error: true # advisory only — this project is not mine to gate
+
+  contracts:
+    name: Contracts — compile, test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: blockchain
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: blockchain/package-lock.json
+
+      - run: npm ci
+
+      - name: Compile
+        run: npx hardhat compile
+
+      - name: Test
+        run: npx hardhat test

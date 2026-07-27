@@ -1,16 +1,32 @@
 {
-  "name": "backend",
+  "name": "verify-backend",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+  "description": "Verify — REST API for certificate issuance, claiming and blockchain-backed verification",
+  "type": "module",
+  "main": "src/server.js",
+  "engines": {
+    "node": ">=20.11"
   },
-  "keywords": [],
-  "author": "",
+  "scripts": {
+    "dev": "node --watch --env-file=.env --import ./src/instrument.js src/server.js",
+    "start": "node --import ./src/instrument.js src/server.js",
+    "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest",
+    "test:watch": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --watch",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write \"**/*.{js,json,md}\"",
+    "format:check": "prettier --check \"**/*.{js,json,md}\""
+  },
+  "keywords": [
+    "certificates",
+    "blockchain",
+    "polygon",
+    "express"
+  ],
+  "author": "Chhay Lyhour",
   "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
+    "@sentry/node": "^10.19.0",
     "@supabase/supabase-js": "^2.108.2",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
@@ -18,15 +34,26 @@
     "express": "^5.2.1",
     "express-rate-limit": "^8.5.2",
     "helmet": "^8.2.0",
+    "jose": "^6.2.0",
+    "node-cron": "^4.2.1",
+    "qrcode": "^1.5.4",
     "resend": "^6.16.0",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
     "winston": "^3.19.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "cross-env": "^10.1.0",
     "eslint": "^10.6.0",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.7.0",
     "jest": "^30.4.2",
-    "nodemon": "^3.1.14",
     "prettier": "^3.9.1",
     "supertest": "^7.2.2"
+  },
+  "overrides": {
+    "brace-expansion": "^5.0.8"
   }
 }
