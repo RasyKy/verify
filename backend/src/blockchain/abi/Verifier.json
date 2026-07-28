@@ -1,0 +1,61 @@
+{
+  "_comment": "ABI for blockchain/contracts/Verifier.sol. Hand-authored from the contract source — it is a tiny, stable interface (issue/revoke/verify + AccessControl). Regenerate authoritatively with `cd blockchain && npx hardhat compile` and copy artifacts/contracts/Verifier.sol/Verifier.json's `abi` here if the contract changes. Only the fragments the backend actually calls are included; ethers needs no more than that.",
+  "abi": [
+    {
+      "type": "function",
+      "name": "issue",
+      "stateMutability": "nonpayable",
+      "inputs": [
+        { "name": "hash", "type": "bytes32" },
+        { "name": "expiresAt", "type": "uint256" }
+      ],
+      "outputs": []
+    },
+    {
+      "type": "function",
+      "name": "revoke",
+      "stateMutability": "nonpayable",
+      "inputs": [{ "name": "hash", "type": "bytes32" }],
+      "outputs": []
+    },
+    {
+      "type": "function",
+      "name": "verify",
+      "stateMutability": "view",
+      "inputs": [{ "name": "hash", "type": "bytes32" }],
+      "outputs": [
+        { "name": "exists", "type": "bool" },
+        { "name": "revoked", "type": "bool" },
+        { "name": "issuedAt", "type": "uint256" },
+        { "name": "expiresAt", "type": "uint256" }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "ISSUER_ROLE",
+      "stateMutability": "view",
+      "inputs": [],
+      "outputs": [{ "name": "", "type": "bytes32" }]
+    },
+    {
+      "type": "function",
+      "name": "hasRole",
+      "stateMutability": "view",
+      "inputs": [
+        { "name": "role", "type": "bytes32" },
+        { "name": "account", "type": "address" }
+      ],
+      "outputs": [{ "name": "", "type": "bool" }]
+    },
+    {
+      "type": "function",
+      "name": "grantRole",
+      "stateMutability": "nonpayable",
+      "inputs": [
+        { "name": "role", "type": "bytes32" },
+        { "name": "account", "type": "address" }
+      ],
+      "outputs": []
+    }
+  ]
+}

@@ -3,8 +3,16 @@
  *
  * Every other module imports `env` from here rather than touching
  * `process.env` directly, so a missing or malformed variable fails loudly at
- * startup instead of throwing on the first request that happens to need it.
- * See `.env.example` for the full list.
+ * startup instead of throwing on the first request that needs it. See
+ * `.env.example` for the full list.
+ *
+ * ── Required-ness depends on NODE_ENV ──
+ * The Supabase core (URL + service key) is always required — the app is inert
+ * without a database. The blockchain and email variables are OPTIONAL in
+ * development so that DB, auth and validation work can proceed before the smart
+ * contract is deployed (the contract is a Week-6 dependency; this work is not).
+ * When they are absent the affected feature is disabled and a warning is logged
+ * at boot. In production every variable is required.
  */
 import { z } from 'zod';
 
@@ -25,19 +33,22 @@ const schema = z.object({
   // Comma-separated list of allowed browser origins (CORS + link building).
   FRONTEND_URL: z.string().min(1).default('http://localhost:3000'),
 
+  // ── Supabase core — always required ──
   SUPABASE_URL: z.url(),
   SUPABASE_SERVICE_KEY: z.string().min(20),
-  SUPABASE_ANON_KEY: z.string().min(20),
+
+  // ── Optional in dev, enforced for production below ──
+  SUPABASE_ANON_KEY: z.string().min(20).optional(),
   // Empty on projects using asymmetric JWT signing keys — auth falls back to
   // JWKS verification in that case. See middleware/auth.js.
   SUPABASE_JWT_SECRET: z.string().default(''),
 
-  ALCHEMY_RPC_URL: z.url(),
-  PRIVATE_KEY: hexKey,
-  CONTRACT_ADDRESS: address,
+  ALCHEMY_RPC_URL: z.url().optional(),
+  PRIVATE_KEY: hexKey.optional(),
+  CONTRACT_ADDRESS: address.optional(),
   CHAIN_ID: z.coerce.number().int().positive().default(80002),
 
-  RESEND_API_KEY: z.string().min(1),
+  RESEND_API_KEY: z.string().min(1).optional(),
   RESEND_FROM_EMAIL: z.string().min(1).default('Verify <noreply@verify.app>'),
 
   SENTRY_DSN: z.string().default(''),
@@ -45,20 +56,10 @@ const schema = z.object({
 });
 
 /**
- * Vars that only matter once we actually talk to a chain or send mail. In
- * `test` we stub those services, so requiring real values would mean checking
- * a fake private key into the repo — exactly what NFR-SEC-01 forbids.
+ * Vars only needed once we actually talk to a chain or send mail. In `test` we
+ * stub those services, so these placeholders keep the suite runnable without a
+ * real private key in the repo (NFR-SEC-01).
  */
-const RELAXED_IN_TEST = [
-  'SUPABASE_URL',
-  'SUPABASE_SERVICE_KEY',
-  'SUPABASE_ANON_KEY',
-  'ALCHEMY_RPC_URL',
-  'PRIVATE_KEY',
-  'CONTRACT_ADDRESS',
-  'RESEND_API_KEY',
-];
-
 const TEST_DEFAULTS = {
   SUPABASE_URL: 'https://test.supabase.co',
   SUPABASE_SERVICE_KEY: 'test-service-key-000000000000',
@@ -69,12 +70,28 @@ const TEST_DEFAULTS = {
   RESEND_API_KEY: 'test-resend-key',
 };
 
+/** Required beyond the Supabase core once running in production. */
+const PRODUCTION_REQUIRED = [
+  'SUPABASE_ANON_KEY',
+  'ALCHEMY_RPC_URL',
+  'PRIVATE_KEY',
+  'CONTRACT_ADDRESS',
+  'RESEND_API_KEY',
+];
+
 function load(source = process.env) {
-  const raw = { ...source };
+  // Treat empty/whitespace values as absent, so `SUPABASE_ANON_KEY=` in a
+  // half-filled .env behaves like "not set" (letting defaults and .optional()
+  // apply) rather than failing a min-length check with a confusing message.
+  const raw = {};
+  for (const [key, value] of Object.entries(source)) {
+    if (typeof value === 'string' && value.trim() === '') continue;
+    raw[key] = value;
+  }
 
   if (raw.NODE_ENV === 'test') {
-    for (const key of RELAXED_IN_TEST) {
-      if (!raw[key]) raw[key] = TEST_DEFAULTS[key];
+    for (const [key, value] of Object.entries(TEST_DEFAULTS)) {
+      if (!raw[key]) raw[key] = value;
     }
   }
 
@@ -92,11 +109,68 @@ function load(source = process.env) {
   }
 
   const parsed = result.data;
+  const isProduction = parsed.NODE_ENV === 'production';
+
+  // In production the optional vars become mandatory — refuse to ship a build
+  // that cannot issue certificates or send claim emails.
+  if (isProduction) {
+    const missing = PRODUCTION_REQUIRED.filter((key) => !parsed[key]);
+    if (missing.length) {
+      throw new Error(
+        `Missing required production environment variables:\n` +
+          missing.map((k) => `  • ${k}`).join('\n')
+      );
+    }
+  }
+
+  const blockchainEnabled = Boolean(
+    parsed.ALCHEMY_RPC_URL && parsed.PRIVATE_KEY && parsed.CONTRACT_ADDRESS
+  );
+  const emailEnabled = Boolean(parsed.RESEND_API_KEY);
+
+  // Surfaced rather than logged here (no logger yet at this point); server.js
+  // prints them at boot so a developer knows which features are inert.
+  const warnings = [];
+  if (!blockchainEnabled) {
+    warnings.push(
+      'Blockchain disabled: set ALCHEMY_RPC_URL, PRIVATE_KEY and CONTRACT_ADDRESS to enable issuance/verification against the chain.'
+    );
+  }
+  if (!emailEnabled) {
+    warnings.push('Email disabled: set RESEND_API_KEY to send claim emails.');
+  }
+  if (!parsed.SUPABASE_ANON_KEY) {
+    warnings.push(
+      'SUPABASE_ANON_KEY not set: the RLS-bound anon client is unavailable (the service-role client still works).'
+    );
+  }
+
+  // Normalise SUPABASE_URL to a bare origin. A very common mistake is pasting
+  // the full REST endpoint (…/rest/v1/) or the dashboard URL with a trailing
+  // slash — supabase-js then appends its own /rest/v1, producing a doubled path
+  // so every query 404s with PGRST125. Reducing to origin makes that harmless.
+  let supabaseUrl = parsed.SUPABASE_URL;
+  try {
+    const origin = new URL(supabaseUrl).origin;
+    if (origin !== supabaseUrl.replace(/\/+$/, '')) {
+      warnings.push(
+        `SUPABASE_URL contained an extra path or trailing slash; using "${origin}". ` +
+          `Set SUPABASE_URL="${origin}" in .env to silence this.`
+      );
+    }
+    supabaseUrl = origin;
+  } catch {
+    // Unreachable: z.url() already guaranteed it parses.
+  }
 
   return Object.freeze({
     ...parsed,
-    isProduction: parsed.NODE_ENV === 'production',
+    SUPABASE_URL: supabaseUrl,
+    isProduction,
     isTest: parsed.NODE_ENV === 'test',
+    blockchainEnabled,
+    emailEnabled,
+    warnings,
     /** Origins allowed by CORS. */
     allowedOrigins: parsed.FRONTEND_URL.split(',')
       .map((o) => o.trim())
