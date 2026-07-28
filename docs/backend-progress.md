@@ -32,17 +32,18 @@ changed, the fingerprints differ and it shows as invalid. Your backend is the
 | --- | --- |
 | Backend skeleton (server, config, middleware, error handling, logging) | ✅ Built & tested |
 | Repo hygiene, CI pipeline, linting, tests | ✅ Built (152 tests passing, 0 vulnerabilities) |
-| Database schema (SQL migrations + security rules) | ✅ Written — ⚠️ **not yet run** on Supabase |
+| Database schema (SQL migrations + security rules) | ✅ Written **and applied** — all 9 tables live |
 | Hashing (the tamper-detection core) | ✅ Built & tested, with fixed vectors for the blockchain teammate |
 | Blockchain service (talks to the smart contract) | ✅ Built — real + in-memory stub, wired to the merged `Verifier.sol` |
-| Authentication (login, logout, refresh, me, account-exists) | ✅ Built & tested |
-| Connection to your Supabase project | ⚠️ Reachable, but **3 setup steps remain** (§6) |
+| Authentication (login, logout, refresh, me, account-exists) | ✅ Built & tested end to end against the real project |
+| Connection to your Supabase project | ✅ Connected — setup complete (§6) |
+| Development seed data | ✅ `npm run db:seed` — 6 accounts, 6 certificates, Postman environment |
 | Certificate / claim / holder / admin / registry endpoints | ⛔ Not built yet (§7) |
 
-**Plain version:** the *foundation and the auth layer are done and proven by
-tests*. The *database tables still need to be created*, and the *feature
-endpoints* (issuing and verifying certificates, the admin portal, etc.) are the
-next big chunk.
+**Plain version:** the *foundation, the database and the auth layer are done and
+proven against the real Supabase project* — you can log in from Postman right now
+and get back real data. The *feature endpoints* (issuing and verifying
+certificates, the admin portal, etc.) are the next big chunk.
 
 ---
 
@@ -194,37 +195,46 @@ needing credentials.
 
 ---
 
-## 6. What's not connected yet — your setup checklist
+## 6. Supabase setup — done
 
-The backend can *reach* your Supabase project, but three things remain before a
-request can actually read or write real data. Do these once:
+All three steps that used to live here are complete. What was done, so a fresh
+clone or a second environment can be brought up the same way:
 
-1. **Fix the project URL in `.env`.** It currently includes an extra `/rest/v1/`
-   path, which breaks every database query. Set it to the bare address:
-   ```
-   SUPABASE_URL=https://obdenvshibabjrebdbsq.supabase.co
-   ```
-   *(The backend now auto-corrects this and warns at startup, but fixing the file
-   is cleaner.)*
+1. **Project URL** — `SUPABASE_URL` had a stray `/rest/v1/` suffix. `env.js`
+   auto-corrects and warns, but the file now holds the bare origin.
 
-2. **Add the anon (publishable) key** — same Supabase dashboard page as the URL,
-   under Project Settings → API. Login uses it:
-   ```
-   SUPABASE_ANON_KEY=sb_publishable_...
-   ```
+2. **Anon key** — `SUPABASE_ANON_KEY` is set to the project's
+   `sb_publishable_…` key. This matters: without it `getAuthClient()` falls back
+   to the **service key** for logins, which bypasses RLS and is exactly what
+   `config/supabase.js` warns against.
 
-3. **Create the database tables.** Open the Supabase **SQL Editor** and run, in
-   order: `backend/db/migrations/0001_init.sql`, then `0002_rls.sql`.
-   Confirm with:
-   ```
-   cd backend && node --env-file=.env scripts/check-supabase.js
-   ```
-   It should report **all 9 tables present**. (Right now it correctly reports
-   *none* exist yet — that's the honest state.)
+3. **Tables created** — `0001_init.sql` and `0002_rls.sql` are applied. Verified
+   beyond "the tables exist": RLS is on across all 9 with **zero policies**, and
+   a read with the publishable key returns `42501 permission denied`. A leaked
+   browser key gets nothing, which is the T-06 posture actually holding.
 
-After that: `npm run dev`, then in Postman `POST /api/auth/login` with a real
-account → copy the `accessToken` → call `GET /api/auth/me` with header
-`Authorization: Bearer <token>` → you'll see real data flow end to end.
+```bash
+cd backend
+npm run db:check                              # all 9 tables present
+SUPABASE_ACCESS_TOKEN=sbp_… npm run db:migrate  # only on a fresh project
+npm run db:seed                               # development fixtures
+```
+
+`db:migrate` needs an **account** access token, not the project service key —
+DDL cannot go through PostgREST, which only exposes tables that already exist.
+
+### Testing it in Postman
+
+`npm run db:seed` creates six accounts (password `Password123!`) and six
+certificates covering every derived status, then writes
+`backend/db/postman_environment.json` — import that under Postman →
+Environments. Then `POST /api/auth/login` → copy `accessToken` → `GET
+/api/auth/me` with `Authorization: Bearer <token>`.
+
+Worth trying: log in as `deactivated@example.com`. The login **succeeds**, then
+every protected route returns 403 — that's `middleware/auth.js` reading role and
+status from `profiles` rather than trusting the JWT, so a deactivation takes
+effect immediately instead of waiting for the token to refresh.
 
 ---
 
