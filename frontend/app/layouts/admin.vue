@@ -8,7 +8,7 @@ const menuOpen = ref(false)
 async function logout() {
   const supabase = useSupabaseClient()
   await supabase.auth.signOut()
-  await navigateTo('/login')
+  await navigateTo('/login?redirect=/admin')
 }
 
 const nav = [

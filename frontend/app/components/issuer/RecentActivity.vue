@@ -47,8 +47,12 @@ function timeAgo(ts: string) {
   </div>
 
   <!-- Empty state -->
-  <div v-else-if="activities.length === 0" class="py-12 flex items-center justify-center">
-    <p class="text-sm text-gray-400">No recent activity yet.</p>
+  <div v-else-if="activities.length === 0" class="flex flex-col items-center justify-center py-12 text-center">
+    <div class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
+      <UIcon name="i-heroicons-clock" class="size-6 text-gray-400" />
+    </div>
+    <p class="text-sm font-medium text-gray-700 mb-1">No activity yet</p>
+    <p class="text-sm text-gray-400">Issuing, revoking, or claiming a certificate will show up here.</p>
   </div>
 
   <!-- Activity list -->

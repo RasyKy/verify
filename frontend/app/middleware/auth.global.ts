@@ -12,6 +12,6 @@ export default defineNuxtRouteMiddleware((to) => {
   const guardedPrefixes = ['/issuer', '/recipient']
   const isGuarded = guardedPrefixes.some((prefix) => to.path.startsWith(prefix))
 
-  if (isGuarded && !user.value) return navigateTo('/login')
+  if (isGuarded && !user.value) return navigateTo({ path: '/login', query: { redirect: to.path } })
   if (to.path === '/login' && user.value) return navigateTo('/issuer')
 })

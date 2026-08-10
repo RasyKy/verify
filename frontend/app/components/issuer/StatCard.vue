@@ -34,6 +34,7 @@ const colors = computed(() => colorMap[props.color])
 .stat-card {
   background: var(--surface);
   border-color: var(--border);
+  box-shadow: var(--shadow-card);
 }
 
 .stat-label {

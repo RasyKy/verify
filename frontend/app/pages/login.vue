@@ -2,6 +2,22 @@
 definePageMeta({ layout: false })
 
 const supabase = useSupabaseClient()
+const route = useRoute()
+
+// Not a real role check (that requires the backend's GET /api/auth/me —
+// see docs/frontend-handshake.md) — just remembers which guarded portal
+// sent the visitor here so sign-in returns them to the right place.
+// Allowlisted rather than trusting the raw query value, to avoid an
+// open-redirect via an arbitrary `?redirect=`.
+const PORTAL_COPY: Record<string, string> = {
+  '/recipient': 'Certificate recipient portal',
+  '/admin': 'Platform admin portal',
+}
+const redirectTarget = computed(() => {
+  const r = route.query.redirect
+  return typeof r === 'string' && r in PORTAL_COPY ? r : '/issuer'
+})
+const portalLabel = computed(() => PORTAL_COPY[redirectTarget.value] ?? 'Institution issuer portal')
 
 const email = ref('')
 const password = ref('')
@@ -21,7 +37,7 @@ async function onSubmit() {
       error.value = true
       password.value = ''
     } else {
-      await navigateTo('/issuer')
+      await navigateTo(redirectTarget.value)
     }
   } finally {
     loading.value = false
@@ -41,7 +57,9 @@ async function onSubmit() {
 
       <!-- Heading -->
       <h1 class="text-lg font-medium text-gray-900 text-center">Sign in to Verify</h1>
-      <p class="text-sm text-gray-500 text-center mt-1">Institution issuer portal</p>
+      <p class="text-sm text-gray-500 text-center mt-1">
+        {{ portalLabel }}
+      </p>
 
       <!-- Form -->
       <form class="mt-6 space-y-4" @submit.prevent="onSubmit">

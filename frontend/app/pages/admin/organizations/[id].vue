@@ -54,7 +54,9 @@ const typeLabels: Record<string, string> = {
     </NuxtLink>
 
     <div v-if="!org" class="not-found">
-      <p>Organization not found.</p>
+      <UIcon name="i-heroicons-building-office-2" class="not-found-icon" />
+      <p>Organization not found. It may have been removed or the link is incorrect.</p>
+      <NuxtLink to="/admin/organizations" class="not-found-link">Back to organizations</NuxtLink>
     </div>
 
     <template v-else>
@@ -173,9 +175,31 @@ const typeLabels: Record<string, string> = {
 }
 
 .not-found {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
   color: var(--text-secondary);
   font-size: 14px;
-  padding: 40px 0;
+  text-align: center;
+  padding: 56px 0;
+}
+
+.not-found-icon {
+  width: 32px;
+  height: 32px;
+  color: var(--text-tertiary);
+}
+
+.not-found-link {
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.not-found-link:hover {
+  text-decoration: underline;
 }
 
 /* Header */
@@ -256,6 +280,7 @@ const typeLabels: Record<string, string> = {
   background: var(--status-revoked-bg);
   border: 1px solid color-mix(in srgb, var(--status-revoked-text) 30%, transparent);
   cursor: pointer;
+  transition: opacity var(--transition-fast);
 }
 
 .btn-danger-outline:hover {
@@ -271,6 +296,7 @@ const typeLabels: Record<string, string> = {
   background: var(--accent);
   border: none;
   cursor: pointer;
+  transition: opacity var(--transition-fast);
 }
 
 .btn-primary:hover {
@@ -286,6 +312,7 @@ const typeLabels: Record<string, string> = {
   background: transparent;
   border: 1px solid var(--border);
   cursor: pointer;
+  transition: background-color var(--transition-fast);
 }
 
 .btn-secondary:hover {
@@ -302,6 +329,7 @@ const typeLabels: Record<string, string> = {
   border-radius: 8px;
   margin-bottom: 32px;
   flex-wrap: wrap;
+  box-shadow: var(--shadow-card);
 }
 
 .stat-item {
