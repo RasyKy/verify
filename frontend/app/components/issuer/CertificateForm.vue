@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { z } from 'zod'
 import type { FormSubmitEvent } from '@nuxt/ui'
+import { DEFAULT_INSTITUTION } from '~/composables/useIssuerMockData'
 
 interface CertFormData {
   institution?: string
@@ -27,6 +28,8 @@ const emit = defineEmits<{
 
 const user = useSupabaseUser()
 const toast = useToast()
+const { courses: coursesStore, addCourse, issueCertificate, updateCertificate } = useIssuerMockData()
+const institutionFallback = DEFAULT_INSTITUTION
 
 const today = new Date().toISOString().substring(0, 10)
 
@@ -45,7 +48,7 @@ type Schema = z.output<typeof schema>
 
 function makeState() {
   return {
-    institution: props.initialData?.institution ?? user.value?.user_metadata?.institution_name ?? '',
+    institution: props.initialData?.institution ?? user.value?.user_metadata?.institution_name ?? institutionFallback,
     studentName: props.initialData?.studentName ?? '',
     studentEmail: props.initialData?.studentEmail ?? '',
     courseName: props.initialData?.courseName ?? '',
@@ -92,35 +95,24 @@ const selectedCourse = ref<{ label: string; value: string } | undefined>(
 )
 const courseQuery = ref('')
 
-const { data: coursesData } = useFetch<string[]>('/api/courses', { default: () => [] })
-const courses = ref<string[]>([])
-watch(coursesData, (data) => { if (data) courses.value = [...data] }, { immediate: true })
-
 const courseOptions = computed(() => {
   const term = courseQuery.value.toLowerCase().trim()
-  const filtered = courses.value.filter((c) => !term || c.toLowerCase().includes(term))
+  const filtered = coursesStore.value.filter((c) => !term || c.toLowerCase().includes(term))
   const opts: Array<{ label: string; value: string }> = filtered.map((c) => ({ label: c, value: c }))
-  if (term && !courses.value.some((c) => c.toLowerCase() === term)) {
+  if (term && !coursesStore.value.some((c) => c.toLowerCase() === term)) {
     opts.push({ label: `+ Add "${courseQuery.value}"`, value: '__create__' })
   }
   return opts
 })
 
-watch(selectedCourse, async (item) => {
+watch(selectedCourse, (item) => {
   if (!item) { state.courseName = ''; return }
   if (item.value === '__create__') {
     const name = courseQuery.value.trim()
-    selectedCourse.value = undefined
-    state.courseName = ''
-    try {
-      await $fetch('/api/courses', { method: 'POST', body: { name } })
-      courses.value.push(name)
-      selectedCourse.value = { label: name, value: name }
-      state.courseName = name
-      courseQuery.value = ''
-    } catch {
-      toast.add({ title: 'Error', description: 'Failed to add course', color: 'error' })
-    }
+    addCourse(name)
+    selectedCourse.value = { label: name, value: name }
+    state.courseName = name
+    courseQuery.value = ''
   } else {
     state.courseName = item.value
   }
@@ -130,55 +122,40 @@ watch(selectedCourse, async (item) => {
 
 const isLoading = ref(false)
 
-async function onSubmit(event: FormSubmitEvent<Schema>) {
+function onSubmit(event: FormSubmitEvent<Schema>) {
   isLoading.value = true
-  try {
-    if (props.isEdit && props.certId) {
-      await $fetch(`/api/certificates/${props.certId}`, {
-        method: 'PUT',
-        body: {
-          studentName: event.data.studentName,
-          studentEmail: event.data.studentEmail,
-          courseName: event.data.courseName,
-          completionDate: event.data.completionDate,
-          expiryDate: computedExpiryDate.value,
-        },
-      })
-      toast.add({ title: 'Certificate updated', color: 'success' })
-    } else {
-      await $fetch('/api/certificates', {
-        method: 'POST',
-        body: {
-          institution: event.data.institution,
-          studentName: event.data.studentName,
-          studentEmail: event.data.studentEmail,
-          courseName: event.data.courseName,
-          completionDate: event.data.completionDate,
-          expiryDate: computedExpiryDate.value,
-        },
-      })
-      toast.add({
-        title: 'Certificate issued',
-        description: `Claim email sent to ${event.data.studentEmail}`,
-        color: 'success',
-      })
-      Object.assign(state, makeState())
-      expiryType.value = 'none'
-      duration.value = '1 year'
-      customExpiryDate.value = ''
-      selectedCourse.value = undefined
-      courseQuery.value = ''
-    }
-    emit('success')
-  } catch (err: any) {
-    toast.add({
-      title: 'Error',
-      description: err?.data?.message ?? 'Something went wrong. Please try again.',
-      color: 'error',
+  if (props.isEdit && props.certId) {
+    updateCertificate(props.certId, {
+      studentName: event.data.studentName,
+      studentEmail: event.data.studentEmail,
+      courseName: event.data.courseName,
+      completionDate: event.data.completionDate,
+      expiryDate: computedExpiryDate.value,
     })
-  } finally {
-    isLoading.value = false
+    toast.add({ title: 'Certificate updated', color: 'success' })
+  } else {
+    issueCertificate({
+      institution: event.data.institution,
+      studentName: event.data.studentName,
+      studentEmail: event.data.studentEmail,
+      courseName: event.data.courseName,
+      completionDate: event.data.completionDate,
+      expiryDate: computedExpiryDate.value,
+    })
+    toast.add({
+      title: 'Certificate issued',
+      description: `Claim email sent to ${event.data.studentEmail}`,
+      color: 'success',
+    })
+    Object.assign(state, makeState())
+    expiryType.value = 'none'
+    duration.value = '1 year'
+    customExpiryDate.value = ''
+    selectedCourse.value = undefined
+    courseQuery.value = ''
   }
+  isLoading.value = false
+  emit('success')
 }
 </script>
 

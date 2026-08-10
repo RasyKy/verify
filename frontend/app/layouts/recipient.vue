@@ -1,72 +1,133 @@
 <script setup lang="ts">
 const { recipient } = useRecipientMockData()
 
-const nav = [
-  { label: 'My Certificates', icon: 'i-heroicons-academic-cap', to: '/recipient' },
-]
-
 async function logout() {
   const supabase = useSupabaseClient()
   await supabase.auth.signOut()
-  await navigateTo('/login')
+  await navigateTo('/login?redirect=/recipient')
 }
 </script>
 
 <template>
-  <div class="flex h-screen overflow-hidden">
-    <aside class="w-55 shrink-0 flex flex-col border-r sidebar">
-      <!-- Logo + recipient name -->
-      <div class="px-4 pt-6 pb-5">
-        <div class="flex items-center gap-2.5">
-          <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 logo-badge">
-            <span class="text-white font-bold text-sm leading-none">V</span>
+  <div class="profile-shell">
+    <header class="top-bar">
+      <div class="top-bar-inner">
+        <NuxtLink to="/recipient" class="logo-link">
+          <div class="logo-badge">
+            <span class="logo-letter">V</span>
           </div>
-          <span class="font-semibold text-sm wordmark">Verify</span>
-        </div>
-        <p v-if="recipient.name" class="text-xs mt-1.5 pl-10.5 truncate recipient-subtitle">
-          {{ recipient.name }}
-        </p>
-      </div>
-
-      <!-- Navigation -->
-      <nav class="flex-1 px-3 space-y-0.5">
-        <NuxtLink v-for="item in nav" :key="item.to" :to="item.to" custom v-slot="{ isExactActive, navigate }">
-          <button
-            class="nav-item flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-sm text-left"
-            :class="isExactActive ? 'nav-item--active' : ''"
-            @click="navigate"
-          >
-            <UIcon :name="item.icon" class="size-4 shrink-0" />
-            {{ item.label }}
-          </button>
+          <span class="wordmark">Verify</span>
         </NuxtLink>
-      </nav>
 
-      <!-- Logout -->
-      <div class="px-3 pb-4 pt-3 sidebar-footer">
-        <button class="nav-item flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-sm text-left" @click="logout">
-          <UIcon name="i-heroicons-arrow-right-on-rectangle" class="size-4 shrink-0" />
-          Log out
-        </button>
+        <div class="top-bar-right">
+          <span v-if="recipient.name" class="recipient-name">{{ recipient.name }}</span>
+          <button class="logout-btn" aria-label="Log out" title="Log out" @click="logout">
+            <UIcon name="i-heroicons-arrow-right-on-rectangle" class="size-4" />
+          </button>
+        </div>
       </div>
-    </aside>
+    </header>
 
-    <!-- Page content -->
-    <main class="flex-1 overflow-y-auto p-10 main-canvas">
+    <main class="page-canvas">
       <slot />
     </main>
   </div>
 </template>
 
 <style scoped>
-.sidebar { background: var(--canvas); border-color: var(--border); }
-.logo-badge { background: var(--accent); }
-.wordmark { color: var(--text-primary); }
-.recipient-subtitle { color: var(--text-tertiary); }
-.main-canvas { background: var(--canvas); }
-.sidebar-footer { border-top: 1px solid var(--border); }
-.nav-item { color: var(--text-secondary); transition: background-color 0.1s ease; }
-.nav-item:hover { background: var(--surface-hover); }
-.nav-item--active { background: var(--accent-light); color: var(--accent-text); }
-.nav-item--active:hover { background: var(--accent-light); }
+.profile-shell {
+  min-height: 100vh;
+  background: var(--canvas);
+}
+
+.top-bar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: var(--canvas);
+  border-bottom: 1px solid var(--border);
+}
+
+.top-bar-inner {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 40px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.logo-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+}
+
+.logo-badge {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.logo-letter {
+  color: #fff;
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.wordmark {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--text-primary);
+}
+
+.top-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.recipient-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.logout-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  color: var(--text-tertiary);
+  transition: background-color 0.1s ease, color 0.1s ease;
+}
+
+.logout-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.page-canvas {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 56px 40px 80px;
+}
+
+@media (max-width: 640px) {
+  .top-bar-inner,
+  .page-canvas {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+}
 </style>

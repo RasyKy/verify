@@ -33,6 +33,7 @@ const t = computed(() => tintMap[props.tint])
   border-radius: 10px;
   padding: 20px;
   position: relative;
+  box-shadow: var(--shadow-card);
 }
 
 .stat-icon-wrap {

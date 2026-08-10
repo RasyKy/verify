@@ -24,10 +24,10 @@ const tintStyle = (tint: string) => {
 
     <!-- Stat cards -->
     <div class="stats-grid">
-      <AdminStatCard label="Total organizations"   :value="totalOrgs"           icon="i-heroicons-building-office-2" tint="green"  />
-      <AdminStatCard label="Total certificates"    :value="totalCerts"          icon="i-heroicons-document-text"     tint="blue"   />
-      <AdminStatCard label="Active issuers"        :value="activeIssuers"       icon="i-heroicons-users"             tint="amber"  />
-      <AdminStatCard label="Verifications (30d)"   :value="verificationsLast30" icon="i-heroicons-magnifying-glass"  tint="violet" />
+      <AdminStatCard class="card-in" style="--i: 0" label="Total organizations"   :value="totalOrgs"           icon="i-heroicons-building-office-2" tint="green"  />
+      <AdminStatCard class="card-in" style="--i: 1" label="Total certificates"    :value="totalCerts"          icon="i-heroicons-document-text"     tint="blue"   />
+      <AdminStatCard class="card-in" style="--i: 2" label="Active issuers"        :value="activeIssuers"       icon="i-heroicons-users"             tint="amber"  />
+      <AdminStatCard class="card-in" style="--i: 3" label="Verifications (30d)"   :value="verificationsLast30" icon="i-heroicons-magnifying-glass"  tint="violet" />
     </div>
 
     <!-- Chart + Activity -->
@@ -39,7 +39,7 @@ const tintStyle = (tint: string) => {
 
       <div class="card">
         <h2 class="card-title">Recent activity</h2>
-        <ul class="activity-list">
+        <ul v-if="recentActivity.length" class="activity-list">
           <li v-for="event in recentActivity" :key="event.id" class="activity-item">
             <div
               class="activity-icon"
@@ -59,6 +59,10 @@ const tintStyle = (tint: string) => {
             <span class="activity-time">{{ timeAgo(event.timestamp) }}</span>
           </li>
         </ul>
+        <div v-else class="empty-state">
+          <UIcon name="i-heroicons-clock" class="empty-icon" />
+          <p>No activity recorded yet. Actions across the platform will show up here.</p>
+        </div>
       </div>
     </div>
   </div>
@@ -83,6 +87,28 @@ const tintStyle = (tint: string) => {
   border-radius: 10px;
   padding: 20px;
   background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 32px 0;
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
+.empty-icon {
+  width: 28px;
+  height: 28px;
+}
+
+.empty-state p {
+  font-size: 12px;
+  margin: 0;
+  max-width: 220px;
 }
 
 .card-title {

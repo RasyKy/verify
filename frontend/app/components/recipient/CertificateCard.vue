@@ -18,13 +18,17 @@ function formatDate(dateStr: string) {
 <template>
   <div class="cert-card p-5 rounded-xl flex flex-col gap-3">
     <div class="flex items-start justify-between gap-2">
-      <div class="min-w-0">
-        <p class="text-sm font-semibold truncate card-title">{{ cert.course_name }}</p>
-        <p class="text-xs truncate card-subtitle">{{ cert.institution_name }}</p>
+      <div class="badge-icon shrink-0">
+        <UIcon name="i-heroicons-academic-cap" class="size-5" />
       </div>
       <span class="text-xs font-medium px-2 py-0.5 rounded-full shrink-0" :style="statusConfig[cert.status].style">
         {{ statusConfig[cert.status].label }}
       </span>
+    </div>
+
+    <div class="min-w-0">
+      <p class="text-sm font-semibold truncate card-title">{{ cert.course_name }}</p>
+      <p class="text-xs truncate card-subtitle">{{ cert.institution_name }}</p>
     </div>
 
     <div class="text-xs card-meta space-y-0.5">
@@ -53,7 +57,26 @@ function formatDate(dateStr: string) {
 </template>
 
 <style scoped>
-.cert-card { background: var(--surface); border: 1px solid var(--border); }
+.cert-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-card);
+  transition: box-shadow var(--transition-base), transform var(--transition-base);
+}
+.cert-card:hover {
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-2px);
+}
+.badge-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: var(--accent-light);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 .card-title { color: var(--text-primary); }
 .card-subtitle { color: var(--text-secondary); }
 .card-meta { color: var(--text-tertiary); }

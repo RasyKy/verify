@@ -1,37 +1,16 @@
 <script setup lang="ts">
+import { lookupCertificate } from '~/composables/useVerifyMockData'
+
 definePageMeta({ layout: false })
 
 useHead({
   meta: [{ name: 'robots', content: 'noindex, nofollow' }],
 })
 
-interface Certificate {
-  studentName: string
-  courseName: string
-  institutionName: string
-  completionDate: string
-  expiryDate: string | null
-  certId: string
-  issuedAtBlockchainTimestamp: string
-}
-
-interface VerifyResult {
-  status: 'verified' | 'invalid' | 'revoked' | 'expired'
-  certificate: Certificate | null
-}
-
 const route = useRoute()
 const certId = route.params.certId as string
 
-const { data: result, pending, error } = useFetch<VerifyResult>(
-  `/api/certificates/verify/${certId}`,
-  { default: () => null },
-)
-
-const displayResult = computed<VerifyResult | null>(() => {
-  if (error.value) return { status: 'invalid', certificate: null }
-  return result.value
-})
+const displayResult = computed(() => lookupCertificate(certId))
 
 // For "verify another certificate" bar below the result
 const newCertId = ref('')
@@ -65,10 +44,10 @@ function onNewSearch() {
       </div>
 
       <!-- Result card -->
-      <VerifyResultCard :result="displayResult" :loading="pending" />
+      <VerifyResultCard :result="displayResult" :loading="false" />
 
       <!-- Verify another certificate -->
-      <div v-if="!pending" class="mt-8">
+      <div class="mt-8">
         <div class="flex items-center gap-3 mb-4">
           <div class="flex-1 h-px bg-gray-200" />
           <span class="text-xs text-gray-400 shrink-0">Verify another certificate</span>
