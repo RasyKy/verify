@@ -1,8 +1,15 @@
 <script setup lang="ts">
-// TODO: add /admin route guard in middleware/auth.global.ts
-// if (to.path.startsWith('/admin') && !adminUser.value) return navigateTo('/login')
+// No route guard here yet: there's no admin login flow (CLAUDE.md lists
+// admin scope as TBD), so this portal is intentionally left reachable
+// without auth for now. See app/middleware/auth.global.ts.
 
 const menuOpen = ref(false)
+
+async function logout() {
+  const supabase = useSupabaseClient()
+  await supabase.auth.signOut()
+  await navigateTo('/login')
+}
 
 const nav = [
   { label: 'Overview',      icon: 'i-heroicons-squares-2x2',              to: '/admin',               exact: true  },
@@ -63,7 +70,6 @@ function isActive(item: typeof nav[number]) {
 
       <!-- Admin user placeholder -->
       <div class="sidebar-footer">
-        <!-- TODO: wire Supabase auth logout -->
         <div class="admin-user">
           <div class="admin-avatar">RK</div>
           <div class="admin-user-info">
@@ -71,6 +77,10 @@ function isActive(item: typeof nav[number]) {
             <span class="admin-user-email">rasy@verify.app</span>
           </div>
         </div>
+        <button class="nav-item logout-item" @click="logout">
+          <UIcon name="i-heroicons-arrow-right-on-rectangle" class="nav-icon" />
+          Log out
+        </button>
       </div>
     </aside>
 
@@ -232,6 +242,11 @@ function isActive(item: typeof nav[number]) {
   font-size: 11px;
   color: var(--text-tertiary);
   line-height: 1.2;
+}
+
+.logout-item {
+  margin-top: 10px;
+  width: 100%;
 }
 
 /* ── Body ── */

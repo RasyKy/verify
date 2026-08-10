@@ -1,47 +1,26 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
+import type { IssuerCertificate as Certificate } from '~/composables/useIssuerMockData'
 
 definePageMeta({ layout: 'issuer' })
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-interface Certificate {
-  id: string
-  student_name: string
-  student_email: string
-  course_name: string
-  completion_date: string
-  expiry_date: string | null
-  status: 'valid' | 'revoked' | 'expired' | 'unclaimed'
-  institution_id: string
-  issued_at: string
-  revoked_at: string | null
-}
-
 // ── Data ──────────────────────────────────────────────────────────────────────
 
-const { data: fetchedCerts, pending, refresh } = useFetch<Certificate[]>('/api/certificates', {
-  default: () => [],
-})
+const { certificates: certs } = useIssuerMockData()
 
-const certs = ref<Certificate[]>([])
-watch(fetchedCerts, (data) => { if (data) certs.value = [...data] }, { immediate: true })
-
-// Shared state: issue modal open trigger + refresh signal from layout
+// Shared state: issue modal open trigger, toggled by the sidebar's "Issue
+// certificate" button and the empty-state CTA below.
 const issueModalOpen = useState<boolean>('issue-modal', () => false)
-const certsRefreshKey = useState<number>('certs-refresh', () => 0)
-watch(certsRefreshKey, async () => {
-  await refresh()
-  certs.value = [...(fetchedCerts.value ?? [])]
-})
 
 // ── Filters ───────────────────────────────────────────────────────────────────
 
 const search = ref('')
-const statusFilter = ref('')
+const statusFilter = ref('all')
 
+// USelect (Reka UI) rejects an empty-string item value, so "All statuses"
+// uses a sentinel instead of ''.
 const statusFilterOptions = [
-  { label: 'All statuses', value: '' },
+  { label: 'All statuses', value: 'all' },
   { label: 'Valid', value: 'valid' },
   { label: 'Revoked', value: 'revoked' },
   { label: 'Expired', value: 'expired' },
@@ -57,7 +36,7 @@ const filteredCerts = computed(() => {
         c.id.toLowerCase().includes(term),
     )
   }
-  if (statusFilter.value) {
+  if (statusFilter.value !== 'all') {
     result = result.filter((c) => c.status === statusFilter.value)
   }
   return result
@@ -110,10 +89,8 @@ function openEdit(cert: Certificate) {
   editModalOpen.value = true
 }
 
-async function onEditSuccess() {
+function onEditSuccess() {
   editModalOpen.value = false
-  await refresh()
-  certs.value = [...(fetchedCerts.value ?? [])]
 }
 
 // ── Revoke modal ──────────────────────────────────────────────────────────────
@@ -126,12 +103,9 @@ function openRevoke(cert: Certificate) {
   revokeModalOpen.value = true
 }
 
-function onCertRevoked(certId: string) {
-  const idx = certs.value.findIndex((c) => c.id === certId)
-  if (idx !== -1) {
-    certs.value[idx] = { ...certs.value[idx]!, status: 'revoked' }
-  }
-}
+// The revoke composable action already mutates the shared certs store —
+// certs (computed) updates on its own, nothing to do here.
+function onCertRevoked() {}
 </script>
 
 <template>
@@ -169,7 +143,6 @@ function onCertRevoked(certId: string) {
     <UTable
       :data="filteredCerts"
       :columns="columns"
-      :loading="pending"
       class="w-full"
     >
       <!-- Completion date cell -->
@@ -222,7 +195,7 @@ function onCertRevoked(certId: string) {
       <!-- Empty state -->
       <template #empty>
         <div class="flex flex-col items-center justify-center py-16 text-center">
-          <template v-if="certs.length === 0 && !pending">
+          <template v-if="certs.length === 0">
             <div class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-4">
               <UIcon name="i-heroicons-document-text" class="size-6 text-gray-400" />
             </div>
@@ -258,6 +231,7 @@ function onCertRevoked(certId: string) {
         <IssuerCertificateForm
           v-if="editingCert"
           :initial-data="{
+            institution: editingCert.institution_name,
             studentName: editingCert.student_name,
             studentEmail: editingCert.student_email,
             courseName: editingCert.course_name,

@@ -1,24 +1,9 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'issuer' })
 
-interface DashboardData {
-  stats: { total: number; valid: number; revoked: number; expired: number }
-  chartData: Array<{ date: string; count: number }>
-  recentActivity: Array<{
-    type: 'issued' | 'revoked' | 'claimed'
-    studentName: string
-    courseName?: string
-    timestamp: string
-  }>
-}
-
-const { data: dashboard, pending } = useFetch<DashboardData>('/api/dashboard?range=30d', {
-  default: () => null,
-})
+const { stats, chartData: getChartData, recentActivity } = useIssuerMockData()
 
 const range = ref('30d')
-const chartData = ref<Array<{ date: string; count: number }>>([])
-const chartPending = ref(false)
 
 const rangeOptions = [
   { label: 'Last 7 days', value: '7d' },
@@ -26,21 +11,8 @@ const rangeOptions = [
   { label: 'Last 90 days', value: '90d' },
 ]
 
-watch(dashboard, (d) => {
-  if (d) chartData.value = d.chartData ?? []
-}, { immediate: true })
-
-watch(range, async (r) => {
-  chartPending.value = true
-  try {
-    const res = await $fetch<DashboardData>(`/api/dashboard?range=${r}`)
-    chartData.value = res.chartData ?? []
-  } catch {
-    // silently fail — main error surfaced by initial dashboard fetch
-  } finally {
-    chartPending.value = false
-  }
-})
+const rangeDays: Record<string, number> = { '7d': 7, '30d': 30, '90d': 90 }
+const chartData = computed(() => getChartData(rangeDays[range.value] ?? 30))
 </script>
 
 <template>
@@ -55,25 +27,25 @@ watch(range, async (r) => {
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
       <IssuerStatCard
         label="Total issued"
-        :value="dashboard?.stats.total"
+        :value="stats.total"
         icon="i-heroicons-document-text"
         color="gray"
       />
       <IssuerStatCard
         label="Valid"
-        :value="dashboard?.stats.valid"
+        :value="stats.valid"
         icon="i-heroicons-check-circle"
         color="teal"
       />
       <IssuerStatCard
         label="Revoked"
-        :value="dashboard?.stats.revoked"
+        :value="stats.revoked"
         icon="i-heroicons-x-circle"
         color="red"
       />
       <IssuerStatCard
         label="Expired"
-        :value="dashboard?.stats.expired"
+        :value="stats.expired"
         icon="i-heroicons-clock"
         color="gray"
       />
@@ -91,15 +63,15 @@ watch(range, async (r) => {
           class="w-36"
         />
       </div>
-      <IssuerIssuanceChart :data="chartData" :loading="pending || chartPending" />
+      <IssuerIssuanceChart :data="chartData" :loading="false" />
     </div>
 
     <!-- Activity card -->
     <div class="bg-white border border-gray-200 rounded-lg p-5">
       <h2 class="text-sm font-medium text-gray-900 mb-4">Recent activity</h2>
       <IssuerRecentActivity
-        :activities="dashboard?.recentActivity ?? []"
-        :loading="pending"
+        :activities="recentActivity"
+        :loading="false"
       />
     </div>
   </div>
