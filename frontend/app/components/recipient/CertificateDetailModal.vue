@@ -11,7 +11,7 @@ const statusConfig: Record<'valid' | 'revoked' | 'expired', { label: string; sty
   expired: { label: 'Expired', style: 'background: var(--status-expired-bg); color: var(--status-expired-text)' },
 }
 
-const certUrl = computed(() => (props.cert ? `${useRequestURL().origin}/cert/${props.cert.id}` : ''))
+const certUrl = computed(() => (props.cert ? `${useRequestURL().origin}/verify/${props.cert.id}` : ''))
 const linkedInShareUrl = computed(
   () => `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(certUrl.value)}`,
 )
@@ -95,7 +95,7 @@ function formatTimestamp(dateStr: string) {
         <UButton
           variant="ghost"
           color="neutral"
-          :to="`/cert/${cert?.id}`"
+          :to="`/verify/${cert?.id}`"
           target="_blank"
           icon="i-heroicons-arrow-top-right-on-square"
         >

@@ -4,11 +4,10 @@ colorMode.preference = 'light'
 </script>
 
 <template>
-  <div>
+  <UApp>
     <NuxtRouteAnnouncer />
     <NuxtLayout>
       <NuxtPage />
     </NuxtLayout>
-    <UToaster />
-  </div>
+  </UApp>
 </template>

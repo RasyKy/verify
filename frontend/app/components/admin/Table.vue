@@ -99,6 +99,7 @@ const sortedRows = computed(() => {
   border-radius: 8px;
   overflow: hidden;
   overflow-x: auto;
+  box-shadow: var(--shadow-card);
 }
 
 .admin-table {
@@ -141,6 +142,7 @@ const sortedRows = computed(() => {
 
 .tr {
   border-bottom: 1px solid var(--border);
+  transition: background-color var(--transition-fast);
 }
 
 .tr:last-child {
@@ -153,6 +155,10 @@ const sortedRows = computed(() => {
 
 .tr-clickable {
   cursor: pointer;
+}
+
+.tr-clickable:hover {
+  box-shadow: inset 2px 0 0 var(--accent);
 }
 
 .td {

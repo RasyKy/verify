@@ -13,7 +13,9 @@ export default [
   js.configs.recommended,
   {
     languageOptions: {
-      ecmaVersion: 2024,
+      // 'latest' so espree parses import attributes (`with { type: 'json' }`,
+      // ES2025) used for the contract ABI import in services/blockchain.js.
+      ecmaVersion: 'latest',
       sourceType: 'module',
       globals: { ...globals.node },
     },
@@ -41,6 +43,9 @@ export default [
     rules: {
       // Fixtures routinely stub things that go unused in a given assertion.
       'no-unused-vars': 'off',
+      // Fake async methods (mimicking supabase-js) return objects without an
+      // await — that is the point of a stub, not a defect.
+      'require-await': 'off',
     },
   },
   prettier, // last — turns off stylistic rules Prettier owns

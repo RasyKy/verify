@@ -17,24 +17,16 @@ const emit = defineEmits<{
 
 const toast = useToast()
 const isLoading = ref(false)
+const { revokeCertificate } = useIssuerMockData()
 
-async function onConfirm() {
+function onConfirm() {
   if (!props.cert) return
   isLoading.value = true
-  try {
-    await $fetch(`/api/certificates/${props.cert.id}/revoke`, { method: 'POST' })
-    toast.add({ title: 'Certificate revoked', color: 'success' })
-    emit('revoked', props.cert.id)
-    emit('update:open', false)
-  } catch (err: any) {
-    toast.add({
-      title: 'Revocation failed',
-      description: err?.data?.message ?? 'Something went wrong. Please try again.',
-      color: 'error',
-    })
-  } finally {
-    isLoading.value = false
-  }
+  revokeCertificate(props.cert.id)
+  toast.add({ title: 'Certificate revoked', color: 'success' })
+  emit('revoked', props.cert.id)
+  emit('update:open', false)
+  isLoading.value = false
 }
 </script>
 

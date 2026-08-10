@@ -42,7 +42,7 @@ src/
   lib/                    logger (PII-redacting) · errors · derivedStatus · cache
   jobs/                   expiryNotifications · reconcilePendingTx
 db/migrations/            Numbered SQL — replayable onto a fresh Supabase project
-scripts/                  print-hash-vectors.js
+scripts/                  print-hash-vectors · check-supabase · apply-migrations · seed
 tests/
 ```
 
@@ -62,10 +62,50 @@ explaining:
 ## Database
 
 ```bash
-# Apply in order via the Supabase SQL editor or `supabase db push`
 db/migrations/0001_init.sql   # enums, tables, indexes, triggers
 db/migrations/0002_rls.sql    # RLS: deny-by-default
 ```
+
+Apply them in order — paste into the Supabase SQL editor, run `supabase db push`,
+or use the bundled runner:
+
+```bash
+npm run db:check     # are the credentials good, and are the tables there?
+SUPABASE_ACCESS_TOKEN=sbp_… npm run db:migrate
+npm run db:seed      # development fixtures for Postman
+```
+
+`db:migrate` needs an **account** access token
+([dashboard → account → tokens](https://supabase.com/dashboard/account/tokens)),
+not the project service key. DDL cannot go through PostgREST, which only exposes
+tables that already exist; the Management API is the path that can create them.
+
+### Seed data
+
+`npm run db:seed` is re-runnable — it removes what the previous run created
+before inserting, so there is no duplicate or "already exists" failure. Accounts
+all use the password `Password123!`:
+
+| Email                       | Role   | Org   | Why it exists                      |
+| --------------------------- | ------ | ----- | ---------------------------------- |
+| `admin@example.com`         | admin  | —     | Platform-wide access               |
+| `issuer.rupp@example.com`   | issuer | rupp  | Normal issuer                      |
+| `issuer.istad@example.com`  | issuer | istad | Second org, for cross-tenant leaks |
+| `holder.sophat@example.com` | holder | —     | Claimed certificates               |
+| `holder.sophea@example.com` | holder | —     | Name has a precomposed `é` (NFC)   |
+| `deactivated@example.com`   | issuer | rupp  | Logs in, then every route must 403 |
+
+Six certificates cover every branch of `derivedStatus.js` — valid, unclaimed,
+expired, revoked, plus a hidden one (FR-HOLD-06) and one expiring inside the
+60-day window (FR-EXP-03). Their UUIDs are fixed (`30000000-…-00000000000N`) so a
+Postman collection can hardcode them across re-seeds.
+
+Hashes are computed by the real `services/hash.js`, so they survive
+recomputation on the verification path. Blockchain fields are **synthetic** — the
+contract is not deployed and those transactions do not exist on Amoy.
+
+The run writes `db/postman_environment.json` (gitignored, contains a live claim
+token). Import it via Postman → Environments → Import.
 
 ER diagram and the reasoning behind the shape:
 [docs/er-diagram.md](../docs/er-diagram.md).
@@ -79,9 +119,14 @@ browser) exposes nothing.
 ## Six things that will surprise you
 
 **1. This API never mints tokens.** The Nuxt app signs in directly against
-Supabase Auth; `middleware/auth.js` only verifies the resulting JWT. There is no
-`/auth/login`. Re-implementing token refresh in Express would be a weaker copy of
-what supabase-js already does.
+Supabase Auth; `middleware/auth.js` only verifies the resulting JWT.
+Re-implementing token refresh in Express would be a weaker copy of what
+supabase-js already does.
+
+`/api/auth/login` and `/api/auth/refresh` do exist, but they **delegate** to
+Supabase Auth rather than signing anything themselves — a second, equivalent path
+for non-browser clients and Postman. Both mint the same Supabase JWT the browser
+flow does, verified by the same middleware.
 
 **2. JWT verification is local.** Against the project's JWKS (cached in-process),
 or HS256 if `SUPABASE_JWT_SECRET` is set. Calling `supabase.auth.getUser()` per

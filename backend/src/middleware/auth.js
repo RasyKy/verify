@@ -167,6 +167,9 @@ export async function requireAuth(req, _res, next) {
       // Retained for diagnostics when a stale token disagrees with `profiles`.
       claimedRole: payload.app_metadata?.role ?? null,
     };
+    // Raw token kept for operations that must act on the session itself, e.g.
+    // server-side logout revoking the refresh token.
+    req.token = token;
 
     next();
   } catch (err) {

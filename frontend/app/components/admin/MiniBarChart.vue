@@ -10,7 +10,10 @@ const peak = computed(() => Math.max(...props.data.map(d => d.count), 1))
 
 <template>
   <div class="chart">
-    <div class="bars">
+    <div v-if="!data.length" class="empty">
+      <p>No certificates issued in this period.</p>
+    </div>
+    <div v-else class="bars">
       <div v-for="d in data" :key="d.month" class="bar-col">
         <div class="bar-track">
           <div
@@ -29,6 +32,19 @@ const peak = computed(() => Math.max(...props.data.map(d => d.count), 1))
 <style scoped>
 .chart {
   width: 100%;
+}
+
+.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 120px;
+}
+
+.empty p {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  margin: 0;
 }
 
 .bars {
