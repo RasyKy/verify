@@ -1,8 +1,6 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'issuer' })
 
-const { stats, chartData: getChartData, recentActivity } = useIssuerMockData()
-
 const range = ref('30d')
 
 const rangeOptions = [
@@ -11,8 +9,13 @@ const rangeOptions = [
   { label: 'Last 90 days', value: '90d' },
 ]
 
-const rangeDays: Record<string, number> = { '7d': 7, '30d': 30, '90d': 90 }
-const chartData = computed(() => getChartData(rangeDays[range.value] ?? 30))
+// Refetches on range change — the chart series is zero-filled server-side for
+// exactly the requested window, so it cannot be derived by slicing a cache.
+const { data: dashboard } = useDashboard(range)
+
+const stats = computed(() => dashboard.value.stats)
+const chartData = computed(() => dashboard.value.chartData)
+const recentActivity = computed(() => dashboard.value.recentActivity)
 </script>
 
 <template>

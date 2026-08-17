@@ -1,23 +1,48 @@
 <script setup lang="ts">
+import type { Role } from '~/composables/useMe'
+
 definePageMeta({ layout: false })
 
 const supabase = useSupabaseClient()
 const route = useRoute()
 
-// Not a real role check (that requires the backend's GET /api/auth/me —
-// see docs/frontend-handshake.md) — just remembers which guarded portal
-// sent the visitor here so sign-in returns them to the right place.
-// Allowlisted rather than trusting the raw query value, to avoid an
-// open-redirect via an arbitrary `?redirect=`.
+// Remembers which guarded portal sent the visitor here, so the heading names it
+// and sign-in can return them there. Allowlisted rather than trusting the raw
+// query value, to avoid an open-redirect via an arbitrary `?redirect=`.
 const PORTAL_COPY: Record<string, string> = {
   '/recipient': 'Certificate recipient portal',
   '/admin': 'Platform admin portal',
 }
-const redirectTarget = computed(() => {
+const requestedRedirect = computed(() => {
   const r = route.query.redirect
   return typeof r === 'string' && r in PORTAL_COPY ? r : '/issuer'
 })
-const portalLabel = computed(() => PORTAL_COPY[redirectTarget.value] ?? 'Institution issuer portal')
+const portalLabel = computed(() => PORTAL_COPY[requestedRedirect.value] ?? 'Institution issuer portal')
+
+/**
+ * Where to land after a successful sign-in.
+ *
+ * The `?redirect=` only says which portal the visitor was *trying* to reach —
+ * it is not evidence they may enter it. GET /api/auth/me returns the role from
+ * the `profiles` table, so honour the request only when the role actually
+ * permits it, and otherwise send them to their own portal. Without this, a
+ * holder signing in from /admin would land on /admin and immediately be bounced
+ * by the route guard.
+ */
+const ROLE_PORTALS: Record<Role, string[]> = {
+  admin: ['/admin'],
+  issuer: ['/issuer'],
+  holder: ['/recipient'],
+}
+
+async function destinationAfterLogin(): Promise<string> {
+  const me = await fetchMe()
+  if (!me) return requestedRedirect.value
+  const permitted = ROLE_PORTALS[me.role] ?? []
+  return permitted.includes(requestedRedirect.value)
+    ? requestedRedirect.value
+    : (ROLE_HOME[me.role] ?? '/')
+}
 
 const email = ref('')
 const password = ref('')
@@ -37,7 +62,10 @@ async function onSubmit() {
       error.value = true
       password.value = ''
     } else {
-      await navigateTo(redirectTarget.value)
+      // A stale profile from a previous session would send this one to the
+      // wrong portal.
+      clearMe()
+      await navigateTo(await destinationAfterLogin())
     }
   } finally {
     loading.value = false

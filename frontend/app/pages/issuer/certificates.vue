@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
-import type { IssuerCertificate as Certificate } from '~/composables/useIssuerMockData'
+import type { IssuerCertificate as Certificate } from '~/composables/useCertificates'
 
 definePageMeta({ layout: 'issuer' })
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 
-const { certificates: certs } = useIssuerMockData()
+const { certificates: certs, pending, refresh } = useCertificates()
 
 // Shared state: issue modal open trigger, toggled by the sidebar's "Issue
 // certificate" button and the empty-state CTA below.
@@ -91,6 +91,8 @@ function openEdit(cert: Certificate) {
 
 function onEditSuccess() {
   editModalOpen.value = false
+  // An edit reissues the hash server-side; refetch so the row reflects it.
+  refresh()
 }
 
 // ── Revoke modal ──────────────────────────────────────────────────────────────
@@ -103,9 +105,16 @@ function openRevoke(cert: Certificate) {
   revokeModalOpen.value = true
 }
 
-// The revoke composable action already mutates the shared certs store —
-// certs (computed) updates on its own, nothing to do here.
-function onCertRevoked() {}
+// Status is derived server-side, so refetch rather than patching the row here:
+// a local guess could disagree with what the next load shows.
+function onCertRevoked() {
+  refresh()
+}
+
+// The issue modal lives in the issuer layout, so a certificate issued from the
+// sidebar has to reach this table somehow. The layout bumps a shared counter.
+const certsRefreshKey = useState<number>('certs-refresh', () => 0)
+watch(certsRefreshKey, () => refresh())
 </script>
 
 <template>

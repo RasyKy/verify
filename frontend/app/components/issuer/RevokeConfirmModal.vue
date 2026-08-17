@@ -17,16 +17,27 @@ const emit = defineEmits<{
 
 const toast = useToast()
 const isLoading = ref(false)
-const { revokeCertificate } = useIssuerMockData()
 
-function onConfirm() {
+async function onConfirm() {
   if (!props.cert) return
   isLoading.value = true
-  revokeCertificate(props.cert.id)
-  toast.add({ title: 'Certificate revoked', color: 'success' })
-  emit('revoked', props.cert.id)
-  emit('update:open', false)
-  isLoading.value = false
+  try {
+    // Revocation is a chain write, so this can fail for reasons the user cannot
+    // fix (503). Keep the modal open and say so, rather than closing it and
+    // leaving the impression the certificate was revoked when it was not.
+    await revokeCertificate(props.cert.id)
+    toast.add({ title: 'Certificate revoked', color: 'success' })
+    emit('revoked', props.cert.id)
+    emit('update:open', false)
+  } catch (err) {
+    toast.add({
+      title: 'Could not revoke certificate',
+      description: apiErrorMessage(err),
+      color: 'error',
+    })
+  } finally {
+    isLoading.value = false
+  }
 }
 </script>
 

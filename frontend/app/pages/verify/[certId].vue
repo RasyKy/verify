@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { lookupCertificate } from '~/composables/useVerifyMockData'
+import type { VerifyResult } from '~/composables/useVerify'
 
 definePageMeta({ layout: false })
 
@@ -9,8 +9,22 @@ useHead({
 
 const route = useRoute()
 const certId = route.params.certId as string
+const { public: { apiBase } } = useRuntimeConfig()
 
-const displayResult = computed(() => lookupCertificate(certId))
+// Public endpoint — no bearer token, so plain useFetch rather than useApi().
+// SSR-rendered so a shared link shows the verdict without a client round-trip.
+const { data: displayResult, pending, error } = useFetch<VerifyResult>(
+  () => `/api/certificates/verify/${certId}`,
+  { baseURL: apiBase, default: () => null },
+)
+
+/**
+ * A 503 means we could not reach Supabase or the chain — NOT that the
+ * certificate is fake. Conflating the two would tell someone holding a genuine
+ * credential that it is forged because a node provider blipped, so this gets its
+ * own state rather than falling through to the "invalid" card.
+ */
+const unavailable = computed(() => Boolean(error.value))
 
 // For "verify another certificate" bar below the result
 const newCertId = ref('')
@@ -43,8 +57,27 @@ function onNewSearch() {
         </p>
       </div>
 
+      <!-- Service unavailable — deliberately NOT rendered as "invalid" -->
+      <div
+        v-if="unavailable"
+        class="rounded-xl border border-amber-200 bg-amber-50 p-6 text-center"
+      >
+        <UIcon name="i-heroicons-exclamation-triangle" class="size-8 text-amber-600" />
+        <h2 class="mt-3 text-base font-semibold text-gray-900">
+          Verification is temporarily unavailable
+        </h2>
+        <p class="mt-1.5 text-sm text-gray-600">
+          We could not reach the verification service, so we cannot confirm this
+          certificate right now. This does not mean it is invalid — please try again
+          shortly.
+        </p>
+        <UButton class="mt-4" variant="soft" color="neutral" @click="refreshNuxtData()">
+          Try again
+        </UButton>
+      </div>
+
       <!-- Result card -->
-      <VerifyResultCard :result="displayResult" :loading="false" />
+      <VerifyResultCard v-else :result="displayResult" :loading="pending" />
 
       <!-- Verify another certificate -->
       <div class="mt-8">
