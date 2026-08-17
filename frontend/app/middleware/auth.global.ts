@@ -25,10 +25,9 @@ export default defineNuxtRouteMiddleware(async (to) => {
   // Already signed in and heading to /login: send them to their own portal.
   if (to.path === '/login') {
     if (!user.value) return
-    const me = await fetchMe()
-    // No profile row means the backend refused the token — let them sign in
-    // again rather than bouncing back and forth.
-    if (me) return navigateTo(ROLE_HOME[me.role] ?? '/')
+    const result = await resolveMe()
+    if (result.state === 'ok') return navigateTo(ROLE_HOME[result.me.role] ?? '/')
+    // Refused or unreachable — stay on /login, which renders the reason.
     return
   }
 
@@ -39,10 +38,27 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
   if (!user.value) return toLogin()
 
-  const me = await fetchMe()
-  if (!me) return toLogin()
+  const result = await resolveMe()
+
+  if (result.state === 'unreachable') {
+    // Do NOT bounce to /login. The session is fine; the API is not reachable,
+    // and sending them to a login page they would sign into successfully — only
+    // to be bounced again — is an unbreakable loop with no explanation.
+    throw createError({
+      statusCode: 503,
+      statusMessage: 'Cannot reach the API',
+      message:
+        `The Verify API at ${useRuntimeConfig().public.apiBase} is not responding. ` +
+        `Start the backend (cd backend && npm run dev), then reload. (${result.message})`,
+      fatal: true,
+    })
+  }
+
+  if (result.state !== 'ok') return toLogin()
 
   // Signed in as the wrong role — send them where they do belong, rather than
   // to a login page they are already past.
-  if (!guard.roles.includes(me.role)) return navigateTo(ROLE_HOME[me.role] ?? '/')
+  if (!guard.roles.includes(result.me.role)) {
+    return navigateTo(ROLE_HOME[result.me.role] ?? '/')
+  }
 })

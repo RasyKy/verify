@@ -35,19 +35,31 @@ const ROLE_PORTALS: Record<Role, string[]> = {
   holder: ['/recipient'],
 }
 
-async function destinationAfterLogin(): Promise<string> {
-  const me = await fetchMe()
-  if (!me) return requestedRedirect.value
-  const permitted = ROLE_PORTALS[me.role] ?? []
+async function destinationAfterLogin(): Promise<string | null> {
+  const result = await resolveMe()
+
+  if (result.state === 'unreachable') {
+    // Credentials were correct and the Supabase session exists — the API is
+    // simply not answering. Say that, instead of navigating into a portal that
+    // will bounce straight back here.
+    apiError.value = result.message
+    return null
+  }
+  if (result.state !== 'ok') return requestedRedirect.value
+
+  const permitted = ROLE_PORTALS[result.me.role] ?? []
   return permitted.includes(requestedRedirect.value)
     ? requestedRedirect.value
-    : (ROLE_HOME[me.role] ?? '/')
+    : (ROLE_HOME[result.me.role] ?? '/')
 }
 
 const email = ref('')
 const password = ref('')
 const error = ref(false)
 const loading = ref(false)
+/** Set when sign-in succeeded but the backend could not be reached. */
+const apiError = ref('')
+const { public: { apiBase } } = useRuntimeConfig()
 
 async function onSubmit() {
   if (!email.value || !password.value) return
@@ -65,7 +77,9 @@ async function onSubmit() {
       // A stale profile from a previous session would send this one to the
       // wrong portal.
       clearMe()
-      await navigateTo(await destinationAfterLogin())
+      const destination = await destinationAfterLogin()
+      // null means the API is unreachable — apiError is showing why, so stay put.
+      if (destination) await navigateTo(destination)
     }
   } finally {
     loading.value = false
@@ -126,6 +140,18 @@ async function onSubmit() {
           color="error"
           variant="subtle"
           title="Invalid email or password."
+        />
+
+        <!-- Signing in worked; the API did not answer. Distinguishing this from
+             bad credentials is the difference between a five-minute fix and an
+             hour of doubting the password. -->
+        <UAlert
+          v-if="apiError"
+          color="warning"
+          variant="subtle"
+          icon="i-heroicons-signal-slash"
+          title="Signed in, but the Verify API is not responding"
+          :description="`Could not reach ${apiBase}. Start the backend with 'cd backend && npm run dev', then try again.`"
         />
 
         <UButton

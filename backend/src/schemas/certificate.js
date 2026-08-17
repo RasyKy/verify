@@ -104,6 +104,28 @@ export const verifyParamsSchema = z.object({
   certId: z.uuid('That does not look like a valid certificate ID'),
 });
 
+/**
+ * `:id` on the issuer-facing routes.
+ *
+ * Unlike the verify path, a malformed ID here IS a client error: these routes
+ * are reached from the app's own table, never from a paste box, so 422 is the
+ * honest answer rather than a silent "not found".
+ */
+export const certIdParamSchema = z.object({
+  id: z.uuid('That does not look like a valid certificate ID'),
+});
+
+/**
+ * GET /api/certificates/:id/qr — PNG by default so the frontend can point an
+ * <img> straight at it; SVG for print.
+ */
+export const qrQuerySchema = z.object({
+  format: z.enum(['png', 'svg']).default('png'),
+  // Upper bound is a denial-of-service guard: rendering is CPU-bound and this
+  // endpoint is public and unauthenticated (T-04).
+  size: z.coerce.number().int().min(64).max(1024).default(320),
+});
+
 /** GET /api/dashboard?range= */
 export const dashboardQuerySchema = z.object({
   range: z.enum(['7d', '30d', '90d']).default('30d'),

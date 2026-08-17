@@ -43,34 +43,79 @@ export const ROLE_HOME: Record<Role, string> = {
   holder: '/recipient',
 }
 
+/**
+ * Why this is a discriminated result rather than `Me | null`.
+ *
+ * "You are not signed in" and "I could not reach the API" are different facts
+ * that demand different responses, and collapsing them is how you get the most
+ * confusing possible bug: with the backend stopped, every portal silently
+ * bounced to /login, so signing in looked broken when the session was fine all
+ * along. `unreachable` exists so that failure names itself.
+ */
+export type MeResult =
+  | { state: 'ok'; me: Me }
+  /** No Supabase session — genuinely signed out. */
+  | { state: 'signed-out' }
+  /** Session is valid but the API rejected it: expired token, or deactivated. */
+  | { state: 'refused'; status: number }
+  /** The API could not be reached at all. Not an auth problem. */
+  | { state: 'unreachable'; message: string }
+
 /** Shared across the route guard and every layout, so /me is fetched once. */
 export function useMe() {
   return useState<Me | null>('auth:me', () => null)
 }
 
+/** Set when the API is unreachable, so the UI can say so instead of guessing. */
+export function useApiUnreachable() {
+  return useState<string | null>('auth:api-unreachable', () => null)
+}
+
 /**
- * Returns the cached profile, fetching it once per session if needed.
- * Resolves to null when signed out or when the backend refuses the token —
- * callers decide what that means rather than being redirected out from under.
+ * Resolves the caller's profile, fetching it once per session.
+ *
+ * Never redirects on its own — it runs inside route middleware, where an extra
+ * navigateTo would race the navigation already in flight. Callers decide.
  */
-export async function fetchMe(): Promise<Me | null> {
+export async function resolveMe(): Promise<MeResult> {
   const me = useMe()
-  if (me.value) return me.value
+  if (me.value) return { state: 'ok', me: me.value }
 
   const session = useSupabaseSession()
-  if (!session.value) return null
+  if (!session.value) return { state: 'signed-out' }
 
+  const unreachable = useApiUnreachable()
   try {
-    // redirectOn401: false — this runs inside route middleware, where an extra
-    // navigateTo would race the navigation already in progress.
-    me.value = await useApi({ redirectOn401: false })<Me>('/api/auth/me')
-  } catch {
+    const result = await useApi({ redirectOn401: false })<Me>('/api/auth/me')
+    me.value = result
+    unreachable.value = null
+    return { state: 'ok', me: result }
+  } catch (err) {
     me.value = null
+    const status = (err as { status?: number; statusCode?: number })?.status
+      ?? (err as { statusCode?: number })?.statusCode
+
+    // A status means the API answered and said no. No status means the request
+    // never got an answer — wrong NUXT_PUBLIC_API_BASE, or the backend is down.
+    if (status === 401 || status === 403) {
+      unreachable.value = null
+      return { state: 'refused', status }
+    }
+
+    const message = (err as Error)?.message ?? 'Unknown error'
+    unreachable.value = message
+    return { state: 'unreachable', message }
   }
-  return me.value
+}
+
+/** Convenience for layouts that only need the profile when it is available. */
+export async function fetchMe(): Promise<Me | null> {
+  const result = await resolveMe()
+  return result.state === 'ok' ? result.me : null
 }
 
 /** Drop the cached profile. Call on logout, and whenever a 401 comes back. */
 export function clearMe() {
   useMe().value = null
+  useApiUnreachable().value = null
 }
