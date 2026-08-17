@@ -10,11 +10,15 @@ export default defineConfig({
     version: "0.8.28",
   },
   networks: {
-    amoy: {
-      type: "http",
-      url: ALCHEMY_AMOY_RPC_URL ?? "",
-      accounts: DEPLOYER_PRIVATE_KEY ? [DEPLOYER_PRIVATE_KEY] : [],
-      chainId: 80002,
-    },
+    ...(ALCHEMY_AMOY_RPC_URL && DEPLOYER_PRIVATE_KEY
+      ? {
+          amoy: {
+            type: "http" as const,
+            url: ALCHEMY_AMOY_RPC_URL,
+            accounts: [DEPLOYER_PRIVATE_KEY],
+            chainId: 80002,
+          },
+        }
+      : {}),
   },
 });
