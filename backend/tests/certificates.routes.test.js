@@ -186,13 +186,17 @@ describe('GET /api/certificates — issuer list', () => {
 
   it('rejects a holder', async () => {
     const holder = { ...ISSUER, role: 'holder' };
-    const res = await request(makeApp({ user: holder })).get('/api/certificates');
+    const res = await request(makeApp({ user: holder })).get(
+      '/api/certificates'
+    );
     expect(res.status).toBe(403);
   });
 
   it('rejects an issuer with no organization', async () => {
     const orphan = { ...ISSUER, organizationId: null };
-    const res = await request(makeApp({ user: orphan })).get('/api/certificates');
+    const res = await request(makeApp({ user: orphan })).get(
+      '/api/certificates'
+    );
     expect(res.status).toBe(403);
   });
 
@@ -204,7 +208,9 @@ describe('GET /api/certificates — issuer list', () => {
         return [];
       },
     };
-    await request(makeApp({ service })).get('/api/certificates?limit=10&offset=5');
+    await request(makeApp({ service })).get(
+      '/api/certificates?limit=10&offset=5'
+    );
 
     expect(received.limit).toBe(10);
     expect(received.offset).toBe(5);

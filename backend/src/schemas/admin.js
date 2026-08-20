@@ -57,7 +57,11 @@ export const createIssuerSchema = z
     organizationId: z.uuid('organizationId must be a UUID'),
     // Optional so the admin can let the platform generate one and have the
     // issuer reset it, rather than inventing a weak password and emailing it.
-    password: z.string().min(8, 'must be at least 8 characters').max(200).optional(),
+    password: z
+      .string()
+      .min(8, 'must be at least 8 characters')
+      .max(200)
+      .optional(),
   })
   .strict();
 

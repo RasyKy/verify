@@ -33,7 +33,12 @@ export function buildClaimUrl(token) {
   return `${env.publicAppUrl}/claim/${token}`;
 }
 
-function claimEmailHtml({ studentName, courseName, institutionName, claimUrl }) {
+function claimEmailHtml({
+  studentName,
+  courseName,
+  institutionName,
+  claimUrl,
+}) {
   return `
     <div style="font-family:system-ui,-apple-system,'Segoe UI',sans-serif;max-width:480px;margin:0 auto;color:#111827">
       <h1 style="font-size:18px;font-weight:600">Your certificate is ready</h1>

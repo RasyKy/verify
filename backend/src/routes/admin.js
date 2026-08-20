@@ -19,7 +19,10 @@ import crypto from 'node:crypto';
 
 import { Router } from 'express';
 
-import { adminClient as defaultAdminClient, unwrap } from '../config/supabase.js';
+import {
+  adminClient as defaultAdminClient,
+  unwrap,
+} from '../config/supabase.js';
 import { badRequest, conflict } from '../lib/errors.js';
 import { logger } from '../lib/logger.js';
 import { requireAuth, requireRole, ROLES } from '../middleware/auth.js';
@@ -56,7 +59,9 @@ export function createAdminRouter({
       const orgs = unwrap(
         await adminClient
           .from('organizations')
-          .select('id, name, slug, type, website, status, accredited, created_at')
+          .select(
+            'id, name, slug, type, website, status, accredited, created_at'
+          )
           .order('created_at', { ascending: false }),
         'list organizations'
       );
@@ -64,7 +69,10 @@ export function createAdminRouter({
       // Two grouped reads rather than a count per organization, which would be
       // one query per row.
       const [issuers, certs] = await Promise.all([
-        adminClient.from('profiles').select('organization_id').eq('role', 'issuer'),
+        adminClient
+          .from('profiles')
+          .select('organization_id')
+          .eq('role', 'issuer'),
         adminClient.from('certificates').select('organization_id'),
       ]);
 
@@ -126,7 +134,9 @@ export function createAdminRouter({
           'check organization slug'
         );
         if (existing) {
-          throw conflict(`An institution with the slug "${slug}" already exists.`);
+          throw conflict(
+            `An institution with the slug "${slug}" already exists.`
+          );
         }
 
         const org = unwrap(

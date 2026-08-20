@@ -89,7 +89,10 @@ async function main() {
         if (dryRun) {
           line('+', `would issue  ${row.hash.slice(0, 18)}…`);
         } else {
-          await blockchainService.issue(row.hash, Number(row.expires_at_unix) || 0);
+          await blockchainService.issue(
+            row.hash,
+            Number(row.expires_at_unix) || 0
+          );
           line('+', `issued       ${row.hash.slice(0, 18)}…`);
         }
         issued += 1;

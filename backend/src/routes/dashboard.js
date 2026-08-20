@@ -11,9 +11,17 @@
  */
 import { Router } from 'express';
 
-import { adminClient as defaultAdminClient, unwrap } from '../config/supabase.js';
+import {
+  adminClient as defaultAdminClient,
+  unwrap,
+} from '../config/supabase.js';
 import { issuerStatus } from '../lib/derivedStatus.js';
-import { requireAuth, requireOrganization, requireRole, ROLES } from '../middleware/auth.js';
+import {
+  requireAuth,
+  requireOrganization,
+  requireRole,
+  ROLES,
+} from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { dashboardQuerySchema } from '../schemas/certificate.js';
 
@@ -81,7 +89,10 @@ export function createDashboardRouter({
           const key = String(row.created_at).slice(0, 10);
           if (buckets.has(key)) buckets.set(key, buckets.get(key) + 1);
         }
-        const chartData = [...buckets].map(([date, count]) => ({ date, count }));
+        const chartData = [...buckets].map(([date, count]) => ({
+          date,
+          count,
+        }));
 
         // Three event types, because those are the three the activity list has
         // icons for (IssuerRecentActivity.vue).
@@ -110,7 +121,9 @@ export function createDashboardRouter({
             });
           }
         }
-        events.sort((a, b) => String(b.timestamp).localeCompare(String(a.timestamp)));
+        events.sort((a, b) =>
+          String(b.timestamp).localeCompare(String(a.timestamp))
+        );
 
         res.json({ stats, chartData, recentActivity: events.slice(0, 10) });
       } catch (err) {

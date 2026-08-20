@@ -23,7 +23,12 @@ import QRCode from 'qrcode';
 import { env } from '../config/env.js';
 import { certificateService as defaultService } from '../services/certificate.js';
 import { logger } from '../lib/logger.js';
-import { requireAuth, requireOrganization, requireRole, ROLES } from '../middleware/auth.js';
+import {
+  requireAuth,
+  requireOrganization,
+  requireRole,
+  ROLES,
+} from '../middleware/auth.js';
 import { issuanceLimiter, verifyLimiter } from '../middleware/rateLimit.js';
 import { validate, validateAll } from '../middleware/validate.js';
 import {
@@ -66,43 +71,47 @@ export function createCertificatesRouter({
    *     tags: [Verification]
    *     security: []
    */
-  router.get('/certificates/verify/:certId', verifyLimiter, async (req, res, next) => {
-    const { certId } = req.params;
+  router.get(
+    '/certificates/verify/:certId',
+    verifyLimiter,
+    async (req, res, next) => {
+      const { certId } = req.params;
 
-    // The verify page's search box accepts free text, so a malformed ID is a
-    // normal user action, not a client error: answer `invalid` rather than 422.
-    // This also rejects enumeration attempts before they reach the database.
-    if (!UUID_RE.test(certId)) {
-      await service.logVerification({
-        certId,
-        result: 'not_found',
-        ipHash: hashIp(req.ip),
-        userAgent: req.get('user-agent'),
-      });
-      return res.json({ status: 'invalid', certificate: null });
-    }
+      // The verify page's search box accepts free text, so a malformed ID is a
+      // normal user action, not a client error: answer `invalid` rather than 422.
+      // This also rejects enumeration attempts before they reach the database.
+      if (!UUID_RE.test(certId)) {
+        await service.logVerification({
+          certId,
+          result: 'not_found',
+          ipHash: hashIp(req.ip),
+          userAgent: req.get('user-agent'),
+        });
+        return res.json({ status: 'invalid', certificate: null });
+      }
 
-    try {
-      const result = await service.verify({ certId });
-      await service.logVerification({
-        certId,
-        result: result.status === 'invalid' ? 'invalid' : result.status,
-        ipHash: hashIp(req.ip),
-        userAgent: req.get('user-agent'),
-      });
-      res.json(result);
-    } catch (err) {
-      // A 503 from the chain reaches the client as UPSTREAM_UNAVAILABLE, which
-      // the frontend must show as "could not check", never as "not genuine".
-      await service.logVerification({
-        certId,
-        result: 'error',
-        ipHash: hashIp(req.ip),
-        userAgent: req.get('user-agent'),
-      });
-      next(err);
+      try {
+        const result = await service.verify({ certId });
+        await service.logVerification({
+          certId,
+          result: result.status === 'invalid' ? 'invalid' : result.status,
+          ipHash: hashIp(req.ip),
+          userAgent: req.get('user-agent'),
+        });
+        res.json(result);
+      } catch (err) {
+        // A 503 from the chain reaches the client as UPSTREAM_UNAVAILABLE, which
+        // the frontend must show as "could not check", never as "not genuine".
+        await service.logVerification({
+          certId,
+          result: 'error',
+          ipHash: hashIp(req.ip),
+          userAgent: req.get('user-agent'),
+        });
+        next(err);
+      }
     }
-  });
+  );
 
   /**
    * @openapi

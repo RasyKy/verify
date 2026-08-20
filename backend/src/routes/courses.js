@@ -10,8 +10,16 @@
  */
 import { Router } from 'express';
 
-import { adminClient as defaultAdminClient, unwrap } from '../config/supabase.js';
-import { requireAuth, requireOrganization, requireRole, ROLES } from '../middleware/auth.js';
+import {
+  adminClient as defaultAdminClient,
+  unwrap,
+} from '../config/supabase.js';
+import {
+  requireAuth,
+  requireOrganization,
+  requireRole,
+  ROLES,
+} from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { createCourseSchema } from '../schemas/certificate.js';
 

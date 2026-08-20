@@ -199,7 +199,10 @@ export function createChainService({
  * Where the stub keeps its ledger between restarts. Resolved against the backend
  * package root (this file lives in src/services/). Gitignored.
  */
-export const STUB_LEDGER_PATH = new URL('../../.stub-chain.json', import.meta.url);
+export const STUB_LEDGER_PATH = new URL(
+  '../../.stub-chain.json',
+  import.meta.url
+);
 
 /**
  * Behaves like the contract without a network. Enforces the same invariants the

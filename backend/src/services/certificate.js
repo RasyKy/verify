@@ -29,7 +29,10 @@
  */
 import crypto from 'node:crypto';
 
-import { adminClient as defaultAdminClient, unwrap } from '../config/supabase.js';
+import {
+  adminClient as defaultAdminClient,
+  unwrap,
+} from '../config/supabase.js';
 import { conflict, notFound } from '../lib/errors.js';
 import { logger } from '../lib/logger.js';
 import { issuerStatus, todayUtc, verifyStatus } from '../lib/derivedStatus.js';
@@ -236,8 +239,13 @@ export function createCertificateService({
    * @param {object} args.user   req.user — supplies the organization
    */
   async function issue({ input, user }) {
-    const { studentName, studentEmail, courseName, completionDate, expiryDate } =
-      input;
+    const {
+      studentName,
+      studentEmail,
+      courseName,
+      completionDate,
+      expiryDate,
+    } = input;
 
     // Generated here, not by Postgres: the hash covers this ID, so it has to
     // exist before the hash does. See the header note.
@@ -460,7 +468,10 @@ export function createCertificateService({
     // An admin revoking on behalf of the platform is not scoped to one org.
     if (scopeOrg) query = query.eq('organization_id', scopeOrg);
 
-    const row = unwrap(await query.maybeSingle(), 'load certificate for revoke');
+    const row = unwrap(
+      await query.maybeSingle(),
+      'load certificate for revoke'
+    );
     if (!row) throw notFound('Certificate not found.');
     if (row.revoked_at) {
       throw conflict('This certificate has already been revoked.');
