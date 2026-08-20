@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { z } from 'zod'
 import type { FormSubmitEvent } from '@nuxt/ui'
-import { DEFAULT_INSTITUTION } from '~/composables/useIssuerMockData'
 
 interface CertFormData {
   institution?: string
@@ -26,10 +25,14 @@ const emit = defineEmits<{
   cancel: []
 }>()
 
-const user = useSupabaseUser()
 const toast = useToast()
-const { courses: coursesStore, addCourse, issueCertificate, updateCertificate } = useIssuerMockData()
-const institutionFallback = DEFAULT_INSTITUTION
+const me = useMe()
+const { courses: coursesStore, refresh: refreshCourses } = useCourses()
+
+// The institution field is display-only: the backend takes the organization from
+// the authenticated issuer's profile and discards whatever is submitted here.
+// Sourced from /api/auth/me rather than user_metadata, which the user can edit.
+const institutionFallback = computed(() => me.value?.organization?.name ?? '')
 
 const today = new Date().toISOString().substring(0, 10)
 
@@ -48,7 +51,7 @@ type Schema = z.output<typeof schema>
 
 function makeState() {
   return {
-    institution: props.initialData?.institution ?? user.value?.user_metadata?.institution_name ?? institutionFallback,
+    institution: props.initialData?.institution ?? institutionFallback.value,
     studentName: props.initialData?.studentName ?? '',
     studentEmail: props.initialData?.studentEmail ?? '',
     courseName: props.initialData?.courseName ?? '',
@@ -105,14 +108,26 @@ const courseOptions = computed(() => {
   return opts
 })
 
-watch(selectedCourse, (item) => {
+watch(selectedCourse, async (item) => {
   if (!item) { state.courseName = ''; return }
   if (item.value === '__create__') {
     const name = courseQuery.value.trim()
-    addCourse(name)
+    // Select it immediately: the name is already valid for the certificate, so
+    // the form should not wait on a round-trip that only updates the typeahead.
+    // POST /api/courses is idempotent, so a double-click cannot duplicate it.
     selectedCourse.value = { label: name, value: name }
     state.courseName = name
     courseQuery.value = ''
+    try {
+      await createCourse(name)
+      await refreshCourses()
+    } catch (err) {
+      toast.add({
+        title: 'Could not save the course to your list',
+        description: apiErrorMessage(err),
+        color: 'warning',
+      })
+    }
   } else {
     state.courseName = item.value
   }
@@ -122,40 +137,66 @@ watch(selectedCourse, (item) => {
 
 const isLoading = ref(false)
 
-function onSubmit(event: FormSubmitEvent<Schema>) {
+async function onSubmit(event: FormSubmitEvent<Schema>) {
   isLoading.value = true
-  if (props.isEdit && props.certId) {
-    updateCertificate(props.certId, {
-      studentName: event.data.studentName,
-      studentEmail: event.data.studentEmail,
-      courseName: event.data.courseName,
-      completionDate: event.data.completionDate,
-      expiryDate: computedExpiryDate.value,
-    })
-    toast.add({ title: 'Certificate updated', color: 'success' })
-  } else {
-    issueCertificate({
-      institution: event.data.institution,
-      studentName: event.data.studentName,
-      studentEmail: event.data.studentEmail,
-      courseName: event.data.courseName,
-      completionDate: event.data.completionDate,
-      expiryDate: computedExpiryDate.value,
-    })
-    toast.add({
-      title: 'Certificate issued',
-      description: `Claim email sent to ${event.data.studentEmail}`,
-      color: 'success',
-    })
-    Object.assign(state, makeState())
-    expiryType.value = 'none'
-    duration.value = '1 year'
-    customExpiryDate.value = ''
-    selectedCourse.value = undefined
-    courseQuery.value = ''
+  const payload = {
+    studentName: event.data.studentName,
+    studentEmail: event.data.studentEmail,
+    courseName: event.data.courseName,
+    completionDate: event.data.completionDate,
+    expiryDate: computedExpiryDate.value,
   }
-  isLoading.value = false
-  emit('success')
+
+  try {
+    if (props.isEdit && props.certId) {
+      // Presented as an edit; the backend revokes the old hash and issues a new
+      // one, keeping the same certificate ID so existing QR codes still resolve.
+      await updateCertificate(props.certId, payload)
+      toast.add({ title: 'Certificate updated', color: 'success' })
+    } else {
+      const result = await issueCertificate({
+        institution: event.data.institution,
+        ...payload,
+      })
+
+      // Two things can be true at once: the certificate is genuinely issued and
+      // on chain, AND the claim email did not send. Saying "claim email sent"
+      // unconditionally would have the issuer waiting on mail that never
+      // arrives, so report what actually happened.
+      toast.add(
+        result.claim_email_sent
+          ? {
+              title: 'Certificate issued',
+              description: `Claim email sent to ${event.data.studentEmail}`,
+              color: 'success' as const,
+            }
+          : {
+              title: 'Certificate issued',
+              description:
+                'The claim email could not be sent — the certificate is valid and can be shared directly.',
+              color: 'warning' as const,
+            },
+      )
+
+      Object.assign(state, makeState())
+      expiryType.value = 'none'
+      duration.value = '1 year'
+      customExpiryDate.value = ''
+      selectedCourse.value = undefined
+      courseQuery.value = ''
+    }
+    emit('success')
+  } catch (err) {
+    // Issuance writes to the blockchain, so a 503 here means "not issued, try
+    // again" — never a silent failure that leaves the issuer believing it worked.
+    toast.add({
+      title: props.isEdit ? 'Could not update certificate' : 'Could not issue certificate',
+      description: apiErrorMessage(err),
+      color: 'error',
+    })
+  } finally {
+    isLoading.value = false
+  }
 }
 </script>
 

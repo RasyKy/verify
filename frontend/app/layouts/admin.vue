@@ -1,13 +1,26 @@
 <script setup lang="ts">
-// No route guard here yet: there's no admin login flow (CLAUDE.md lists
-// admin scope as TBD), so this portal is intentionally left reachable
-// without auth for now. See app/middleware/auth.global.ts.
+// Gated by app/middleware/auth.global.ts, which requires role === 'admin' from
+// GET /api/auth/me. The backend enforces the same on every /api/admin/* route.
+const me = useMe()
+await fetchMe()
+
+const adminEmail = computed(() => me.value?.email ?? '')
+const adminName = computed(() => displayName(me.value) || 'Admin')
+const adminInitials = computed(() =>
+  adminName.value
+    .split(/[\s.]+/)
+    .slice(0, 2)
+    .map((part) => part[0] ?? '')
+    .join('')
+    .toUpperCase(),
+)
 
 const menuOpen = ref(false)
 
 async function logout() {
   const supabase = useSupabaseClient()
   await supabase.auth.signOut()
+  clearMe()
   await navigateTo('/login?redirect=/admin')
 }
 
@@ -71,10 +84,10 @@ function isActive(item: typeof nav[number]) {
       <!-- Admin user placeholder -->
       <div class="sidebar-footer">
         <div class="admin-user">
-          <div class="admin-avatar">RK</div>
+          <div class="admin-avatar">{{ adminInitials }}</div>
           <div class="admin-user-info">
-            <span class="admin-user-name">Rasy K</span>
-            <span class="admin-user-email">rasy@verify.app</span>
+            <span class="admin-user-name">{{ adminName }}</span>
+            <span class="admin-user-email">{{ adminEmail }}</span>
           </div>
         </div>
         <button class="nav-item logout-item" @click="logout">

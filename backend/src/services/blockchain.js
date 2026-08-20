@@ -23,6 +23,8 @@
  * returns 'pending' rather than blocking past the timeout, so issuance stays
  * inside NFR-PERF-02 (30s) and jobs/reconcilePendingTx.js finishes the row.
  */
+import fs from 'node:fs';
+
 import { ethers } from 'ethers';
 
 import verifierAbi from '../blockchain/abi/Verifier.json' with { type: 'json' };
@@ -194,20 +196,79 @@ export function createChainService({
 // ─── In-memory stub ─────────────────────────────────────────────────────────
 
 /**
+ * Where the stub keeps its ledger between restarts. Resolved against the backend
+ * package root (this file lives in src/services/). Gitignored.
+ */
+export const STUB_LEDGER_PATH = new URL('../../.stub-chain.json', import.meta.url);
+
+/**
  * Behaves like the contract without a network. Enforces the same invariants the
  * Solidity does — "already exists" on double-issue, "does not exist" on revoke —
  * so code and tests written against it behave the same against the real chain.
  *
- * No cache: it is already an in-memory Map, so the read-through cache the real
- * service needs to keep eth_calls off the hot path would be pure overhead here.
+ * ── Why it persists to disk ──
+ * A chain does not forget. With a bare Map, restarting the dev server (which
+ * `npm run dev` does on every file save) wiped the ledger, and every certificate
+ * issued before that restart then verified as `invalid` — the single worst
+ * output this system can produce, arrived at by accident. A JSON file keeps the
+ * stub an INDEPENDENT record rather than a second read of the database, so
+ * tampering is still detected: edit a row in Supabase directly and the
+ * recomputed hash stops matching the one recorded here.
+ *
+ * Persistence is opt-in via `persistPath` and left off under `test`, so the
+ * suite stays hermetic and order-independent.
+ *
+ * No read cache: it is already an in-memory Map, so the read-through cache the
+ * real service needs to keep eth_calls off the hot path would be pure overhead.
  * Callers get identical results either way; caching is transparent.
  *
  * Date.now() is used for the issue timestamp; that is fine in runtime code
  * (only Workflow scripts forbid it).
+ *
+ * @param {object} [options]
+ * @param {URL|string|null} [options.persistPath] JSON file to load/save, or null
+ *   for a pure in-memory ledger.
  */
-export function createStubService() {
+export function createStubService({ persistPath = null } = {}) {
   /** @type {Map<string, { revoked: boolean, issuedAt: number, expiresAt: number }>} */
   const store = new Map();
+
+  if (persistPath) {
+    try {
+      const raw = fs.readFileSync(persistPath, 'utf8');
+      for (const [hash, record] of Object.entries(JSON.parse(raw))) {
+        store.set(hash, record);
+      }
+      logger.info('stub chain ledger restored', { entries: store.size });
+    } catch (err) {
+      // ENOENT on first run is the normal case, not a problem. Anything else
+      // (corrupt JSON, bad permissions) is worth saying out loud, because
+      // silently starting empty would report issued certificates as invalid.
+      if (err?.code !== 'ENOENT') {
+        logger.warn('could not read stub chain ledger — starting empty', {
+          err,
+          path: String(persistPath),
+        });
+      }
+    }
+  }
+
+  function persist() {
+    if (!persistPath) return;
+    try {
+      fs.writeFileSync(
+        persistPath,
+        `${JSON.stringify(Object.fromEntries(store), null, 2)}\n`
+      );
+    } catch (err) {
+      // Do not fail the issuance: the certificate is already in the database and
+      // the in-memory ledger is correct for this process's lifetime.
+      logger.error('could not persist stub chain ledger', {
+        err,
+        path: String(persistPath),
+      });
+    }
+  }
 
   // eslint-disable-next-line require-await -- async to match the real interface
   async function issue(hash, expiresAtUnix) {
@@ -226,6 +287,7 @@ export function createStubService() {
       issuedAt,
       expiresAt: Number(expiresAtUnix),
     });
+    persist();
     return {
       txHash: `0xstub${hash.slice(2, 10)}`,
       blockTimestamp: new Date(issuedAt * 1000).toISOString(),
@@ -244,6 +306,7 @@ export function createStubService() {
       throw err;
     }
     record.revoked = true;
+    persist();
     return { txHash: `0xstubrevoke${hash.slice(2, 8)}`, status: 'confirmed' };
   }
 
@@ -285,10 +348,12 @@ export function createStubService() {
  */
 export const blockchainService = env.blockchainEnabled
   ? createChainService()
-  : createStubService();
+  : // No persistence under `test`: the suite must not depend on, or leave
+    // behind, a ledger file.
+    createStubService({ persistPath: env.isTest ? null : STUB_LEDGER_PATH });
 
 if (blockchainService.isStub) {
   logger.warn(
-    'Blockchain service running in STUB mode (in-memory). Set ALCHEMY_RPC_URL, PRIVATE_KEY and CONTRACT_ADDRESS for the real chain.'
+    'Blockchain service running in STUB mode (file-backed). Set ALCHEMY_RPC_URL, PRIVATE_KEY and CONTRACT_ADDRESS for the real chain.'
   );
 }
