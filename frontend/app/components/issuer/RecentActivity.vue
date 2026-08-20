@@ -14,7 +14,8 @@ defineProps<{
 const activityConfig = {
   issued: { icon: 'i-heroicons-document-plus', class: 'bg-teal-50 text-teal-600' },
   revoked: { icon: 'i-heroicons-x-circle', class: 'bg-red-50 text-red-600' },
-  claimed: { icon: 'i-heroicons-user-check', class: 'bg-amber-50 text-amber-600' },
+  // heroicons has no `user-check` — the missing name rendered as a blank box.
+  claimed: { icon: 'i-heroicons-user-plus', class: 'bg-amber-50 text-amber-600' },
 }
 
 function activityLabel(a: Activity) {

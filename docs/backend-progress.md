@@ -31,19 +31,42 @@ changed, the fingerprints differ and it shows as invalid. Your backend is the
 | Area | Status |
 | --- | --- |
 | Backend skeleton (server, config, middleware, error handling, logging) | ✅ Built & tested |
-| Repo hygiene, CI pipeline, linting, tests | ✅ Built (152 tests passing, 0 vulnerabilities) |
+| Repo hygiene, CI pipeline, linting, tests | ✅ Built (196 tests passing, 0 vulnerabilities) |
 | Database schema (SQL migrations + security rules) | ✅ Written **and applied** — all 9 tables live |
 | Hashing (the tamper-detection core) | ✅ Built & tested, with fixed vectors for the blockchain teammate |
-| Blockchain service (talks to the smart contract) | ✅ Built — real + in-memory stub, wired to the merged `Verifier.sol` |
+| Blockchain service (talks to the smart contract) | ✅ Built — real + **file-backed** stub, wired to the merged `Verifier.sol` |
 | Authentication (login, logout, refresh, me, account-exists) | ✅ Built & tested end to end against the real project |
 | Connection to your Supabase project | ✅ Connected — setup complete (§6) |
 | Development seed data | ✅ `npm run db:seed` — 6 accounts, 6 certificates, Postman environment |
-| Certificate / claim / holder / admin / registry endpoints | ⛔ Not built yet (§7) |
+| Certificates: issue, list, get, edit, revoke, QR, public verify | ✅ Built & tested |
+| Courses + issuer dashboard | ✅ Built |
+| Admin: create organization, create issuer | ✅ Built (the rest of the admin portal is not) |
+| **Frontend ↔ backend integration** (issuer portal + public verify) | ✅ Wired — no longer mock data |
+| Claim flow · holder/recipient · rest of admin · public registry | ⛔ Not built yet (§7) |
 
-**Plain version:** the *foundation, the database and the auth layer are done and
-proven against the real Supabase project* — you can log in from Postman right now
-and get back real data. The *feature endpoints* (issuing and verifying
-certificates, the admin portal, etc.) are the next big chunk.
+**Plain version:** the demo path works end to end in a browser — an admin creates
+an institution and an issuer, that issuer signs in and issues a certificate, the
+public verify page says **Verified**, editing a field directly in the database
+makes it say **Invalid**, and revoking makes it say **Revoked**. What remains is
+the claim flow, the recipient dashboard, and the rest of the admin portal.
+
+### Two things worth knowing about how this was made to work without the chain
+
+**The stub ledger is now a file.** It used to be an in-memory `Map`, which meant
+every restart wiped it — and because `npm run dev` runs under `--watch`, that
+happened on every file save. Certificates issued before a restart then verified
+as `invalid`, which is the single worst output this system can produce, arrived
+at by accident. It now persists to `backend/.stub-chain.json` (gitignored), so it
+behaves like a chain: it does not forget.
+
+**Seeded certificates need `npm run chain:sync`.** The seed writes *synthetic*
+blockchain columns — those transactions never happened. Verification does not
+read those columns; it recomputes the hash and asks the registry. So a freshly
+seeded database verifies every fixture as `invalid` until the hashes actually
+exist somewhere. `scripts/sync-chain-ledger.js` replays
+`certificate_hashes` onto whatever chain service is active. Run it after every
+seed. **The same script is the mainnet backfill** — after `Verifier.sol` is
+deployed, it replays everything issued during stub mode onto the real contract.
 
 ---
 
@@ -187,11 +210,26 @@ from `req.validated`, because Express 5 makes `req.query` read-only.)*
 | `POST /api/auth/login` | public | Email + password → returns access token + refresh token. |
 | `POST /api/auth/refresh` | public | Refresh token → new access token. |
 | `POST /api/auth/logout` | logged-in | Revokes the session server-side. |
-| `GET /api/auth/me` | logged-in | Who am I? Returns role + organization. |
+| `GET /api/auth/me` | logged-in | Who am I? Returns role, organization and `fullName`. |
 | `GET /api/auth/account-exists` | public | Does an account exist for this email? (used by the claim page). |
+| `GET /api/certificates` | issuer | The organization's certificates, snake_case, status derived. |
+| `POST /api/certificates` | issuer | Issue one. Hash → chain → database, in that order. |
+| `GET /api/certificates/:id` | issuer | One certificate, org-scoped. |
+| `PUT /api/certificates/:id` | issuer | "Edit" = revoke the old hash, issue a new one, same UUID. |
+| `POST /api/certificates/:id/revoke` | issuer | Revoke on chain and in the database. |
+| `GET /api/certificates/verify/:certId` | **public** | The verification everything else exists to serve. |
+| `GET /api/certificates/:id/qr` | **public** | PNG (or `?format=svg`) of the verify URL. |
+| `GET` `POST /api/courses` | issuer | Typeahead list; `POST` is idempotent per organization. |
+| `GET /api/dashboard?range=` | issuer | Stats, zero-filled chart series, recent activity. |
+| `GET` `POST /api/admin/organizations` | admin | List / register an institution. |
+| `GET` `POST /api/admin/users` | admin | List accounts / create an issuer (FR-AUTH-01). |
 
-All six are covered by automated tests that run without touching the network or
-needing credentials.
+Covered by automated tests that run without touching the network or needing
+credentials — the routers take injected fakes, because `jest.mock()` does not
+work under this project's native-ESM Jest.
+
+Every mutation above writes an `audit_events` row. That is the whole of T-08:
+the chain proves what happened to a hash, the audit log proves who asked for it.
 
 ---
 
@@ -240,25 +278,37 @@ effect immediately instead of waiting for the token to refresh.
 
 ## 7. What's left to build (roadmap)
 
-Grouped roughly in the order it makes sense to build:
+Grouped roughly in the order it makes sense to build. The first three groups are
+done; what follows is what is left.
 
-- **Admin (create org + issuer):** nothing can create an issuer account yet, so
-  this comes first — it's how you get a user to log in as. Plus org
-  suspend/reactivate, platform stats, audit log.
-- **Certificates (the core product):** issue, list, view, edit, revoke, QR code,
-  and the public verify endpoint. The hashing + blockchain pieces they depend on
-  are already done.
-- **Courses & dashboard:** the issuer's course list and summary charts.
-- **Claim flow:** preview a claim link and confirm it — matching the shapes Ky
-  Rasy already mocked in `frontend/server/api/claim/…`.
-- **Holder/recipient:** a student's certificate list and privacy toggles.
-- **Public registry:** the accredited-institutions list on the landing page.
-- **API docs (`/api/docs`):** auto-generated Swagger page.
+- **Claim flow:** `GET /api/claim/:token/preview` and
+  `POST /api/claim/:token/confirm`. Note the design decision: the **frontend's**
+  shape wins over the one written in [api-schema.md](./api-schema.md).
+  `pages/claim/[token].vue` already creates the Supabase account client-side
+  (Google OAuth, email OTP, or password) and then calls confirm with a bearer
+  token, so `/confirm` requires auth and asserts the JWT's email matches
+  `claim_tokens.sent_to` before burning the token. The doc's
+  `POST /api/claims/:token/accept` with `{ password }` would mean deleting two
+  working sign-up methods. Preview returns a flat
+  `{ valid, expired, used, … }` at HTTP 200 for every case, because the page
+  branches on those booleans and status codes would collapse three distinct
+  screens into one error state.
+  Issuance already creates the `claim_tokens` row, so the links exist.
+- **Holder/recipient:** `/api/holder/*` — certificate list and the privacy
+  toggles. Visibility must not affect verifiability (FR-HOLD-07).
+- **Rest of admin:** stats, org detail, suspend/reactivate, deactivate user,
+  platform-wide certificates, audit log. Shapes are pinned by
+  `useAdminMockData.ts`; note the DB role `holder` maps to the frontend's
+  `recipient` at the response boundary.
+- **Public registry:** `GET /api/registry`, to replace the hardcoded array in
+  `LandingTrustBar.vue`.
+- **API docs (`/api/docs`):** auto-generated Swagger page. `swagger-jsdoc` is
+  installed and the routes already carry `@openapi` annotations.
 
-**Suggested next chunk:** *admin create-issuer → certificate issue → verify →
-revoke*. That produces a complete, demonstrable flow: an admin makes an issuer,
-the issuer logs in and issues a certificate, verifying it shows "Verified",
-tampering with a field shows "Invalid", and revoking shows "Revoked".
+**Deferred until the contract lands:** deploy `Verifier.sol`, fill
+`CONTRACT_ADDRESS` and `PRIVATE_KEY`, restart, then `npm run chain:sync --yes` to
+replay everything issued during stub mode. No application code changes — that is
+what the two-implementation blockchain service bought.
 
 ---
 

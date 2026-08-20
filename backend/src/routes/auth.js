@@ -161,6 +161,7 @@ export function createAuthRouter({
       res.json({
         id: req.user.id,
         email: req.user.email,
+        fullName: req.user.fullName,
         role: req.user.role,
         organization,
       });

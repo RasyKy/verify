@@ -2,6 +2,33 @@
 
 **For:** Ky Rasy (frontend) · **From:** Chhay Lyhour (backend)
 
+> **⚠️ Superseded — kept for the reasoning, not the instructions.**
+>
+> This was written when the Nuxt pages still called `/api/*` directly. Commit
+> `f09e5a0` replaced those calls with `useXMockData()` composables, so the
+> endpoint table in "Problem 1" describes call sites that no longer exist.
+>
+> **The integration has since been done.** What actually shipped:
+>
+> - `frontend/.env` now exists (its absence made every page 500 during SSR —
+>   `@nuxtjs/supabase` throws when constructing the server client).
+> - **No `/api/**` proxy.** The proxy proposed below collides with the app's own
+>   Nitro handlers under `server/api/`. `useApi()` sets an explicit `baseURL`
+>   from `runtimeConfig.public.apiBase` instead; the backend's CORS allowlist
+>   already permits `localhost:3000` with `Authorization`, and bearer auth gains
+>   nothing from being same-origin.
+> - `app/composables/useApi.ts` and `useMe.ts` were added; `useIssuerMockData`
+>   and `useVerifyMockData` are gone, replaced by `useCertificates.ts`.
+> - The route guard is enabled and now checks **role**, via `GET /api/auth/me`.
+> - `/api/auth/me` gained a `fullName` field.
+>
+> Still mock-backed: the recipient dashboard and the whole admin portal
+> (`useRecipientMockData`, `useAdminMockData`), plus the three temporary Nitro
+> handlers in `frontend/server/api/`.
+>
+> Current contract: [api-schema.md](./api-schema.md). Current status:
+> [backend-progress.md](./backend-progress.md).
+
 Two problems block every API call in the app today. Both fix in one small
 change on the frontend side; nothing else about the pages needs to move.
 

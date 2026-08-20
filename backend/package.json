@@ -15,6 +15,7 @@
     "db:check": "node --env-file=.env scripts/check-supabase.js",
     "db:migrate": "node --env-file=.env scripts/apply-migrations.js",
     "db:seed": "node --env-file=.env scripts/seed.js",
+    "chain:sync": "node --env-file=.env scripts/sync-chain-ledger.js",
     "db:seed:clean": "node --env-file=.env scripts/seed.js --clean",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

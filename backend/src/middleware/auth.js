@@ -94,7 +94,7 @@ function loadProfile(userId) {
     const data = unwrap(
       await adminClient
         .from('profiles')
-        .select('id, email, role, organization_id, status')
+        .select('id, email, full_name, role, organization_id, status')
         .eq('id', userId)
         .maybeSingle(),
       'load profile'
@@ -162,6 +162,9 @@ export async function requireAuth(req, _res, next) {
     req.user = {
       id: userId,
       email: profile.email,
+      // Display label only — the portals render it in the sidebar. Nullable:
+      // an account created through the claim flow may not have one yet.
+      fullName: profile.full_name ?? null,
       role: profile.role,
       organizationId: profile.organization_id,
       // Retained for diagnostics when a stale token disagrees with `profiles`.

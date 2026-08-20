@@ -14,10 +14,18 @@
           that recipients can share and employers can check instantly. Minutes,
           not days.
         </p>
-        <a href="/issuer" class="hero-cta">
-          Get started free
+        <!-- "Get started free" pointed here and promised self-service signup.
+             There is no signup: every issuer account is created by a platform
+             admin after the institution is vetted, because an unvetted issuer
+             can attest that someone graduated (docs/user-flows.md §1, T-09).
+             The CTA now matches what a visitor can actually do. -->
+        <a href="#get-started" class="hero-cta">
+          Request issuer access
         </a>
-        <p class="hero-note">No credit card required.</p>
+        <p class="hero-note">
+          Verifying a certificate is free and needs no account —
+          <a href="/verify" class="hero-note-link">check one now</a>.
+        </p>
       </div>
 
       <!-- Certificate card mockup -->
@@ -388,6 +396,17 @@ onUnmounted(() => heroTimers.forEach(clearTimeout))
   font-size: 13px;
   color: var(--text-tertiary);
   margin: 0;
+}
+
+.hero-note-link {
+  color: var(--accent-text);
+  font-weight: 500;
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.hero-note-link:hover {
+  border-bottom-color: var(--accent);
 }
 
 /* ── Visual ── */

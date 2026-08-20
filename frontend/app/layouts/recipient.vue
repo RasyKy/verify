@@ -1,9 +1,15 @@
 <script setup lang="ts">
-const { recipient } = useRecipientMockData()
+// Identity comes from the backend; the certificate list is still mock data
+// until Phase 4 wires GET /api/holder/certificates.
+const me = useMe()
+await fetchMe()
+
+const recipientName = computed(() => displayName(me.value))
 
 async function logout() {
   const supabase = useSupabaseClient()
   await supabase.auth.signOut()
+  clearMe()
   await navigateTo('/login?redirect=/recipient')
 }
 </script>
@@ -20,7 +26,7 @@ async function logout() {
         </NuxtLink>
 
         <div class="top-bar-right">
-          <span v-if="recipient.name" class="recipient-name">{{ recipient.name }}</span>
+          <span v-if="recipientName" class="recipient-name">{{ recipientName }}</span>
           <button class="logout-btn" aria-label="Log out" title="Log out" @click="logout">
             <UIcon name="i-heroicons-arrow-right-on-rectangle" class="size-4" />
           </button>

@@ -2,10 +2,19 @@
   <section class="cta-section reveal" id="get-started">
     <div class="cta-inner">
       <h2 class="cta-headline">Ready to issue your first certificate?</h2>
-      <p class="cta-sub">No credit card required. Set up in minutes.</p>
-      <a href="/issuer" class="cta-btn">
-        Get started free
+      <!-- Deliberately not "set up in minutes": institutions are vetted by a
+           human before an issuer account exists (T-09). Promising instant
+           self-serve setup here would be a promise the product cannot keep. -->
+      <p class="cta-sub">
+        Issuer accounts are created by our team once your institution is
+        verified. Tell us about yours and we will set you up.
+      </p>
+      <a href="mailto:hello@verify.app?subject=Issuer%20access%20request" class="cta-btn">
+        Request issuer access
       </a>
+      <p class="cta-note">
+        Already have an account? <a href="/login" class="cta-note-link">Sign in</a>
+      </p>
     </div>
   </section>
 </template>
@@ -42,6 +51,25 @@
   font-size: 15px;
   color: var(--text-secondary);
   margin: 0 0 32px;
+  max-width: 460px;
+  line-height: 1.6;
+}
+
+.cta-note {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  margin: 16px 0 0;
+}
+
+.cta-note-link {
+  color: var(--accent-text);
+  font-weight: 500;
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.cta-note-link:hover {
+  border-bottom-color: var(--accent);
 }
 
 .cta-btn {
