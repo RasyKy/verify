@@ -53,6 +53,23 @@ export function createAdminRouter({
    *   get:
    *     summary: All institutions, with issuer and certificate counts
    *     tags: [Admin]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: List of institutions
+   *       401:
+   *         description: Missing or invalid bearer token
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       403:
+   *         description: Caller is not an admin
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
    */
   router.get('/organizations', ...adminOnly, async (_req, res, next) => {
     try {
@@ -109,6 +126,35 @@ export function createAdminRouter({
    *   post:
    *     summary: Register an institution
    *     tags: [Admin]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       201:
+   *         description: Institution created
+   *       401:
+   *         description: Missing or invalid bearer token
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       403:
+   *         description: Caller is not an admin
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       409:
+   *         description: An institution with that slug already exists
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       422:
+   *         description: Validation failed
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
    */
   router.post(
     '/organizations',
@@ -184,6 +230,23 @@ export function createAdminRouter({
    *   get:
    *     summary: All platform accounts
    *     tags: [Admin]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: List of accounts
+   *       401:
+   *         description: Missing or invalid bearer token
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       403:
+   *         description: Caller is not an admin
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
    */
   router.get('/users', ...adminOnly, async (_req, res, next) => {
     try {
@@ -220,6 +283,35 @@ export function createAdminRouter({
    *   post:
    *     summary: Create an issuer account (FR-AUTH-01)
    *     tags: [Admin]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       201:
+   *         description: Issuer account created
+   *       401:
+   *         description: Missing or invalid bearer token
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       403:
+   *         description: Caller is not an admin
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       409:
+   *         description: An account with that email already exists
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       422:
+   *         description: Validation failed
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
    */
   router.post(
     '/users',

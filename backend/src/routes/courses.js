@@ -36,6 +36,23 @@ export function createCoursesRouter({
    *   get:
    *     summary: The organization's course names
    *     tags: [Courses]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: Array of course names
+   *       401:
+   *         description: Missing or invalid bearer token
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       403:
+   *         description: Caller is not an issuer, or has no organization
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
    */
   router.get('/courses', ...issuerOnly, async (req, res, next) => {
     try {
@@ -59,6 +76,29 @@ export function createCoursesRouter({
    *   post:
    *     summary: Add a course to the organization's list
    *     tags: [Courses]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       201:
+   *         description: Course created, or the existing course with that name
+   *       401:
+   *         description: Missing or invalid bearer token
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       403:
+   *         description: Caller is not an issuer, or has no organization
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       422:
+   *         description: Validation failed
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
    */
   router.post(
     '/courses',

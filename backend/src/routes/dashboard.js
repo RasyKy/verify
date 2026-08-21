@@ -46,6 +46,36 @@ export function createDashboardRouter({
    *   get:
    *     summary: Issuer dashboard stats, chart series and recent activity
    *     tags: [Dashboard]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - name: range
+   *         in: query
+   *         schema:
+   *           type: string
+   *           enum: [7d, 30d, 90d]
+   *           default: 30d
+   *     responses:
+   *       200:
+   *         description: Dashboard stats, chart series and recent activity
+   *       401:
+   *         description: Missing or invalid bearer token
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       403:
+   *         description: Caller is not an issuer, or has no organization
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       422:
+   *         description: Validation failed
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
    */
   router.get(
     '/dashboard',

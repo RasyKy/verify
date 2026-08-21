@@ -70,6 +70,28 @@ export function createCertificatesRouter({
    *     summary: Publicly verify a certificate
    *     tags: [Verification]
    *     security: []
+   *     parameters:
+   *       - name: certId
+   *         in: path
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: Any string is accepted — a malformed UUID answers `invalid`, not a 4xx.
+   *     responses:
+   *       200:
+   *         description: Verification result — status is verified, invalid, revoked or expired
+   *       429:
+   *         description: Rate limited
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       503:
+   *         description: The chain or database is temporarily unreachable — not a verdict on the certificate
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
    */
   router.get(
     '/certificates/verify/:certId',
@@ -120,6 +142,38 @@ export function createCertificatesRouter({
    *     summary: QR code encoding the public verify URL
    *     tags: [Certificates]
    *     security: []
+   *     parameters:
+   *       - name: id
+   *         in: path
+   *         required: true
+   *         schema:
+   *           type: string
+   *           format: uuid
+   *       - name: format
+   *         in: query
+   *         schema:
+   *           type: string
+   *           enum: [png, svg]
+   *           default: png
+   *       - name: size
+   *         in: query
+   *         schema:
+   *           type: integer
+   *           minimum: 64
+   *           maximum: 1024
+   *           default: 320
+   *     responses:
+   *       200:
+   *         description: QR code image
+   *         content:
+   *           image/png: {}
+   *           image/svg+xml: {}
+   *       422:
+   *         description: Validation failed
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
    */
   router.get(
     '/certificates/:id/qr',
@@ -165,6 +219,29 @@ export function createCertificatesRouter({
    *   get:
    *     summary: List the caller's organization's certificates
    *     tags: [Certificates]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: List of certificates
+   *       401:
+   *         description: Missing or invalid bearer token
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       403:
+   *         description: Caller is not an issuer, or has no organization
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       422:
+   *         description: Validation failed
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
    */
   router.get(
     '/certificates',
@@ -194,6 +271,41 @@ export function createCertificatesRouter({
    *   post:
    *     summary: Issue a certificate
    *     tags: [Certificates]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       201:
+   *         description: Certificate issued
+   *       401:
+   *         description: Missing or invalid bearer token
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       403:
+   *         description: Caller is not an issuer, or has no organization
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       422:
+   *         description: Validation failed
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       429:
+   *         description: Rate limited
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       503:
+   *         description: The chain is temporarily unreachable
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
    */
   router.post(
     '/certificates',
@@ -224,6 +336,42 @@ export function createCertificatesRouter({
    *   get:
    *     summary: One certificate, scoped to the caller's organization
    *     tags: [Certificates]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - name: id
+   *         in: path
+   *         required: true
+   *         schema:
+   *           type: string
+   *           format: uuid
+   *     responses:
+   *       200:
+   *         description: The certificate
+   *       401:
+   *         description: Missing or invalid bearer token
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       403:
+   *         description: Caller is not an issuer, or has no organization
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       404:
+   *         description: Certificate not found
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       422:
+   *         description: Validation failed
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
    */
   router.get(
     '/certificates/:id',
@@ -249,6 +397,54 @@ export function createCertificatesRouter({
    *   put:
    *     summary: Edit a certificate (revoke the old hash, issue a new one)
    *     tags: [Certificates]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - name: id
+   *         in: path
+   *         required: true
+   *         schema:
+   *           type: string
+   *           format: uuid
+   *     responses:
+   *       200:
+   *         description: Certificate updated (revoked + reissued)
+   *       401:
+   *         description: Missing or invalid bearer token
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       403:
+   *         description: Caller is not an issuer, or has no organization
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       404:
+   *         description: Certificate not found
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       409:
+   *         description: Certificate has already been revoked
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       422:
+   *         description: Validation failed
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       503:
+   *         description: The chain is temporarily unreachable
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
    */
   router.put(
     '/certificates/:id',
@@ -275,6 +471,54 @@ export function createCertificatesRouter({
    *   post:
    *     summary: Revoke a certificate
    *     tags: [Certificates]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - name: id
+   *         in: path
+   *         required: true
+   *         schema:
+   *           type: string
+   *           format: uuid
+   *     responses:
+   *       200:
+   *         description: Certificate revoked
+   *       401:
+   *         description: Missing or invalid bearer token
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       403:
+   *         description: Caller is not an issuer, or has no organization
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       404:
+   *         description: Certificate not found
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       409:
+   *         description: Certificate has already been revoked
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       422:
+   *         description: Validation failed
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       503:
+   *         description: The chain is temporarily unreachable
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
    */
   router.post(
     '/certificates/:id/revoke',
