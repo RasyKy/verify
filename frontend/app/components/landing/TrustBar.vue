@@ -1,10 +1,15 @@
 <template>
-  <section class="trust-bar reveal">
+  <section v-if="institutions?.length" class="trust-bar reveal">
     <div class="trust-inner">
       <p class="trust-label">Trusted by institutions worldwide</p>
       <div class="trust-logos">
-        <span v-for="org in orgs" :key="org.abbr" :title="org.name" class="trust-logo">
-          {{ org.abbr }}
+        <span
+          v-for="org in institutions"
+          :key="org.id"
+          :title="org.name"
+          class="trust-logo"
+        >
+          {{ acronymOf(org.name) }}
         </span>
       </div>
     </div>
@@ -12,14 +17,24 @@
 </template>
 
 <script setup lang="ts">
-const orgs = [
-  { name: 'Northfield University', abbr: 'NFLD' },
-  { name: 'Meridian Institute',    abbr: 'MRD'  },
-  { name: 'Delta Polytechnic',     abbr: 'DLTA' },
-  { name: 'Crestview College',     abbr: 'CRSV' },
-  { name: 'Harborne Academy',      abbr: 'HBA'  },
-  { name: 'Summit Skills',         abbr: 'SMT'  },
-]
+const { institutions } = useRegistry()
+
+// Institutions only have a full `name` in the schema — no stored short form —
+// so derive a compact acronym for this bar's existing badge-style look.
+// Small connector words are skipped so e.g. "Delta Polytechnic" -> "DP", not "DPO".
+const STOP_WORDS = new Set(['of', 'the', 'and', 'for', 'de', 'la', 'le', 'des', 'du'])
+
+function acronymOf(name: string) {
+  const initials = name
+    .split(/\s+/)
+    .filter((word) => word && !STOP_WORDS.has(word.toLowerCase()))
+    .map((word) => word[0])
+    .join('')
+    .toUpperCase()
+
+  if (initials.length >= 2) return initials.slice(0, 6)
+  return name.replace(/[^a-zA-Z]/g, '').slice(0, 4).toUpperCase() || name.slice(0, 4)
+}
 </script>
 
 <style scoped>
