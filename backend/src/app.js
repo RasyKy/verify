@@ -22,6 +22,7 @@ import { coursesRouter } from './routes/courses.js';
 import { dashboardRouter } from './routes/dashboard.js';
 import { docsRouter } from './routes/docs.js';
 import { registryRouter } from './routes/registry.js';
+import { holderRouter } from './routes/holder.js';
 
 export function createApp() {
   const app = express();
@@ -88,6 +89,7 @@ export function createApp() {
   app.use('/api', claimRouter);
   app.use('/api', docsRouter);
   app.use('/api', registryRouter);
+  app.use('/api', holderRouter);
   // Express 5 removed bare '*' wildcards (path-to-regexp v8) — a named splat
   // is now required or this throws at mount time.
   app.use('/{*splat}', notFoundHandler);

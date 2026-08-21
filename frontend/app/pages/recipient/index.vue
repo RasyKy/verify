@@ -1,26 +1,48 @@
 <script setup lang="ts">
-import type { RecipientCert } from '~/composables/useRecipientMockData'
+import type { HolderCertificate } from '~/composables/useHolderCertificates'
 
 definePageMeta({ layout: 'recipient' })
 
-const { certs, recipient, totalCerts, hiddenCount, toggleHidden } = useRecipientMockData()
+const { certificates } = useHolderCertificates()
+const me = useMe()
 
-const selectedCert = ref<RecipientCert | null>(null)
+// Hide/unhide has no backend write yet (FR-HOLD-06) — this overlay is a
+// local, session-only visual stub layered on top of the real is_hidden
+// value, kept separate from `certificates` so refresh() doesn't fight it.
+const hiddenOverrides = ref<Record<string, boolean>>({})
+
+const displayCerts = computed<HolderCertificate[]>(() =>
+  certificates.value.map((cert) => ({
+    ...cert,
+    is_hidden: hiddenOverrides.value[cert.id] ?? cert.is_hidden,
+  })),
+)
+
+function toggleHidden(id: string) {
+  const current = hiddenOverrides.value[id] ?? certificates.value.find((c) => c.id === id)?.is_hidden ?? false
+  hiddenOverrides.value = { ...hiddenOverrides.value, [id]: !current }
+}
+
+const selectedCert = ref<HolderCertificate | null>(null)
 const modalOpen = ref(false)
 
 function openDetail(id: string) {
-  selectedCert.value = certs.value.find((c) => c.id === id) ?? null
+  selectedCert.value = displayCerts.value.find((c) => c.id === id) ?? null
   modalOpen.value = true
 }
 
-const initials = computed(() =>
-  recipient.name
+const totalCerts = computed(() => displayCerts.value.length)
+const hiddenCount = computed(() => displayCerts.value.filter((c) => c.is_hidden).length)
+
+const initials = computed(() => {
+  const name = displayName(me.value)
+  return name
     .split(' ')
     .map((part) => part[0])
     .join('')
     .slice(0, 2)
-    .toUpperCase(),
-)
+    .toUpperCase()
+})
 
 const summaryLine = computed(() => {
   const count = `${totalCerts.value} certificate${totalCerts.value === 1 ? '' : 's'}`
@@ -33,15 +55,15 @@ const summaryLine = computed(() => {
     <!-- Profile header -->
     <div class="profile-header">
       <div class="avatar">{{ initials }}</div>
-      <h1 class="profile-name">{{ recipient.name }}</h1>
+      <h1 class="profile-name">{{ displayName(me) }}</h1>
       <p class="profile-summary">{{ summaryLine }}</p>
     </div>
 
     <h2 class="section-heading">My Certificates</h2>
 
-    <div v-if="certs.length" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div v-if="displayCerts.length" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       <RecipientCertificateCard
-        v-for="(cert, index) in certs"
+        v-for="(cert, index) in displayCerts"
         :key="cert.id"
         class="card-in"
         :style="{ '--i': index }"

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { RecipientCert } from '~/composables/useRecipientMockData'
+import type { HolderCertificate } from '~/composables/useHolderCertificates'
 
-const props = defineProps<{ cert: RecipientCert }>()
+const props = defineProps<{ cert: HolderCertificate }>()
 const emit = defineEmits<{ view: [id: string]; 'toggle-hidden': [id: string] }>()
 
 const statusConfig: Record<'valid' | 'revoked' | 'expired', { label: string; style: string }> = {
@@ -38,8 +38,8 @@ function formatDate(dateStr: string) {
 
     <div class="flex items-center justify-between pt-3 card-footer">
       <USwitch
-        :model-value="!cert.hidden"
-        :label="cert.hidden ? 'Hidden' : 'Public'"
+        :model-value="!cert.is_hidden"
+        :label="cert.is_hidden ? 'Hidden' : 'Public'"
         size="sm"
         @update:model-value="emit('toggle-hidden', cert.id)"
       />

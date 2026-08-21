@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import QrcodeVue from 'qrcode.vue'
-import type { RecipientCert } from '~/composables/useRecipientMockData'
+import type { HolderCertificate } from '~/composables/useHolderCertificates'
 
-const props = defineProps<{ open: boolean; cert: RecipientCert | null }>()
+const props = defineProps<{ open: boolean; cert: HolderCertificate | null }>()
 const emit = defineEmits<{ 'update:open': [value: boolean] }>()
 
 const statusConfig: Record<'valid' | 'revoked' | 'expired', { label: string; style: string }> = {
