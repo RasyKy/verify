@@ -82,6 +82,27 @@ export function createClaimRouter({
    *     summary: Preview a claim link without redeeming it
    *     tags: [Claim]
    *     security: []
+   *     parameters:
+   *       - name: token
+   *         in: path
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: Claim link preview (blank/invalid shape if the token is unknown)
+   *       422:
+   *         description: Validation failed
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       429:
+   *         description: Rate limited
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
    */
   router.get(
     '/claim/:token',
@@ -121,6 +142,53 @@ export function createClaimRouter({
    *   post:
    *     summary: Redeem a claim link and link the certificate to the caller's account
    *     tags: [Claim]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - name: token
+   *         in: path
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: Certificate claimed
+   *       401:
+   *         description: Missing or invalid bearer token
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       403:
+   *         description: Email does not match the certificate's recipient, or the account cannot claim certificates
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       404:
+   *         description: Claim link not found
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       409:
+   *         description: Claim link has already been used, or has expired
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       422:
+   *         description: Validation failed
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       429:
+   *         description: Rate limited
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
    */
   router.post(
     '/claim/:token/confirm',

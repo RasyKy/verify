@@ -21,6 +21,9 @@ export function createRegistryRouter({ adminClient = defaultAdminClient } = {}) 
    *     summary: List accredited institutions for the public registry
    *     tags: [Registry]
    *     security: []
+   *     responses:
+   *       200:
+   *         description: List of accredited, active institutions
    */
   router.get('/registry', async (req, res, next) => {
     try {
