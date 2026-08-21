@@ -19,6 +19,7 @@ import { adminRouter } from './routes/admin.js';
 import { certificatesRouter } from './routes/certificates.js';
 import { coursesRouter } from './routes/courses.js';
 import { dashboardRouter } from './routes/dashboard.js';
+import { registryRouter } from './routes/registry.js';
 
 export function createApp() {
   const app = express();
@@ -75,12 +76,13 @@ export function createApp() {
   app.use('/api', apiLimiter);
   app.use('/api/auth', authRouter);
   app.use('/api/admin', adminRouter);
-  // These three mount at /api rather than a sub-path because their routes carry
-  // their own top-level names (/certificates, /courses, /dashboard) and the
-  // frontend calls those paths directly.
+  // These mount at /api rather than a sub-path because their routes carry
+  // their own top-level names (/certificates, /courses, /dashboard, /registry)
+  // and the frontend calls those paths directly.
   app.use('/api', certificatesRouter);
   app.use('/api', coursesRouter);
   app.use('/api', dashboardRouter);
+  app.use('/api', registryRouter);
 
   // Express 5 removed bare '*' wildcards (path-to-regexp v8) — a named splat
   // is now required or this throws at mount time.
