@@ -33,15 +33,7 @@ async function finalizeClaim() {
   claiming.value = true
   claimError.value = ''
   try {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) {
-      claimError.value = 'Your session could not be verified. Please try again.'
-      return
-    }
-    await $fetch(`/api/claim/${token}/confirm`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    })
+    await confirmClaim(token)
     claimed.value = true
     redirectTimer = setTimeout(() => navigateTo('/recipient'), 1500)
   } catch (err: any) {
@@ -171,9 +163,7 @@ watch(viewState, async (state) => {
   const p = preview.value
   if (state !== 'form' || accountExists.value !== null || !p) return
   try {
-    const res = await $fetch<{ exists: boolean }>('/api/auth/account-exists', {
-      query: { email: p.email },
-    })
+    const res = await checkAccountExists(p.email)
     accountExists.value = res.exists
   } catch {
     accountExists.value = false
