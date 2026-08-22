@@ -17,26 +17,22 @@ const emit = defineEmits<{
 
 const toast = useToast()
 const isLoading = ref(false)
-const { revokeCertificate } = useIssuerCertificates()
 
 async function onConfirm() {
   if (!props.cert) return
   isLoading.value = true
   try {
-    // Sends a real transaction to Polygon before the database is updated, so
-    // this takes seconds. The modal stays open and disabled until it lands.
+    // Revocation is a chain write, so this can fail for reasons the user cannot
+    // fix (503). Keep the modal open and say so, rather than closing it and
+    // leaving the impression the certificate was revoked when it was not.
     await revokeCertificate(props.cert.id)
-    toast.add({
-      title: 'Certificate revoked',
-      description: 'The revocation is recorded on the blockchain.',
-      color: 'success',
-    })
+    toast.add({ title: 'Certificate revoked', color: 'success' })
     emit('revoked', props.cert.id)
     emit('update:open', false)
   } catch (err) {
     toast.add({
-      title: 'Could not revoke the certificate',
-      description: apiErrorMessage(err, 'Please try again.'),
+      title: 'Could not revoke certificate',
+      description: apiErrorMessage(err),
       color: 'error',
     })
   } finally {

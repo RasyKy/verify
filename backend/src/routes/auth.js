@@ -61,6 +61,21 @@ export function createAuthRouter({
    *     summary: Sign in with email and password
    *     tags: [Auth]
    *     security: []
+   *     responses:
+   *       200:
+   *         description: Signed in
+   *       401:
+   *         description: Invalid email or password
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       422:
+   *         description: Validation failed
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
    */
   router.post('/login', validate(loginSchema), async (req, res, next) => {
     const { email, password } = req.validated.body;
@@ -93,6 +108,21 @@ export function createAuthRouter({
    *     summary: Exchange a refresh token for a fresh session
    *     tags: [Auth]
    *     security: []
+   *     responses:
+   *       200:
+   *         description: New session issued
+   *       401:
+   *         description: Invalid or expired refresh token
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       422:
+   *         description: Validation failed
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
    */
   router.post('/refresh', validate(refreshSchema), async (req, res, next) => {
     const { refreshToken } = req.validated.body;
@@ -119,6 +149,17 @@ export function createAuthRouter({
    *   post:
    *     summary: Revoke the caller's session
    *     tags: [Auth]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: Session revoked
+   *       401:
+   *         description: Missing or invalid bearer token
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
    */
   router.post('/logout', auth, async (req, res, next) => {
     try {
@@ -144,6 +185,17 @@ export function createAuthRouter({
    *   get:
    *     summary: Current user, role and organization
    *     tags: [Auth]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: The authenticated user's profile
+   *       401:
+   *         description: Missing or invalid bearer token
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
    */
   router.get('/me', auth, async (req, res, next) => {
     try {
@@ -161,6 +213,7 @@ export function createAuthRouter({
       res.json({
         id: req.user.id,
         email: req.user.email,
+        fullName: req.user.fullName,
         role: req.user.role,
         organization,
       });
@@ -176,6 +229,22 @@ export function createAuthRouter({
    *     summary: Whether an account already exists for an email (claim-flow branch)
    *     tags: [Auth]
    *     security: []
+   *     parameters:
+   *       - name: email
+   *         in: query
+   *         required: true
+   *         schema:
+   *           type: string
+   *           format: email
+   *     responses:
+   *       200:
+   *         description: Whether a profile exists for that email
+   *       422:
+   *         description: Validation failed
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
    */
   router.get(
     '/account-exists',

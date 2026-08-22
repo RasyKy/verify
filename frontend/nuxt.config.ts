@@ -10,7 +10,14 @@ export default defineNuxtConfig({
    */
   runtimeConfig: {
     public: {
-      apiBase: 'http://localhost:3001',
+      // Base URL of the Express API (backend/). Read by useApi().
+      //
+      // Deliberately NOT a routeRules `/api/**` proxy: this app serves its own
+      // Nitro handlers under server/api/, and a blanket proxy would collide with
+      // them. The backend's CORS allowlist already permits this origin with
+      // `Authorization`, and auth is bearer-token rather than cookie, so there is
+      // nothing same-origin would buy us.
+      apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:3001',
     },
   },
   app: {

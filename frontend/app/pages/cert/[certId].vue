@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import QrcodeVue from 'qrcode.vue'
 import type { VerifyResult } from '~/composables/useVerify'
 
 definePageMeta({ layout: false })
@@ -8,15 +9,13 @@ useHead({
 })
 
 const route = useRoute()
-// A getter, not a snapshot: navigating from /verify/a to /verify/b reuses this
-// component, so reading the param once would leave the first result on screen.
-const certId = computed(() => route.params.certId as string)
+const certId = route.params.certId as string
 const { public: { apiBase } } = useRuntimeConfig()
 
 // Public endpoint — no bearer token, so plain useFetch rather than useApi().
 // SSR-rendered so a shared link shows the verdict without a client round-trip.
 const { data: displayResult, pending, error } = useFetch<VerifyResult>(
-  () => `/api/certificates/verify/${certId.value}`,
+  () => `/api/certificates/verify/${certId}`,
   { baseURL: apiBase, default: () => null },
 )
 
@@ -28,14 +27,9 @@ const { data: displayResult, pending, error } = useFetch<VerifyResult>(
  */
 const unavailable = computed(() => Boolean(error.value))
 
-// For "verify another certificate" bar below the result
-const newCertId = ref('')
-const qrModalOpen = ref(false)
-
-function onNewSearch() {
-  const id = newCertId.value.trim()
-  if (id) navigateTo(`/verify/${id}`)
-}
+// This page's own URL — the canonical public link for a certificate, shared
+// via "Open public page" and the QR code in the issuer/recipient portals.
+const certUrl = computed(() => `${useRequestURL().origin}/cert/${certId}`)
 </script>
 
 <template>
@@ -50,9 +44,9 @@ function onNewSearch() {
 
       <!-- Heading -->
       <div class="text-center mb-8">
-        <h1 class="text-2xl font-semibold text-gray-900">Verify a certificate</h1>
+        <h1 class="text-2xl font-semibold text-gray-900">Certificate</h1>
         <p class="text-sm text-gray-500 mt-2">
-          Enter a certificate ID or scan a QR code to confirm its authenticity.
+          This is the public record for this certificate.
         </p>
       </div>
 
@@ -75,32 +69,35 @@ function onNewSearch() {
         </UButton>
       </div>
 
-      <!-- Result card -->
-      <VerifyResultCard v-else :result="displayResult" :loading="pending" />
+      <template v-else>
+        <!-- Result card -->
+        <VerifyResultCard :result="displayResult" :loading="pending" />
 
-      <!-- Verify another certificate -->
-      <div class="mt-8">
-        <div class="flex items-center gap-3 mb-4">
-          <div class="flex-1 h-px bg-gray-200" />
-          <span class="text-xs text-gray-400 shrink-0">Verify another certificate</span>
-          <div class="flex-1 h-px bg-gray-200" />
+        <!-- QR code -->
+        <div
+          v-if="!pending && displayResult?.certificate"
+          class="mt-6 rounded-xl border border-gray-200 bg-white p-6 flex items-center gap-4"
+        >
+          <ClientOnly>
+            <QrcodeVue :value="certUrl" :size="140" level="M" />
+            <template #fallback>
+              <div class="qr-placeholder" />
+            </template>
+          </ClientOnly>
+          <p class="text-xs text-gray-500 flex-1 min-w-0">
+            Scan this code to open this certificate's public page directly.
+          </p>
         </div>
-        <VerifySearchBar v-model="newCertId" @submit="onNewSearch" />
-        <div class="flex justify-center mt-3">
-          <UButton
-            variant="ghost"
-            color="neutral"
-            icon="i-heroicons-qr-code"
-            size="sm"
-            @click="qrModalOpen = true"
-          >
-            Scan QR code instead
-          </UButton>
-        </div>
-      </div>
+      </template>
     </div>
-
-    <!-- QR scanner modal -->
-    <VerifyQrScannerModal v-model:open="qrModalOpen" />
   </div>
 </template>
+
+<style scoped>
+.qr-placeholder {
+  width: 140px;
+  height: 140px;
+  background: var(--surface-hover);
+  border-radius: 0.5rem;
+}
+</style>

@@ -1,20 +1,6 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'issuer' })
 
-import { useIssuerCertificates } from '~/composables/useIssuerCertificates'
-
-const {
-  stats,
-  chartData: getChartData,
-  recentActivity,
-  pending,
-  ensureLoaded,
-} = useIssuerCertificates()
-
-// Client-side: the request needs the user's access token. See the note in
-// pages/issuer/certificates.vue.
-onMounted(ensureLoaded)
-
 const range = ref('30d')
 
 const rangeOptions = [
@@ -27,8 +13,13 @@ const rangeOptions = [
 // button open the one modal instance the layout renders.
 const issueModalOpen = useState<boolean>('issue-modal', () => false)
 
-const rangeDays: Record<string, number> = { '7d': 7, '30d': 30, '90d': 90 }
-const chartData = computed(() => getChartData(rangeDays[range.value] ?? 30))
+// Refetches on range change — the chart series is zero-filled server-side for
+// exactly the requested window, so it cannot be derived by slicing a cache.
+const { data: dashboard, pending } = useDashboard(range)
+
+const stats = computed(() => dashboard.value.stats)
+const chartData = computed(() => dashboard.value.chartData)
+const recentActivity = computed(() => dashboard.value.recentActivity)
 </script>
 
 <template>

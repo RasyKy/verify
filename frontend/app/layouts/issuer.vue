@@ -1,9 +1,12 @@
 <script setup lang="ts">
-const user = useSupabaseUser()
+// The organization comes from GET /api/auth/me, not from
+// user_metadata.institution_name — that field is writable by the user through
+// auth.updateUser(), so it is fine as a display label but must never be the
+// source of truth for which institution this issuer represents.
+const me = useMe()
+await fetchMe()
 
-const institutionName = computed(() =>
-  user.value?.user_metadata?.institution_name ?? ''
-)
+const institutionName = computed(() => me.value?.organization?.name ?? '')
 
 const issueModalOpen = useState<boolean>('issue-modal', () => false)
 const certsRefreshKey = useState<number>('certs-refresh', () => 0)
@@ -13,16 +16,12 @@ const nav = [
   { label: 'Certificates', icon: 'i-heroicons-document-text', to: '/issuer/certificates' },
 ]
 
-// Resolved during setup: calling a Nuxt composable after an await inside the
-// handler below would be outside the instance's scope.
-const currentUser = useCurrentUser()
-
 async function logout() {
   const supabase = useSupabaseClient()
   await supabase.auth.signOut()
   // Drop the cached profile too, or the next person to sign in on this tab
   // inherits the previous user's role until the state is rebuilt.
-  currentUser.value = null
+  clearMe()
   await navigateTo('/login')
 }
 </script>

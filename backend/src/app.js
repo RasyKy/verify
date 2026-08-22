@@ -15,8 +15,13 @@ import { requestId, requestLogger } from './middleware/requestLogger.js';
 import { apiLimiter } from './middleware/rateLimit.js';
 import { healthRouter } from './routes/health.js';
 import { authRouter } from './routes/auth.js';
-import { certificatesRouter } from './routes/certificates.js';
 import { adminRouter } from './routes/admin.js';
+import { certificatesRouter } from './routes/certificates.js';
+import { claimRouter } from './routes/claim.js';
+import { coursesRouter } from './routes/courses.js';
+import { dashboardRouter } from './routes/dashboard.js';
+import { docsRouter } from './routes/docs.js';
+import { registryRouter } from './routes/registry.js';
 
 export function createApp() {
   const app = express();
@@ -72,9 +77,17 @@ export function createApp() {
 
   app.use('/api', apiLimiter);
   app.use('/api/auth', authRouter);
-  app.use('/api/certificates', certificatesRouter);
   app.use('/api/admin', adminRouter);
-
+  // These mount at /api rather than a sub-path because their routes carry
+  // their own top-level names (/certificates, /courses, /dashboard, /claim,
+  // /docs, /registry) and the frontend (or a browser, for /docs) calls those
+  // paths directly.
+  app.use('/api', certificatesRouter);
+  app.use('/api', coursesRouter);
+  app.use('/api', dashboardRouter);
+  app.use('/api', claimRouter);
+  app.use('/api', docsRouter);
+  app.use('/api', registryRouter);
   // Express 5 removed bare '*' wildcards (path-to-regexp v8) — a named splat
   // is now required or this throws at mount time.
   app.use('/{*splat}', notFoundHandler);

@@ -1,23 +1,20 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
-import type { IssuerCertificate as Certificate } from '~/composables/useIssuerCertificates'
-import { useIssuerCertificates } from '~/composables/useIssuerCertificates'
+import type { IssuerCertificate as Certificate } from '~/composables/useCertificates'
+import { apiErrorMessage } from '~/composables/useCertificates'
 
 definePageMeta({ layout: 'issuer' })
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 
 // Scoped to the signed-in issuer's institution by the backend, not here.
-const {
-  certificates: certs,
-  pending,
-  error: loadError,
-  ensureLoaded,
-} = useIssuerCertificates()
+const { certificates: certs, pending, refresh, error } = useCertificates()
 
-// Client-side: the request needs the user's access token, which is a browser
-// concern, and this page is behind a guard so there is nothing to prerender.
-onMounted(ensureLoaded)
+// Rendered as an alert below. A load failure must read as "we could not fetch",
+// never as an empty institution with no certificates.
+const loadError = computed(() =>
+  error.value ? apiErrorMessage(error.value, 'Could not load certificates') : null,
+)
 
 // Shared state: issue modal open trigger, toggled by the sidebar's "Issue
 // certificate" button and the empty-state CTA below.
@@ -102,6 +99,8 @@ function openEdit(cert: Certificate) {
 
 function onEditSuccess() {
   editModalOpen.value = false
+  // An edit reissues the hash server-side; refetch so the row reflects it.
+  refresh()
 }
 
 // ── Revoke modal ──────────────────────────────────────────────────────────────
@@ -114,9 +113,16 @@ function openRevoke(cert: Certificate) {
   revokeModalOpen.value = true
 }
 
-// The revoke composable action already mutates the shared certs store —
-// certs (computed) updates on its own, nothing to do here.
-function onCertRevoked() {}
+// Status is derived server-side, so refetch rather than patching the row here:
+// a local guess could disagree with what the next load shows.
+function onCertRevoked() {
+  refresh()
+}
+
+// The issue modal lives in the issuer layout, so a certificate issued from the
+// sidebar has to reach this table somehow. The layout bumps a shared counter.
+const certsRefreshKey = useState<number>('certs-refresh', () => 0)
+watch(certsRefreshKey, () => refresh())
 </script>
 
 <template>

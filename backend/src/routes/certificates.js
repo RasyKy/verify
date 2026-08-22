@@ -1,124 +1,212 @@
 /**
- * Certificate endpoints.
+ * Certificate endpoints — the core product surface.
  *
- *   POST /api/certificates                    issue   (issuer/admin) → real chain tx
- *   GET  /api/certificates                    list    (issuer/admin, org-scoped)
- *   GET  /api/certificates/:id                detail  (issuer/admin, org-scoped)
- *   POST /api/certificates/:id/revoke         revoke  (issuer/admin) → real chain tx
- *   GET  /api/certificates/verify/:certId     PUBLIC  verification
+ *   GET  /api/certificates              issuer  list, org-scoped, snake_case
+ *   POST /api/certificates              issuer  issue (FR-ISSUE-01..07)
+ *   GET  /api/certificates/verify/:id   PUBLIC  verification (FR-VERIFY-01..05)
+ *   GET  /api/certificates/:id          issuer  single, org-scoped
+ *   PUT  /api/certificates/:id          issuer  edit = revoke + reissue
+ *   POST /api/certificates/:id/revoke   issuer  revoke (FR-MGMT-03)
+ *   GET  /api/certificates/:id/qr       PUBLIC  QR PNG/SVG (FR-HOLD-02)
  *
- * Built as a factory so tests inject a fake service instead of touching
- * Supabase or Amoy (jest.mock does not work under this ESM setup).
+ * Route ORDER matters: `/verify/:certId` and the literal-prefixed routes are
+ * registered before `/:id`, or Express would match "verify" as an id.
  *
- * Responses are snake_case, matching the rest of the API; the frontend maps to
- * camelCase in one composable rather than the backend guessing per-route.
+ * Built as a factory so tests inject fakes — jest.mock() does not work under
+ * this project's native-ESM Jest (see backend/README.md).
  */
-import { Router } from 'express';
+import crypto from 'node:crypto';
 
+import { Router } from 'express';
+import QRCode from 'qrcode';
+
+import { env } from '../config/env.js';
+import { certificateService as defaultService } from '../services/certificate.js';
+import { logger } from '../lib/logger.js';
 import {
-  requireAuth as defaultRequireAuth,
+  requireAuth,
   requireOrganization,
   requireRole,
   ROLES,
 } from '../middleware/auth.js';
-import { validate } from '../middleware/validate.js';
-import { uuidParam } from '../schemas/common.js';
+import { issuanceLimiter, verifyLimiter } from '../middleware/rateLimit.js';
+import { validate, validateAll } from '../middleware/validate.js';
 import {
+  certIdParamSchema,
   issueCertificateSchema,
   listCertificatesSchema,
+  qrQuerySchema,
   revokeCertificateSchema,
-  verifyParamsSchema,
+  updateCertificateSchema,
 } from '../schemas/certificate.js';
-import { certificateService as defaultService } from '../services/certificateService.js';
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
- * @param {object} [deps]
- * @param {ReturnType<import('../services/certificateService.js').createCertificateService>} [deps.service]
- * @param {import('express').RequestHandler} [deps.requireAuth]
+ * Client IPs are personal data under most readings, and the only thing the
+ * verification log needs them for is "was this the same visitor". A salted
+ * digest answers that without storing the address (NFR-SEC-02).
  */
-export function createCertificateRouter({
+function hashIp(ip) {
+  if (!ip) return null;
+  return crypto
+    .createHash('sha256')
+    .update(`${ip}:${env.SUPABASE_SERVICE_KEY.slice(0, 16)}`)
+    .digest('hex');
+}
+
+export function createCertificatesRouter({
   service = defaultService,
-  requireAuth = defaultRequireAuth,
+  requireAuth: auth = requireAuth,
 } = {}) {
   const router = Router();
-
-  /**
-   * Issuing requires an institution to attribute the certificate to, and
-   * `certificates.organization_id` is NOT NULL. A platform admin deliberately
-   * belongs to no institution, so an admin cannot issue — there is no correct
-   * organization to record.
-   */
-  const canIssue = [
-    requireAuth,
-    requireRole(ROLES.ISSUER),
-    requireOrganization,
-  ];
-
-  /**
-   * Reading and revoking are open to admins platform-wide. The service scopes
-   * an issuer to its own organization and lets an admin through (see the
-   * `role !== 'admin'` checks in certificateService.js), so the org filter is
-   * applied there rather than in a middleware that cannot express "all".
-   *
-   * `requireOrganization` still applies to issuers: one with no institution
-   * would otherwise query `organization_id = null` and see nothing, which
-   * looks like data loss rather than a misconfigured account.
-   */
-  const requireScope = (req, res, next) =>
-    req.user?.role === ROLES.ADMIN
-      ? next()
-      : requireOrganization(req, res, next);
-
-  const canManage = [
-    requireAuth,
-    requireRole(ROLES.ISSUER, ROLES.ADMIN),
-    requireScope,
-  ];
+  const issuerOnly = [auth, requireRole(ROLES.ISSUER), requireOrganization];
 
   /**
    * @openapi
    * /api/certificates/verify/{certId}:
    *   get:
-   *     summary: Publicly verify a certificate against the blockchain
-   *     tags: [Certificates]
+   *     summary: Publicly verify a certificate
+   *     tags: [Verification]
    *     security: []
+   *     parameters:
+   *       - name: certId
+   *         in: path
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: Any string is accepted — a malformed UUID answers `invalid`, not a 4xx.
+   *     responses:
+   *       200:
+   *         description: Verification result — status is verified, invalid, revoked or expired
+   *       429:
+   *         description: Rate limited
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       503:
+   *         description: The chain or database is temporarily unreachable — not a verdict on the certificate
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
    */
-  // Mounted BEFORE '/:id' — Express matches in order, and '/verify/x' would
-  // otherwise be captured by the '/:id' route and rejected as a bad UUID.
-  //
-  // Validation is inline rather than via the `validate` middleware because a
-  // malformed ID must render as "invalid", not as a 422. The public page lets
-  // a verifier paste anything into the search box, and an error response there
-  // surfaces as a broken page rather than an answer. (`validate` calls
-  // next(err), which jumps straight to the error handler — a second fallback
-  // route would never be reached.)
-  router.get('/verify/:certId', async (req, res, next) => {
-    const parsed = verifyParamsSchema.safeParse(req.params);
-    if (!parsed.success) {
-      return res.json({ status: 'invalid', certificate: null });
+  router.get(
+    '/certificates/verify/:certId',
+    verifyLimiter,
+    async (req, res, next) => {
+      const { certId } = req.params;
+
+      // The verify page's search box accepts free text, so a malformed ID is a
+      // normal user action, not a client error: answer `invalid` rather than 422.
+      // This also rejects enumeration attempts before they reach the database.
+      if (!UUID_RE.test(certId)) {
+        await service.logVerification({
+          certId,
+          result: 'not_found',
+          ipHash: hashIp(req.ip),
+          userAgent: req.get('user-agent'),
+        });
+        return res.json({ status: 'invalid', certificate: null });
+      }
+
+      try {
+        const result = await service.verify({ certId });
+        await service.logVerification({
+          certId,
+          result: result.status === 'invalid' ? 'invalid' : result.status,
+          ipHash: hashIp(req.ip),
+          userAgent: req.get('user-agent'),
+        });
+        res.json(result);
+      } catch (err) {
+        // A 503 from the chain reaches the client as UPSTREAM_UNAVAILABLE, which
+        // the frontend must show as "could not check", never as "not genuine".
+        await service.logVerification({
+          certId,
+          result: 'error',
+          ipHash: hashIp(req.ip),
+          userAgent: req.get('user-agent'),
+        });
+        next(err);
+      }
     }
-    try {
-      res.json(await service.verifyByCertId(parsed.data.certId, req));
-    } catch (err) {
-      next(err);
-    }
-  });
+  );
 
   /**
    * @openapi
-   * /api/certificates:
-   *   post:
-   *     summary: Issue a certificate and anchor its hash on chain
+   * /api/certificates/{id}/qr:
+   *   get:
+   *     summary: QR code encoding the public verify URL
    *     tags: [Certificates]
+   *     security: []
+   *     parameters:
+   *       - name: id
+   *         in: path
+   *         required: true
+   *         schema:
+   *           type: string
+   *           format: uuid
+   *       - name: format
+   *         in: query
+   *         schema:
+   *           type: string
+   *           enum: [png, svg]
+   *           default: png
+   *       - name: size
+   *         in: query
+   *         schema:
+   *           type: integer
+   *           minimum: 64
+   *           maximum: 1024
+   *           default: 320
+   *     responses:
+   *       200:
+   *         description: QR code image
+   *         content:
+   *           image/png: {}
+   *           image/svg+xml: {}
+   *       422:
+   *         description: Validation failed
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
    */
-  router.post(
-    '/',
-    ...canIssue,
-    validate(issueCertificateSchema),
+  router.get(
+    '/certificates/:id/qr',
+    validateAll({ params: certIdParamSchema, query: qrQuerySchema }),
     async (req, res, next) => {
+      const { id } = req.validated.params;
+      const { format, size } = req.validated.query;
+
+      // Public on purpose: a QR code is meant to be embedded in a shared
+      // certificate page, and it encodes a URL that is itself public. It
+      // reveals nothing that scanning the printed certificate would not.
+      const payload = `${env.publicAppUrl}/verify/${id}`;
+
       try {
-        const created = await service.issue(req.validated.body, req.user);
-        res.status(201).json(created);
+        if (format === 'svg') {
+          const svg = await QRCode.toString(payload, {
+            type: 'svg',
+            width: size,
+            margin: 1,
+          });
+          res.type('image/svg+xml');
+          res.set('Cache-Control', 'public, max-age=86400');
+          return res.send(svg);
+        }
+
+        const png = await QRCode.toBuffer(payload, {
+          type: 'png',
+          width: size,
+          margin: 1,
+        });
+        res.type('image/png');
+        res.set('Cache-Control', 'public, max-age=86400');
+        return res.send(png);
       } catch (err) {
         next(err);
       }
@@ -129,16 +217,113 @@ export function createCertificateRouter({
    * @openapi
    * /api/certificates:
    *   get:
-   *     summary: List certificates for the caller's institution
+   *     summary: List the caller's organization's certificates
    *     tags: [Certificates]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: List of certificates
+   *       401:
+   *         description: Missing or invalid bearer token
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       403:
+   *         description: Caller is not an issuer, or has no organization
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       422:
+   *         description: Validation failed
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
    */
   router.get(
-    '/',
-    ...canManage,
+    '/certificates',
+    ...issuerOnly,
     validate(listCertificatesSchema, 'query'),
     async (req, res, next) => {
       try {
-        res.json(await service.list(req.user, req.validated.query));
+        const { status, search, limit, offset } = req.validated.query;
+        res.json(
+          await service.list({
+            organizationId: req.user.organizationId,
+            status,
+            search,
+            limit,
+            offset,
+          })
+        );
+      } catch (err) {
+        next(err);
+      }
+    }
+  );
+
+  /**
+   * @openapi
+   * /api/certificates:
+   *   post:
+   *     summary: Issue a certificate
+   *     tags: [Certificates]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       201:
+   *         description: Certificate issued
+   *       401:
+   *         description: Missing or invalid bearer token
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       403:
+   *         description: Caller is not an issuer, or has no organization
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       422:
+   *         description: Validation failed
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       429:
+   *         description: Rate limited
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       503:
+   *         description: The chain is temporarily unreachable
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   */
+  router.post(
+    '/certificates',
+    ...issuerOnly,
+    issuanceLimiter,
+    validate(issueCertificateSchema),
+    async (req, res, next) => {
+      try {
+        const result = await service.issue({
+          input: req.validated.body,
+          user: req.user,
+        });
+        logger.info('certificate issued', {
+          certificateId: result.id,
+          organizationId: req.user.organizationId,
+          chainStatus: result.chain_status,
+        });
+        res.status(201).json(result);
       } catch (err) {
         next(err);
       }
@@ -149,16 +334,131 @@ export function createCertificateRouter({
    * @openapi
    * /api/certificates/{id}:
    *   get:
-   *     summary: Certificate detail
+   *     summary: One certificate, scoped to the caller's organization
    *     tags: [Certificates]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - name: id
+   *         in: path
+   *         required: true
+   *         schema:
+   *           type: string
+   *           format: uuid
+   *     responses:
+   *       200:
+   *         description: The certificate
+   *       401:
+   *         description: Missing or invalid bearer token
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       403:
+   *         description: Caller is not an issuer, or has no organization
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       404:
+   *         description: Certificate not found
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       422:
+   *         description: Validation failed
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
    */
   router.get(
-    '/:id',
-    ...canManage,
-    validate(uuidParam('id'), 'params'),
+    '/certificates/:id',
+    ...issuerOnly,
+    validate(certIdParamSchema, 'params'),
     async (req, res, next) => {
       try {
-        res.json(await service.getById(req.validated.params.id, req.user));
+        res.json(
+          await service.getById({
+            id: req.validated.params.id,
+            organizationId: req.user.organizationId,
+          })
+        );
+      } catch (err) {
+        next(err);
+      }
+    }
+  );
+
+  /**
+   * @openapi
+   * /api/certificates/{id}:
+   *   put:
+   *     summary: Edit a certificate (revoke the old hash, issue a new one)
+   *     tags: [Certificates]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - name: id
+   *         in: path
+   *         required: true
+   *         schema:
+   *           type: string
+   *           format: uuid
+   *     responses:
+   *       200:
+   *         description: Certificate updated (revoked + reissued)
+   *       401:
+   *         description: Missing or invalid bearer token
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       403:
+   *         description: Caller is not an issuer, or has no organization
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       404:
+   *         description: Certificate not found
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       409:
+   *         description: Certificate has already been revoked
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       422:
+   *         description: Validation failed
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       503:
+   *         description: The chain is temporarily unreachable
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   */
+  router.put(
+    '/certificates/:id',
+    ...issuerOnly,
+    validateAll({ params: certIdParamSchema, body: updateCertificateSchema }),
+    async (req, res, next) => {
+      try {
+        res.json(
+          await service.update({
+            id: req.validated.params.id,
+            input: req.validated.body,
+            user: req.user,
+          })
+        );
       } catch (err) {
         next(err);
       }
@@ -169,22 +469,69 @@ export function createCertificateRouter({
    * @openapi
    * /api/certificates/{id}/revoke:
    *   post:
-   *     summary: Revoke a certificate on chain and in the database
+   *     summary: Revoke a certificate
    *     tags: [Certificates]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - name: id
+   *         in: path
+   *         required: true
+   *         schema:
+   *           type: string
+   *           format: uuid
+   *     responses:
+   *       200:
+   *         description: Certificate revoked
+   *       401:
+   *         description: Missing or invalid bearer token
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       403:
+   *         description: Caller is not an issuer, or has no organization
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       404:
+   *         description: Certificate not found
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       409:
+   *         description: Certificate has already been revoked
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       422:
+   *         description: Validation failed
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       503:
+   *         description: The chain is temporarily unreachable
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
    */
   router.post(
-    '/:id/revoke',
-    ...canManage,
-    validate(uuidParam('id'), 'params'),
-    validate(revokeCertificateSchema),
+    '/certificates/:id/revoke',
+    ...issuerOnly,
+    validateAll({ params: certIdParamSchema, body: revokeCertificateSchema }),
     async (req, res, next) => {
       try {
         res.json(
-          await service.revoke(
-            req.validated.params.id,
-            req.user,
-            req.validated.body.reason
-          )
+          await service.revoke({
+            id: req.validated.params.id,
+            reason: req.validated.body.reason ?? null,
+            user: req.user,
+          })
         );
       } catch (err) {
         next(err);
@@ -195,4 +542,4 @@ export function createCertificateRouter({
   return router;
 }
 
-export const certificatesRouter = createCertificateRouter();
+export const certificatesRouter = createCertificatesRouter();

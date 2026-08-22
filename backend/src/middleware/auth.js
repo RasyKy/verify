@@ -94,7 +94,7 @@ function loadProfile(userId) {
     const data = unwrap(
       await adminClient
         .from('profiles')
-        .select('id, email, role, organization_id, status')
+        .select('id, email, full_name, role, organization_id, status')
         .eq('id', userId)
         .maybeSingle(),
       'load profile'
@@ -109,42 +109,57 @@ export function invalidateProfileCache(userId) {
 }
 
 /**
+ * Verifies the bearer token's signature and expiry only — no `profiles`
+ * lookup. Use this (not `requireAuth`) when a caller may be authenticated
+ * with Supabase but not yet provisioned in `profiles`, e.g. a holder
+ * confirming a claim moments after self-registering (routes/claim.js).
+ *
+ * Throws the same 401/503 errors `requireAuth` would for a bad/unreachable
+ * token; never checks account status or role.
+ */
+export async function verifyBearerToken(req) {
+  const token = extractBearer(req);
+  if (!token) {
+    throw unauthorized('Missing bearer token.');
+  }
+
+  let payload;
+  try {
+    ({ payload } = await verifyJwt(token));
+  } catch (err) {
+    // Distinguish "the token is bad" (401, the client's problem) from "we
+    // could not reach the JWKS endpoint" (503, ours). Collapsing both to 401
+    // would tell a signed-in user their session expired during an outage.
+    if (
+      err?.code === 'ERR_JWKS_TIMEOUT' ||
+      err?.code === 'ERR_JWKS_NO_MATCHING_KEY' ||
+      err?.name === 'JWKSTimeout' ||
+      err?.cause?.code === 'ENOTFOUND' ||
+      err?.cause?.code === 'ECONNREFUSED'
+    ) {
+      logger.error('JWKS unavailable — cannot verify tokens', { err });
+      throw upstreamUnavailable('Authentication service');
+    }
+    logger.warn('token verification failed', {
+      requestId: req.id,
+      reason: err?.code ?? err?.message,
+    });
+    throw unauthorized('Invalid or expired token.');
+  }
+
+  const userId = payload.sub;
+  if (!userId) throw unauthorized('Token is missing a subject claim.');
+
+  return { userId, email: payload.email ?? null, token, payload };
+}
+
+/**
  * Requires a valid token. Populates `req.user`.
  * Rejects with 401 for a missing/invalid token, 403 for a deactivated account.
  */
 export async function requireAuth(req, _res, next) {
   try {
-    const token = extractBearer(req);
-    if (!token) {
-      throw unauthorized('Missing bearer token.');
-    }
-
-    let payload;
-    try {
-      ({ payload } = await verifyJwt(token));
-    } catch (err) {
-      // Distinguish "the token is bad" (401, the client's problem) from "we
-      // could not reach the JWKS endpoint" (503, ours). Collapsing both to 401
-      // would tell a signed-in user their session expired during an outage.
-      if (
-        err?.code === 'ERR_JWKS_TIMEOUT' ||
-        err?.code === 'ERR_JWKS_NO_MATCHING_KEY' ||
-        err?.name === 'JWKSTimeout' ||
-        err?.cause?.code === 'ENOTFOUND' ||
-        err?.cause?.code === 'ECONNREFUSED'
-      ) {
-        logger.error('JWKS unavailable — cannot verify tokens', { err });
-        throw upstreamUnavailable('Authentication service');
-      }
-      logger.warn('token verification failed', {
-        requestId: req.id,
-        reason: err?.code ?? err?.message,
-      });
-      throw unauthorized('Invalid or expired token.');
-    }
-
-    const userId = payload.sub;
-    if (!userId) throw unauthorized('Token is missing a subject claim.');
+    const { userId, token, payload } = await verifyBearerToken(req);
 
     const profile = await loadProfile(userId);
 
@@ -162,6 +177,9 @@ export async function requireAuth(req, _res, next) {
     req.user = {
       id: userId,
       email: profile.email,
+      // Display label only — the portals render it in the sidebar. Nullable:
+      // an account created through the claim flow may not have one yet.
+      fullName: profile.full_name ?? null,
       role: profile.role,
       organizationId: profile.organization_id,
       // Retained for diagnostics when a stale token disagrees with `profiles`.

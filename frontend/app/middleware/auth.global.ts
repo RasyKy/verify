@@ -1,81 +1,64 @@
-import { fetchCurrentUser, HOME_FOR_ROLE, type Role } from '~/composables/useCurrentUser'
-
 /**
- * Portal access control.
+ * Portal route guard.
  *
- * Replaces a guard that was short-circuited by an early `return` for local UI
- * work, which left /issuer, /recipient and /admin reachable with no session at
- * all.
+ * Two checks, because signed-in is not the same as permitted: a holder with a
+ * perfectly valid session must not reach /admin. The role comes from
+ * `GET /api/auth/me` (the `profiles` table), never from the JWT claim or
+ * `user_metadata` — see useMe.ts.
  *
- * Two distinct checks, and both are needed:
- *   • Is there a session?      — Supabase answers this in the browser.
- *   • Is it the right role?    — only the backend can answer, because the role
- *     lives in `profiles`, not in the JWT (see useCurrentUser).
- *
- * A session alone is not enough: without the role check, any signed-in holder
- * could open /admin simply by typing the URL.
- *
- * This is NOT the security boundary — the API is (every route carries
- * requireRole, asserted by backend/tests/rbac.matrix.test.js). This guard only
- * keeps people out of pages that would fail to load anything for them anyway.
+ * This is defence in depth, not the security boundary. The backend rejects
+ * unauthorised *data* requests regardless of what the browser renders; the guard
+ * exists so an unauthorised visitor sees the login page instead of an empty
+ * portal shell.
  */
-const PORTALS: { prefix: string; allow: Role[] }[] = [
-  { prefix: '/admin', allow: ['admin'] },
-  // Admins can open the issuer portal to see what an institution sees; the API
-  // scopes what they get back.
-  { prefix: '/issuer', allow: ['issuer', 'admin'] },
-  { prefix: '/recipient', allow: ['holder', 'issuer', 'admin'] },
+import type { Role } from '~/composables/useMe'
+
+const GUARDED: Array<{ prefix: string; roles: Role[] }> = [
+  { prefix: '/issuer', roles: ['issuer'] },
+  { prefix: '/recipient', roles: ['holder'] },
+  { prefix: '/admin', roles: ['admin'] },
 ]
 
 export default defineNuxtRouteMiddleware(async (to) => {
-  // The public verify page must never require a session — that is the entire
-  // point of it (anyone can check a certificate, no account needed).
-  if (to.path.startsWith('/verify') || to.path.startsWith('/claim')) return
-
-  const portal = PORTALS.find((p) => to.path.startsWith(p.prefix))
   const user = useSupabaseUser()
-  const isLogin = to.path === '/login'
 
-  if (!portal && !isLogin) return
-
-  // ── Session check: synchronous, so it is safe on both server and client ──
-  if (portal && !user.value) {
-    return navigateTo({ path: '/login', query: { redirect: to.path } })
-  }
-  if (isLogin && !user.value) return
-
-  /**
-   * ── Role check: browser only ──
-   *
-   * It needs a fetch, and awaiting inside middleware during SSR drops the Nuxt
-   * instance, so the `navigateTo` after it throws "A composable that requires
-   * access to the Nuxt instance was called outside of...". Deferring to the
-   * client also avoids the server having to hold the user's access token.
-   *
-   * Nothing is lost by skipping it server-side: this guard is a convenience,
-   * not the security boundary. The API enforces every role itself
-   * (backend/tests/rbac.matrix.test.js), so a page that renders for the wrong
-   * role simply gets 403s and no data.
-   */
-  if (import.meta.server) return
-
-  const profile = await fetchCurrentUser()
-
-  if (isLogin) {
-    // Already signed in: send them to their own portal rather than showing a
-    // login form they do not need.
-    return profile ? navigateTo(HOME_FOR_ROLE[profile.role]) : undefined
+  // Already signed in and heading to /login: send them to their own portal.
+  if (to.path === '/login') {
+    if (!user.value) return
+    const result = await resolveMe()
+    if (result.state === 'ok') return navigateTo(ROLE_HOME[result.me.role] ?? '/')
+    // Refused or unreachable — stay on /login, which renders the reason.
+    return
   }
 
-  if (!profile) {
-    // A Supabase session exists but the backend will not honour it — a
-    // deactivated account, or a profile that was never provisioned.
-    return navigateTo({ path: '/login', query: { redirect: to.path } })
+  const guard = GUARDED.find((g) => to.path.startsWith(g.prefix))
+  if (!guard) return
+
+  const toLogin = () => navigateTo({ path: '/login', query: { redirect: to.path } })
+
+  if (!user.value) return toLogin()
+
+  const result = await resolveMe()
+
+  if (result.state === 'unreachable') {
+    // Do NOT bounce to /login. The session is fine; the API is not reachable,
+    // and sending them to a login page they would sign into successfully — only
+    // to be bounced again — is an unbreakable loop with no explanation.
+    throw createError({
+      statusCode: 503,
+      statusMessage: 'Cannot reach the API',
+      message:
+        `The Verify API at ${useRuntimeConfig().public.apiBase} is not responding. ` +
+        `Start the backend (cd backend && npm run dev), then reload. (${result.message})`,
+      fatal: true,
+    })
   }
 
-  if (!portal!.allow.includes(profile.role)) {
-    // Redirect to where they do belong rather than showing a bare 403; a
-    // recipient who clicks an issuer link should land somewhere useful.
-    return navigateTo(HOME_FOR_ROLE[profile.role])
+  if (result.state !== 'ok') return toLogin()
+
+  // Signed in as the wrong role — send them where they do belong, rather than
+  // to a login page they are already past.
+  if (!guard.roles.includes(result.me.role)) {
+    return navigateTo(ROLE_HOME[result.me.role] ?? '/')
   }
 })

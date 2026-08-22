@@ -73,7 +73,14 @@ or use the bundled runner:
 npm run db:check     # are the credentials good, and are the tables there?
 SUPABASE_ACCESS_TOKEN=sbp_… npm run db:migrate
 npm run db:seed      # development fixtures for Postman
+npm run chain:sync   # replay the seeded hashes onto the chain service
 ```
+
+**`chain:sync` is not optional after a seed.** The seed's blockchain columns are
+synthetic, and verification ignores them — it recomputes the hash and asks the
+registry. Without this step every fixture verifies as `invalid`. The same script
+is the backfill when the real contract is deployed (`--dry-run` first, then
+`--yes`).
 
 `db:migrate` needs an **account** access token
 ([dashboard → account → tokens](https://supabase.com/dashboard/account/tokens)),

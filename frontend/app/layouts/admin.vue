@@ -1,16 +1,28 @@
 <script setup lang="ts">
-// Guarded by app/middleware/auth.global.ts, which requires the `admin` role
-// (read from the backend, not the JWT) before this layout renders.
+// Gated by app/middleware/auth.global.ts, which requires role === 'admin' from
+// GET /api/auth/me. The backend enforces the same on every /api/admin/* route.
+const me = useMe()
+await fetchMe()
+
+const adminEmail = computed(() => me.value?.email ?? '')
+const adminName = computed(() => displayName(me.value) || 'Admin')
+const adminInitials = computed(() =>
+  adminName.value
+    .split(/[\s.]+/)
+    .slice(0, 2)
+    .map((part) => part[0] ?? '')
+    .join('')
+    .toUpperCase(),
+)
 
 const menuOpen = ref(false)
-
-// Resolved during setup — see the note in layouts/issuer.vue.
-const currentUser = useCurrentUser()
 
 async function logout() {
   const supabase = useSupabaseClient()
   await supabase.auth.signOut()
-  currentUser.value = null
+  // Drop the cached profile too, or the next person to sign in on this tab
+  // inherits the previous user's role until the state is rebuilt.
+  clearMe()
   await navigateTo('/login?redirect=/admin')
 }
 
@@ -23,32 +35,6 @@ const nav = [
 ]
 
 const route = useRoute()
-
-/*
- * The footer identity. GET /api/auth/me returns no display name, so the name
- * comes from Supabase's user_metadata (set at sign-up) and the email — which
- * is authoritative — comes from the backend profile.
- */
-const supabaseUser = useSupabaseUser()
-
-const adminEmail = computed(
-  () => currentUser.value?.email ?? supabaseUser.value?.email ?? '',
-)
-
-const adminName = computed(() => {
-  const meta = supabaseUser.value?.user_metadata?.full_name
-  if (typeof meta === 'string' && meta.trim()) return meta.trim()
-  return 'Administrator'
-})
-
-/** Two initials from the name, falling back to the email's first letters. */
-const adminInitials = computed(() => {
-  const source =
-    adminName.value === 'Administrator' ? adminEmail.value : adminName.value
-  const parts = source.split(/[\s._@-]+/).filter(Boolean)
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase()
-  return (parts[0]?.slice(0, 2) || 'AD').toUpperCase()
-})
 
 function isActive(item: typeof nav[number]) {
   return item.exact

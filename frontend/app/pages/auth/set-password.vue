@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import { fetchCurrentUser, HOME_FOR_ROLE } from '~/composables/useCurrentUser'
-
 /**
  * Where an invited issuer lands.
  *
- * The admin never chooses a password (see backend/src/services/adminService.js)
- * — Supabase emails a one-time link, and clicking it drops a short-lived
+ * The admin never chooses a password (see the invite route in
+ * backend/src/routes/admin.js) — Supabase emails a one-time link, and clicking
+ * it drops a short-lived
  * session in the URL. supabase-js picks that up automatically; this page turns
  * it into a permanent credential the invitee has chosen themselves.
  *
@@ -64,10 +63,11 @@ async function onSubmit() {
       errorMessage.value = error.message
       return
     }
-    // Force a refetch: this is the first time the profile is being read, and
-    // the cache is empty or stale from the invite session.
-    const profile = await fetchCurrentUser(true)
-    await navigateTo(profile ? HOME_FOR_ROLE[profile.role] : '/login')
+    // Clear first: this is the first time the profile is being read, and any
+    // cached value is stale from the invite session.
+    clearMe()
+    const me = await fetchMe()
+    await navigateTo(me ? (ROLE_HOME[me.role] ?? '/') : '/login')
   } finally {
     submitting.value = false
   }

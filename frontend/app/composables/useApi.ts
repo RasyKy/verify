@@ -1,45 +1,49 @@
 /**
- * Authenticated calls to the backend API.
+ * $fetch instance pointed at the Express API, with the Supabase access token
+ * attached.
  *
- * Must be called from a setup function or middleware: it resolves the Nuxt
- * composables it needs up front and closes over them, so the function it
- * returns is safe to call later, after any number of awaits. Resolving them
- * lazily inside the request would throw "A composable that requires access to
- * the Nuxt instance was called outside of..." during SSR.
+ * The backend never mints tokens — the browser signs in directly against
+ * Supabase Auth (pages/login.vue) and `middleware/auth.js` on the backend only
+ * verifies the resulting JWT, locally against the project's JWKS. So the single
+ * job here is forwarding that token.
+ *
+ * Works during SSR too: @nuxtjs/supabase reads the session cookie server-side,
+ * so a `useFetch` on the issuer pages is already authenticated on first render.
+ *
+ * Public endpoints need no token and can use plain `useFetch`/`$fetch` —
+ * `GET /api/certificates/verify/:certId`, `/api/registry` and
+ * `/api/certificates/:id/qr` are unauthenticated by design (FR-AUTH-04,
+ * FR-VERIFY-05).
  */
-export function useApi() {
-  const supabase = useSupabaseClient()
-  const { public: config } = useRuntimeConfig()
-
+export interface UseApiOptions {
   /**
-   * @throws FetchError — `err.data.error.message` carries the backend's
-   * user-safe message (see backend/src/middleware/errorHandler.js); `err.status`
-   * the code. Callers are expected to surface that rather than a generic
-   * failure, because messages like "This certificate has already been revoked"
-   * are the whole point of the error contract.
+   * Bounce to /login when the API answers 401. Off for callers that run inside
+   * route middleware, where an extra navigateTo would fight the navigation
+   * already in flight (see useMe.ts).
    */
-  return async function apiFetch<T>(
-    path: string,
-    options: Parameters<typeof $fetch<T>>[1] = {},
-  ): Promise<T> {
-    // Read the token per request, not once: it is refreshed in the background
-    // and a captured copy would go stale on a long-lived page.
-    const { data } = await supabase.auth.getSession()
-    const token = data.session?.access_token
-
-    return $fetch<T>(path, {
-      baseURL: config.apiBase,
-      ...options,
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...(options?.headers as Record<string, string> | undefined),
-      },
-    })
-  }
+  redirectOn401?: boolean
 }
 
-/** Pulls the backend's user-safe message out of a failed apiFetch. */
-export function apiErrorMessage(err: unknown, fallback = 'Something went wrong.'): string {
-  const data = (err as { data?: { error?: { message?: string } } })?.data
-  return data?.error?.message ?? fallback
+export function useApi(options: UseApiOptions = {}) {
+  const { redirectOn401 = true } = options
+  const { public: { apiBase } } = useRuntimeConfig()
+  const session = useSupabaseSession()
+
+  return $fetch.create({
+    baseURL: apiBase,
+
+    onRequest({ options }) {
+      const token = session.value?.access_token
+      if (token) options.headers.set('Authorization', `Bearer ${token}`)
+    },
+
+    onResponseError({ response }) {
+      // Session expired or revoked, or the account was deactivated. Bounce to
+      // login rather than showing an empty table with no explanation.
+      if (redirectOn401 && response.status === 401) {
+        clearMe()
+        return navigateTo('/login')
+      }
+    },
+  })
 }
