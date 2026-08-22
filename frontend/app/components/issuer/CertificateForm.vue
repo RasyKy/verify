@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { z } from 'zod'
 import type { FormSubmitEvent } from '@nuxt/ui'
-import { DEFAULT_INSTITUTION } from '~/composables/useIssuerMockData'
+import { apiErrorMessage } from '~/composables/useApi'
+import { useIssuerCertificates } from '~/composables/useIssuerCertificates'
+import { useCurrentUser } from '~/composables/useCurrentUser'
 
 interface CertFormData {
   institution?: string
@@ -28,8 +30,14 @@ const emit = defineEmits<{
 
 const user = useSupabaseUser()
 const toast = useToast()
-const { courses: coursesStore, addCourse, issueCertificate, updateCertificate } = useIssuerMockData()
-const institutionFallback = DEFAULT_INSTITUTION
+const { courses: coursesStore, addCourse, issueCertificate } = useIssuerCertificates()
+
+// The institution shown in the form comes from the signed-in issuer's profile.
+// It is display-only: the backend derives the organization from the token and
+// ignores whatever this field contains, so it cannot be used to attribute a
+// certificate to another institution.
+const currentUser = useCurrentUser()
+const institutionFallback = computed(() => currentUser.value?.organization?.name ?? '')
 
 const today = new Date().toISOString().substring(0, 10)
 
@@ -48,7 +56,13 @@ type Schema = z.output<typeof schema>
 
 function makeState() {
   return {
-    institution: props.initialData?.institution ?? user.value?.user_metadata?.institution_name ?? institutionFallback,
+    // The profile's organization wins over user_metadata.institution_name,
+    // which the account holder can edit themselves.
+    institution:
+      props.initialData?.institution ??
+      institutionFallback.value ??
+      user.value?.user_metadata?.institution_name ??
+      '',
     studentName: props.initialData?.studentName ?? '',
     studentEmail: props.initialData?.studentEmail ?? '',
     courseName: props.initialData?.courseName ?? '',
@@ -122,19 +136,22 @@ watch(selectedCourse, (item) => {
 
 const isLoading = ref(false)
 
-function onSubmit(event: FormSubmitEvent<Schema>) {
-  isLoading.value = true
-  if (props.isEdit && props.certId) {
-    updateCertificate(props.certId, {
-      studentName: event.data.studentName,
-      studentEmail: event.data.studentEmail,
-      courseName: event.data.courseName,
-      completionDate: event.data.completionDate,
-      expiryDate: computedExpiryDate.value,
+async function onSubmit(event: FormSubmitEvent<Schema>) {
+  if (props.isEdit) {
+    // Editing is revoke-then-reissue on chain (the hash covers every field), and
+    // that endpoint does not exist yet. Better to say so than to update the row
+    // locally and leave it contradicting the hash it was issued with.
+    toast.add({
+      title: 'Editing is not available yet',
+      description: 'Revoke this certificate and issue a corrected one instead.',
+      color: 'warning',
     })
-    toast.add({ title: 'Certificate updated', color: 'success' })
-  } else {
-    issueCertificate({
+    return
+  }
+
+  isLoading.value = true
+  try {
+    await issueCertificate({
       institution: event.data.institution,
       studentName: event.data.studentName,
       studentEmail: event.data.studentEmail,
@@ -142,20 +159,31 @@ function onSubmit(event: FormSubmitEvent<Schema>) {
       completionDate: event.data.completionDate,
       expiryDate: computedExpiryDate.value,
     })
+
     toast.add({
       title: 'Certificate issued',
-      description: `Claim email sent to ${event.data.studentEmail}`,
+      description: 'Recorded in the database and anchored on the blockchain.',
       color: 'success',
     })
+
     Object.assign(state, makeState())
     expiryType.value = 'none'
     duration.value = '1 year'
     customExpiryDate.value = ''
     selectedCourse.value = undefined
     courseQuery.value = ''
+    emit('success')
+  } catch (err) {
+    // Nothing was written: the backend removes the row if the chain write
+    // fails, so a retry is safe and will not produce a duplicate.
+    toast.add({
+      title: 'Could not issue the certificate',
+      description: apiErrorMessage(err, 'Please try again.'),
+      color: 'error',
+    })
+  } finally {
+    isLoading.value = false
   }
-  isLoading.value = false
-  emit('success')
 }
 </script>
 

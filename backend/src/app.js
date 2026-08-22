@@ -15,6 +15,8 @@ import { requestId, requestLogger } from './middleware/requestLogger.js';
 import { apiLimiter } from './middleware/rateLimit.js';
 import { healthRouter } from './routes/health.js';
 import { authRouter } from './routes/auth.js';
+import { certificatesRouter } from './routes/certificates.js';
+import { adminRouter } from './routes/admin.js';
 
 export function createApp() {
   const app = express();
@@ -70,6 +72,8 @@ export function createApp() {
 
   app.use('/api', apiLimiter);
   app.use('/api/auth', authRouter);
+  app.use('/api/certificates', certificatesRouter);
+  app.use('/api/admin', adminRouter);
 
   // Express 5 removed bare '*' wildcards (path-to-regexp v8) — a named splat
   // is now required or this throws at mount time.

@@ -39,3 +39,19 @@ html::-webkit-scrollbar-thumb:hover {
     transform: translateY(0);
   }
 }
+
+/* ── Shared surfaces ──
+   The standalone pages (verify, claim, set-password) sit outside the portal
+   layouts, so they have no shell to inherit from. These two utilities give
+   them the same ground and card treatment the dashboards use, instead of each
+   page hand-rolling Tailwind greys. */
+.page-ground {
+  background: var(--canvas-app);
+}
+
+.surface-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-panel);
+}

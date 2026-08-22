@@ -4,10 +4,7 @@
       <!-- Brand -->
       <div class="footer-brand">
         <div class="footer-logo">
-          <div class="logo-badge">
-            <span class="logo-letter">V</span>
-          </div>
-          <span class="wordmark">Verify</span>
+          <BrandLogo :size="28" wordmark />
         </div>
         <p class="footer-tagline">Verifiable credentials for every institution.</p>
         <p class="footer-copy">© {{ year }} Verify. All rights reserved.</p>
@@ -70,30 +67,6 @@ const year = new Date().getFullYear()
   align-items: center;
   gap: 10px;
   margin-bottom: 12px;
-}
-
-.logo-badge {
-  width: 28px;
-  height: 28px;
-  border-radius: 7px;
-  background: var(--accent);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.logo-letter {
-  color: #fff;
-  font-weight: 700;
-  font-size: 13px;
-  line-height: 1;
-}
-
-.wordmark {
-  font-weight: 600;
-  font-size: 14px;
-  color: var(--text-primary);
 }
 
 .footer-tagline {

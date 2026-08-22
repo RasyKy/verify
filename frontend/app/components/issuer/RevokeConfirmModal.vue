@@ -17,16 +17,31 @@ const emit = defineEmits<{
 
 const toast = useToast()
 const isLoading = ref(false)
-const { revokeCertificate } = useIssuerMockData()
+const { revokeCertificate } = useIssuerCertificates()
 
-function onConfirm() {
+async function onConfirm() {
   if (!props.cert) return
   isLoading.value = true
-  revokeCertificate(props.cert.id)
-  toast.add({ title: 'Certificate revoked', color: 'success' })
-  emit('revoked', props.cert.id)
-  emit('update:open', false)
-  isLoading.value = false
+  try {
+    // Sends a real transaction to Polygon before the database is updated, so
+    // this takes seconds. The modal stays open and disabled until it lands.
+    await revokeCertificate(props.cert.id)
+    toast.add({
+      title: 'Certificate revoked',
+      description: 'The revocation is recorded on the blockchain.',
+      color: 'success',
+    })
+    emit('revoked', props.cert.id)
+    emit('update:open', false)
+  } catch (err) {
+    toast.add({
+      title: 'Could not revoke the certificate',
+      description: apiErrorMessage(err, 'Please try again.'),
+      color: 'error',
+    })
+  } finally {
+    isLoading.value = false
+  }
 }
 </script>
 

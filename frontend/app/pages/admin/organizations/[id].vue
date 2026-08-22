@@ -326,10 +326,10 @@ const typeLabels: Record<string, string> = {
   padding: 16px 20px;
   background: var(--surface-hover);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-card);
   margin-bottom: 32px;
   flex-wrap: wrap;
-  box-shadow: var(--shadow-card);
+  box-shadow: var(--shadow-panel);
 }
 
 .stat-item {

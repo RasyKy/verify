@@ -16,6 +16,8 @@
     "db:migrate": "node --env-file=.env scripts/apply-migrations.js",
     "db:seed": "node --env-file=.env scripts/seed.js",
     "db:seed:clean": "node --env-file=.env scripts/seed.js --clean",
+    "db:seed:chain": "node --env-file=.env scripts/seed.js --chain",
+    "smoke:chain": "node --env-file=.env scripts/smoke-chain.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"**/*.{js,json,md}\"",

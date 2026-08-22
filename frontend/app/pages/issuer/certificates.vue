@@ -1,12 +1,23 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
-import type { IssuerCertificate as Certificate } from '~/composables/useIssuerMockData'
+import type { IssuerCertificate as Certificate } from '~/composables/useIssuerCertificates'
+import { useIssuerCertificates } from '~/composables/useIssuerCertificates'
 
 definePageMeta({ layout: 'issuer' })
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 
-const { certificates: certs } = useIssuerMockData()
+// Scoped to the signed-in issuer's institution by the backend, not here.
+const {
+  certificates: certs,
+  pending,
+  error: loadError,
+  ensureLoaded,
+} = useIssuerCertificates()
+
+// Client-side: the request needs the user's access token, which is a browser
+// concern, and this page is behind a guard so there is nothing to prerender.
+onMounted(ensureLoaded)
 
 // Shared state: issue modal open trigger, toggled by the sidebar's "Issue
 // certificate" button and the empty-state CTA below.
@@ -121,6 +132,18 @@ function onCertRevoked() {}
         Issue certificate
       </button>
     </div>
+
+    <!-- A load failure must read as "we could not fetch", never as an empty
+         institution with no certificates. -->
+    <UAlert
+      v-if="loadError"
+      class="mb-4"
+      color="error"
+      variant="subtle"
+      icon="i-heroicons-exclamation-triangle"
+      title="Could not load certificates"
+      :description="loadError"
+    />
 
     <!-- Filter bar -->
     <div class="flex items-center gap-3 mb-4">

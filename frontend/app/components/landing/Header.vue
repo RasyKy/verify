@@ -1,15 +1,22 @@
 <template>
   <header class="landing-header">
     <div class="header-inner">
-      <a href="/" class="logo-link">
-        <div class="logo-badge">
-          <span class="logo-letter">V</span>
-        </div>
-        <span class="wordmark">Verify</span>
+      <a href="/" class="logo-link" aria-label="Verify — home">
+        <BrandLogo :size="30" wordmark />
       </a>
-      <a href="/issuer" class="cta-btn">
-        Get started free
-      </a>
+
+      <nav class="header-actions">
+        <!-- The public action: anyone with a certificate ID can use this, no
+             account involved. It replaces the old sign-up CTA. -->
+        <a href="/verify" class="ghost-btn">
+          <UIcon name="i-heroicons-magnifying-glass" class="btn-icon" />
+          Verify a certificate
+        </a>
+        <a href="/login" class="solid-btn">
+          Sign in
+          <UIcon name="i-heroicons-arrow-right" class="btn-icon btn-icon--trail" />
+        </a>
+      </nav>
     </div>
   </header>
 </template>
@@ -19,7 +26,8 @@
   position: sticky;
   top: 0;
   z-index: 50;
-  background: var(--canvas);
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: saturate(160%) blur(12px);
   border-bottom: 1px solid var(--border);
 }
 
@@ -27,68 +35,92 @@
   max-width: 1120px;
   margin: 0 auto;
   padding: 0 40px;
-  height: 56px;
+  height: 62px;
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
 .logo-link {
-  display: flex;
-  align-items: center;
-  gap: 10px;
   text-decoration: none;
 }
 
-.logo-badge {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: var(--accent);
+.header-actions {
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 8px;
+}
+
+.btn-icon {
+  width: 15px;
+  height: 15px;
   flex-shrink: 0;
 }
 
-.logo-letter {
-  color: #fff;
-  font-weight: 700;
-  font-size: 15px;
-  line-height: 1;
-}
-
-.wordmark {
-  font-weight: 600;
-  font-size: 15px;
-  color: var(--text-primary);
-}
-
-.cta-btn {
+.ghost-btn,
+.solid-btn {
   display: inline-flex;
   align-items: center;
-  padding: 8px 16px;
-  border-radius: 8px;
-  background: var(--accent);
-  color: #fff;
-  font-size: 14px;
-  font-weight: 500;
+  gap: 7px;
+  padding: 8px 15px;
+  border-radius: 9px;
+  font-size: 13.5px;
+  font-weight: 600;
   text-decoration: none;
-  transition: background-color 0.15s ease;
+  transition: background-color var(--transition-fast), color var(--transition-fast),
+              border-color var(--transition-fast), transform var(--transition-fast);
 }
 
-.cta-btn:hover {
-  background: var(--accent-text);
+.ghost-btn {
+  color: var(--text-secondary);
+  border: 1px solid transparent;
 }
 
-.cta-btn:focus-visible {
+.ghost-btn:hover {
+  color: var(--accent-text);
+  border-color: var(--border);
+  background: var(--surface-hover);
+}
+
+.solid-btn {
+  background: var(--grad-brand);
+  color: #fff;
+  box-shadow: var(--shadow-tile);
+}
+
+.solid-btn:hover {
+  transform: translateY(-1px);
+}
+
+.btn-icon--trail {
+  transition: transform var(--transition-fast);
+}
+
+.solid-btn:hover .btn-icon--trail {
+  transform: translateX(3px);
+}
+
+.ghost-btn:focus-visible,
+.solid-btn:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .solid-btn:hover,
+  .solid-btn:hover .btn-icon--trail {
+    transform: none;
+  }
 }
 
 @media (max-width: 640px) {
   .header-inner {
     padding: 0 20px;
+  }
+
+  /* Sign in is the one that must survive the squeeze */
+  .ghost-btn {
+    display: none;
   }
 }
 </style>

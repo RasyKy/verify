@@ -60,11 +60,12 @@ function formatDate(dateStr: string) {
 .cert-card {
   background: var(--surface);
   border: 1px solid var(--border);
-  box-shadow: var(--shadow-card);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-panel);
   transition: box-shadow var(--transition-base), transform var(--transition-base);
 }
 .cert-card:hover {
-  box-shadow: var(--shadow-card-hover);
+  box-shadow: var(--shadow-panel-hover);
   transform: translateY(-2px);
 }
 .badge-icon {

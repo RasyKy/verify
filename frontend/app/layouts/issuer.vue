@@ -13,31 +13,41 @@ const nav = [
   { label: 'Certificates', icon: 'i-heroicons-document-text', to: '/issuer/certificates' },
 ]
 
+// Resolved during setup: calling a Nuxt composable after an await inside the
+// handler below would be outside the instance's scope.
+const currentUser = useCurrentUser()
+
 async function logout() {
   const supabase = useSupabaseClient()
   await supabase.auth.signOut()
+  // Drop the cached profile too, or the next person to sign in on this tab
+  // inherits the previous user's role until the state is rebuilt.
+  currentUser.value = null
   await navigateTo('/login')
 }
 </script>
 
 <template>
-  <div class="flex h-screen overflow-hidden">
-    <aside class="w-55 shrink-0 flex flex-col border-r sidebar">
-      <!-- Logo + institution name -->
-      <div class="px-4 pt-6 pb-5">
-        <div class="flex items-center gap-2.5">
-          <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 logo-badge">
-            <span class="text-white font-bold text-sm leading-none">V</span>
-          </div>
-          <span class="font-semibold text-sm wordmark">Verify</span>
-        </div>
-        <p v-if="institutionName" class="text-xs mt-1.5 pl-10.5 truncate institution-name">
+  <div class="issuer-shell">
+    <aside class="rail">
+      <!-- Brand block -->
+      <div class="rail-brand">
+        <BrandLogo :size="34" tone="mono" wordmark label="Issuer" />
+        <p v-if="institutionName" class="rail-institution">
           {{ institutionName }}
         </p>
       </div>
 
-      <!-- Navigation -->
-      <nav class="flex-1 px-3 space-y-0.5">
+      <!-- Primary action sits above the nav: issuing is why this portal exists -->
+      <div class="rail-action-wrap">
+        <button class="rail-action" @click="issueModalOpen = true">
+          <UIcon name="i-heroicons-plus" class="rail-action-icon" />
+          Issue certificate
+        </button>
+      </div>
+
+      <nav class="rail-nav">
+        <p class="rail-section">Menu</p>
         <NuxtLink
           v-for="item in nav"
           :key="item.to"
@@ -46,39 +56,28 @@ async function logout() {
           v-slot="{ isExactActive, navigate }"
         >
           <button
-            class="nav-item flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-sm text-left"
-            :class="isExactActive ? 'nav-item--active' : ''"
+            class="rail-item"
+            :class="{ 'rail-item--active': isExactActive }"
             @click="navigate"
           >
-            <UIcon :name="item.icon" class="size-4 shrink-0" />
+            <span class="rail-marker" aria-hidden="true" />
+            <UIcon :name="item.icon" class="rail-icon" />
             {{ item.label }}
           </button>
         </NuxtLink>
-
-        <!-- Issue certificate — action button, not a route -->
-        <button
-          class="nav-item nav-item--action flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-sm text-left mt-1"
-          @click="issueModalOpen = true"
-        >
-          <UIcon name="i-heroicons-plus-circle" class="size-4 shrink-0" />
-          Issue certificate
-        </button>
       </nav>
 
-      <!-- Logout -->
-      <div class="px-3 pb-4 pt-3 sidebar-footer">
-        <button
-          class="nav-item flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-sm text-left"
-          @click="logout"
-        >
-          <UIcon name="i-heroicons-arrow-right-on-rectangle" class="size-4 shrink-0" />
+      <div class="rail-footer">
+        <button class="rail-item rail-item--quiet" @click="logout">
+          <span class="rail-marker" aria-hidden="true" />
+          <UIcon name="i-heroicons-arrow-right-on-rectangle" class="rail-icon" />
           Log out
         </button>
       </div>
     </aside>
 
     <!-- Page content -->
-    <main class="flex-1 overflow-y-auto p-10 main-canvas">
+    <main class="issuer-main">
       <slot />
     </main>
 
@@ -91,54 +90,214 @@ async function logout() {
 </template>
 
 <style scoped>
-.sidebar {
-  background: var(--canvas);
-  border-color: var(--border);
+.issuer-shell {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--canvas-app);
 }
 
-.logo-badge {
-  background: var(--accent);
+/* ── Rail ── */
+.rail {
+  width: 236px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--rail-bg);
+  background-image: linear-gradient(180deg, var(--rail-bg-soft) 0%, var(--rail-bg) 45%);
+  color: var(--rail-text);
 }
 
-.wordmark {
-  color: var(--text-primary);
+.rail-brand {
+  padding: 22px 18px 18px;
+  color: var(--rail-text-strong);
+  border-bottom: 1px solid var(--rail-border);
 }
 
-.institution-name {
-  color: var(--text-tertiary);
+.rail-institution {
+  font-size: 11.5px;
+  color: var(--rail-text-dim);
+  margin: 10px 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.main-canvas {
-  background: var(--canvas);
+/* ── Primary action ── */
+.rail-action-wrap {
+  padding: 16px 14px 6px;
 }
 
-.sidebar-footer {
-  border-top: 1px solid var(--border);
-}
-
-.nav-item {
-  color: var(--text-secondary);
-  transition: background-color 0.1s ease;
-}
-
-.nav-item:hover {
-  background: var(--surface-hover);
-}
-
-.nav-item--active {
-  background: var(--accent-light);
+.rail-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  border-radius: 10px;
+  background: #fff;
   color: var(--accent-text);
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 6px 16px -8px rgba(0, 0, 0, 0.5);
+  transition: transform var(--transition-fast), background-color var(--transition-fast);
 }
 
-.nav-item--active:hover {
+.rail-action:hover {
   background: var(--accent-light);
+  transform: translateY(-1px);
 }
 
-.nav-item--action {
-  color: var(--accent-text);
+.rail-action:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
 }
 
-.nav-item--action:hover {
-  background: var(--accent-light);
+.rail-action-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+/* ── Nav ── */
+.rail-nav {
+  flex: 1;
+  padding: 18px 14px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+}
+
+.rail-section {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--rail-text-dim);
+  margin: 0 0 8px;
+  padding-left: 12px;
+}
+
+.rail-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--rail-text);
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.rail-item:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--rail-text-strong);
+}
+
+.rail-item--active {
+  background: var(--rail-active-bg);
+  color: var(--rail-text-strong);
+  font-weight: 600;
+}
+
+.rail-item:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.7);
+  outline-offset: -2px;
+}
+
+/* Left edge marker — grows in on the active item only */
+.rail-marker {
+  position: absolute;
+  left: -14px;
+  top: 50%;
+  width: 3px;
+  height: 0;
+  border-radius: 0 3px 3px 0;
+  background: #7FD3C5;
+  transform: translateY(-50%);
+  transition: height var(--transition-base);
+}
+
+.rail-item--active .rail-marker {
+  height: 20px;
+}
+
+.rail-icon {
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
+}
+
+.rail-item--quiet {
+  color: var(--rail-text-dim);
+}
+
+/* ── Footer ── */
+.rail-footer {
+  padding: 12px 14px 16px;
+  border-top: 1px solid var(--rail-border);
+}
+
+/* ── Main ── */
+.issuer-main {
+  flex: 1;
+  overflow-y: auto;
+  padding: 34px 38px 48px;
+  background: var(--canvas-app);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rail-action:hover { transform: none; }
+  .rail-marker { transition: none; }
+}
+
+@media (max-width: 900px) {
+  .rail {
+    width: 74px;
+  }
+
+  /* Collapsed rail: the mark and the icons carry it */
+  .rail :deep(.brand-text),
+  .rail-institution,
+  .rail-section,
+  .rail-action,
+  .rail-item {
+    font-size: 0;
+  }
+
+  .rail-brand {
+    padding: 20px 0;
+    display: flex;
+    justify-content: center;
+  }
+
+  .rail-institution,
+  .rail-section {
+    display: none;
+  }
+
+  .rail-item,
+  .rail-action {
+    justify-content: center;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .issuer-main {
+    padding: 24px 18px 36px;
+  }
 }
 </style>

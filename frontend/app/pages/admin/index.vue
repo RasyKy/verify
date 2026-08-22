@@ -20,7 +20,11 @@ const tintStyle = (tint: string) => {
 
 <template>
   <div>
-    <AdminPageHeader title="Overview" description="Platform-wide snapshot across all organizations." />
+    <AdminPageHeader
+      eyebrow="Admin portal"
+      title="Overview"
+      description="Platform-wide snapshot across all organizations."
+    />
 
     <!-- Stat cards -->
     <div class="stats-grid">
@@ -84,10 +88,10 @@ const tintStyle = (tint: string) => {
 
 .card {
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   padding: 20px;
   background: var(--surface);
-  box-shadow: var(--shadow-card);
+  box-shadow: var(--shadow-panel);
 }
 
 .empty-state {

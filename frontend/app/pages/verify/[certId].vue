@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { lookupCertificate } from '~/composables/useVerifyMockData'
+import { useVerifyCertificate } from '~/composables/useVerifyCertificate'
 
 definePageMeta({ layout: false })
 
@@ -8,9 +8,11 @@ useHead({
 })
 
 const route = useRoute()
-const certId = route.params.certId as string
+// A getter, not a snapshot: navigating from /verify/a to /verify/b reuses this
+// component, so reading the param once would leave the first result on screen.
+const certId = computed(() => route.params.certId as string)
 
-const displayResult = computed(() => lookupCertificate(certId))
+const { result, pending, error } = useVerifyCertificate(certId)
 
 // For "verify another certificate" bar below the result
 const newCertId = ref('')
@@ -23,15 +25,12 @@ function onNewSearch() {
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50">
+  <div class="min-h-screen page-ground">
     <div class="max-w-xl mx-auto px-4 pt-16 pb-16">
       <!-- Logo + wordmark -->
       <div class="flex items-center justify-center gap-2.5 mb-8">
-        <NuxtLink to="/verify" class="flex items-center gap-2.5">
-          <div class="w-9 h-9 bg-teal-600 rounded-lg flex items-center justify-center shrink-0">
-            <span class="text-white font-bold text-sm leading-none">V</span>
-          </div>
-          <span class="font-semibold text-gray-900">Verify</span>
+        <NuxtLink to="/verify" aria-label="Verify — home">
+          <BrandLogo :size="32" wordmark />
         </NuxtLink>
       </div>
 
@@ -43,8 +42,20 @@ function onNewSearch() {
         </p>
       </div>
 
-      <!-- Result card -->
-      <VerifyResultCard :result="displayResult" :loading="false" />
+      <!--
+        A service failure is shown as its own state, never as an unverified
+        result: telling an employer a genuine credential is fake is far worse
+        than admitting the service is briefly unreachable.
+      -->
+      <UAlert
+        v-if="error"
+        color="warning"
+        variant="subtle"
+        icon="i-heroicons-exclamation-triangle"
+        title="Verification is temporarily unavailable"
+        description="We could not reach the verification service. This does not mean the certificate is invalid — please try again shortly."
+      />
+      <VerifyResultCard v-else :result="result" :loading="pending" />
 
       <!-- Verify another certificate -->
       <div class="mt-8">

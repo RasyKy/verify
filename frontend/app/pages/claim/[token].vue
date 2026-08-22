@@ -248,8 +248,8 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-    <div class="max-w-sm w-full bg-white border border-gray-200 rounded-lg p-8 shadow-sm">
+  <div class="min-h-screen page-ground flex items-center justify-center px-4">
+    <div class="max-w-sm w-full surface-panel p-8">
       <!-- Loading -->
       <div v-if="viewState === 'loading'" class="flex justify-center py-8">
         <UIcon name="i-heroicons-arrow-path" class="w-6 h-6 text-gray-300 animate-spin" />
@@ -296,9 +296,7 @@ onUnmounted(() => {
       <!-- Valid token: claim form -->
       <div v-else>
         <div class="flex justify-center mb-5">
-          <div class="w-10 h-10 bg-teal-600 rounded-lg flex items-center justify-center">
-            <span class="text-white font-bold text-base leading-none">V</span>
-          </div>
+          <BrandLogo :size="40" />
         </div>
 
         <h1 class="text-lg font-medium text-gray-900 text-center">Claim your certificate</h1>

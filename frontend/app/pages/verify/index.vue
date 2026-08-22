@@ -15,14 +15,11 @@ function onSubmit() {
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50">
+  <div class="min-h-screen page-ground">
     <div class="max-w-xl mx-auto px-4 pt-20 pb-16">
       <!-- Logo + wordmark -->
       <div class="flex items-center justify-center gap-2.5 mb-8">
-        <div class="w-9 h-9 bg-teal-600 rounded-lg flex items-center justify-center shrink-0">
-          <span class="text-white font-bold text-sm leading-none">V</span>
-        </div>
-        <span class="font-semibold text-gray-900">Verify</span>
+        <BrandLogo :size="32" wordmark />
       </div>
 
       <!-- Heading -->
