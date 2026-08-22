@@ -44,8 +44,18 @@ describe('GET /api/registry — public', () => {
   it('returns accredited, active organizations mapped to camelCase', async () => {
     const adminClient = makeAdminClient({
       organizations: [
-        { id: 'org-1', name: 'Royal University of Phnom Penh', type: 'university', joined_at: '2024-01-15' },
-        { id: 'org-2', name: 'Delta Polytechnic', type: 'bootcamp', joined_at: '2024-03-02' },
+        {
+          id: 'org-1',
+          name: 'Royal University of Phnom Penh',
+          type: 'university',
+          joined_at: '2024-01-15',
+        },
+        {
+          id: 'org-2',
+          name: 'Delta Polytechnic',
+          type: 'bootcamp',
+          joined_at: '2024-03-02',
+        },
       ],
     });
 
@@ -53,8 +63,18 @@ describe('GET /api/registry — public', () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual([
-      { id: 'org-1', name: 'Royal University of Phnom Penh', type: 'university', joinedAt: '2024-01-15' },
-      { id: 'org-2', name: 'Delta Polytechnic', type: 'bootcamp', joinedAt: '2024-03-02' },
+      {
+        id: 'org-1',
+        name: 'Royal University of Phnom Penh',
+        type: 'university',
+        joinedAt: '2024-01-15',
+      },
+      {
+        id: 'org-2',
+        name: 'Delta Polytechnic',
+        type: 'bootcamp',
+        joinedAt: '2024-03-02',
+      },
     ]);
   });
 
@@ -69,9 +89,9 @@ describe('GET /api/registry — public', () => {
   });
 
   it('returns an empty array when no organizations are accredited', async () => {
-    const res = await request(makeApp({ adminClient: makeAdminClient({ organizations: [] }) })).get(
-      '/api/registry'
-    );
+    const res = await request(
+      makeApp({ adminClient: makeAdminClient({ organizations: [] }) })
+    ).get('/api/registry');
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual([]);
@@ -91,7 +111,9 @@ describe('GET /api/registry — public', () => {
   });
 
   it('propagates a database error to the central error handler', async () => {
-    const adminClient = makeAdminClient({ error: { message: 'connection reset', code: 'PGRST000' } });
+    const adminClient = makeAdminClient({
+      error: { message: 'connection reset', code: 'PGRST000' },
+    });
 
     const res = await request(makeApp({ adminClient })).get('/api/registry');
 

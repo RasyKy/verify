@@ -20,13 +20,19 @@ import crypto from 'node:crypto';
 
 import { Router } from 'express';
 
-import { adminClient as defaultAdminClient, unwrap } from '../config/supabase.js';
+import {
+  adminClient as defaultAdminClient,
+  unwrap,
+} from '../config/supabase.js';
 import { conflict, forbidden, notFound } from '../lib/errors.js';
 import { verifyBearerToken as defaultVerifyBearerToken } from '../middleware/auth.js';
 import { claimLimiter } from '../middleware/rateLimit.js';
 import { validate } from '../middleware/validate.js';
 import { claimTokenParamSchema } from '../schemas/claim.js';
-import { AUDIT_ACTIONS, writeAuditEvent as defaultAudit } from '../services/audit.js';
+import {
+  AUDIT_ACTIONS,
+  writeAuditEvent as defaultAudit,
+} from '../services/audit.js';
 
 /** sha256 of the raw token. Only the digest is ever stored or looked up. */
 function hashToken(token) {
