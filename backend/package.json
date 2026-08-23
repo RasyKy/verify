@@ -17,6 +17,8 @@
     "db:seed": "node --env-file=.env scripts/seed.js",
     "chain:sync": "node --env-file=.env scripts/sync-chain-ledger.js",
     "db:seed:clean": "node --env-file=.env scripts/seed.js --clean",
+    "db:seed:chain": "node --env-file=.env scripts/seed.js --chain",
+    "smoke:chain": "node --env-file=.env scripts/smoke-chain.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"**/*.{js,json,md}\"",

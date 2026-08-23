@@ -62,6 +62,41 @@
   /* Motion */
   --transition-fast: 150ms ease-out;
   --transition-base: 220ms ease-out;
+
+  /*
+   * ── Dashboard surface language ──
+   * Softer, larger radii and a tinted page ground, so panels read as cards
+   * floating on a canvas rather than boxes drawn on white.
+   */
+  --radius-card:  16px;
+  --radius-panel: 18px;
+  --canvas-app:   #F6F7F6;
+
+  --shadow-panel:       0 1px 2px rgba(55, 53, 47, 0.04), 0 8px 24px -12px rgba(55, 53, 47, 0.14);
+  --shadow-panel-hover: 0 2px 4px rgba(55, 53, 47, 0.05), 0 16px 34px -14px rgba(55, 53, 47, 0.20);
+  --shadow-tile:        0 10px 22px -12px rgba(10, 92, 82, 0.55);
+
+  /*
+   * Stat-tile gradients. Every one is a walk along the single brand green —
+   * value tiles differ by depth, not by hue — with red/amber reserved for the
+   * two states that genuinely need to read as "not fine".
+   */
+  --grad-brand:  linear-gradient(135deg, #0F7B6C 0%, #0A5C52 100%);
+  --grad-deep:   linear-gradient(135deg, #0A5C52 0%, #053530 100%);
+  --grad-fresh:  linear-gradient(135deg, #328E81 0%, #0F7B6C 100%);
+  --grad-mist:   linear-gradient(135deg, #5CAAA0 0%, #328E81 100%);
+  --grad-alert:  linear-gradient(135deg, #C2564C 0%, #91352D 100%);
+  --grad-amber:  linear-gradient(135deg, #C79A3F 0%, #966922 100%);
+  --grad-slate:  linear-gradient(135deg, #6E7B78 0%, #4A5654 100%);
+
+  /* Sidebar — a deep-green rail, the screenshot's anchor moved onto our green */
+  --rail-bg:          #08403A;
+  --rail-bg-soft:     #0A5C52;
+  --rail-text:        #D8E8E4;
+  --rail-text-strong: #FFFFFF;
+  --rail-text-dim:    #8FB5AE;
+  --rail-active-bg:   rgba(255, 255, 255, 0.12);
+  --rail-border:      rgba(255, 255, 255, 0.10);
 }
 
 @keyframes card-in {

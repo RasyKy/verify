@@ -1,20 +1,21 @@
 <template>
   <section class="cta-section reveal" id="get-started">
     <div class="cta-inner">
-      <h2 class="cta-headline">Ready to issue your first certificate?</h2>
-      <!-- Deliberately not "set up in minutes": institutions are vetted by a
-           human before an issuer account exists (T-09). Promising instant
-           self-serve setup here would be a promise the product cannot keep. -->
+      <h2 class="cta-headline">Holding a certificate? Check it now.</h2>
       <p class="cta-sub">
-        Issuer accounts are created by our team once your institution is
-        verified. Tell us about yours and we will set you up.
+        Paste a certificate ID or scan its QR code — the result comes straight
+        from the chain, and no sign-in stands in the way.
       </p>
-      <a href="mailto:hello@verify.app?subject=Issuer%20access%20request" class="cta-btn">
-        Request issuer access
-      </a>
-      <p class="cta-note">
-        Already have an account? <a href="/login" class="cta-note-link">Sign in</a>
-      </p>
+      <div class="cta-row">
+        <a href="/verify" class="cta-btn">
+          <UIcon name="i-heroicons-magnifying-glass" class="cta-icon" />
+          Verify a certificate
+        </a>
+        <a href="/login" class="cta-btn-alt">
+          Institution sign in
+          <UIcon name="i-heroicons-arrow-right" class="cta-icon" />
+        </a>
+      </div>
     </div>
   </section>
 </template>
@@ -51,47 +52,73 @@
   font-size: 15px;
   color: var(--text-secondary);
   margin: 0 0 32px;
-  max-width: 460px;
-  line-height: 1.6;
 }
 
-.cta-note {
-  font-size: 13px;
-  color: var(--text-tertiary);
-  margin: 16px 0 0;
+.cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
 }
 
-.cta-note-link {
-  color: var(--accent-text);
-  font-weight: 500;
-  text-decoration: none;
-  border-bottom: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
-}
-
-.cta-note-link:hover {
-  border-bottom-color: var(--accent);
-}
-
-.cta-btn {
+.cta-btn,
+.cta-btn-alt {
   display: inline-flex;
   align-items: center;
-  padding: 13px 28px;
-  border-radius: 9px;
-  background: var(--accent);
-  color: #fff;
+  gap: 8px;
+  padding: 13px 26px;
+  border-radius: 11px;
   font-size: 15px;
   font-weight: 600;
   text-decoration: none;
-  transition: background-color 0.15s ease;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast),
+              border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.cta-btn {
+  background: var(--grad-brand);
+  color: #fff;
+  box-shadow: var(--shadow-tile);
 }
 
 .cta-btn:hover {
-  background: var(--accent-text);
+  transform: translateY(-1px);
+  box-shadow: 0 14px 26px -12px rgba(10, 92, 82, 0.7);
 }
 
-.cta-btn:focus-visible {
+.cta-btn-alt {
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  color: var(--text-primary);
+}
+
+.cta-btn-alt:hover {
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.cta-btn-alt:hover .cta-icon {
+  transform: translateX(3px);
+}
+
+.cta-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  transition: transform var(--transition-fast);
+}
+
+.cta-btn:focus-visible,
+.cta-btn-alt:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cta-btn:hover,
+  .cta-btn-alt:hover .cta-icon {
+    transform: none;
+  }
 }
 
 @media (max-width: 640px) {

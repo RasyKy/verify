@@ -14,18 +14,17 @@
           that recipients can share and employers can check instantly. Minutes,
           not days.
         </p>
-        <!-- "Get started free" pointed here and promised self-service signup.
-             There is no signup: every issuer account is created by a platform
-             admin after the institution is vetted, because an unvetted issuer
-             can attest that someone graduated (docs/user-flows.md §1, T-09).
-             The CTA now matches what a visitor can actually do. -->
-        <a href="#get-started" class="hero-cta">
-          Request issuer access
-        </a>
-        <p class="hero-note">
-          Verifying a certificate is free and needs no account —
-          <a href="/verify" class="hero-note-link">check one now</a>.
-        </p>
+        <div class="hero-cta-row">
+          <a href="/verify" class="hero-cta">
+            <UIcon name="i-heroicons-magnifying-glass" class="hero-cta-icon" />
+            Verify a certificate
+          </a>
+          <a href="/login" class="hero-cta-alt">
+            Sign in to your portal
+            <UIcon name="i-heroicons-arrow-right" class="hero-cta-icon" />
+          </a>
+        </div>
+        <p class="hero-note">Verification is public — no account needed.</p>
       </div>
 
       <!-- Certificate card mockup -->
@@ -245,7 +244,7 @@ onMounted(() => {
 
   if (!prefersReducedMotion.value) {
     const root = heroSectionRef.value
-    const enterSelectors = ['.hero-headline', '.hero-sub', '.hero-cta', '.hero-note', '.hero-visual']
+    const enterSelectors = ['.hero-headline', '.hero-sub', '.hero-cta-row', '.hero-note', '.hero-visual']
     enterSelectors.forEach(sel =>
       root?.querySelector<HTMLElement>(sel)?.style.setProperty('will-change', 'transform, opacity')
     )
@@ -302,7 +301,7 @@ onUnmounted(() => heroTimers.forEach(clearTimeout))
 /* ── Entrance: elements start invisible until JS sets .hero--entered ── */
 .hero-headline,
 .hero-sub,
-.hero-cta,
+.hero-cta-row,
 .hero-note {
   opacity: 0;
 }
@@ -315,7 +314,7 @@ onUnmounted(() => heroTimers.forEach(clearTimeout))
 @media (prefers-reduced-motion: reduce) {
   .hero-headline,
   .hero-sub,
-  .hero-cta,
+  .hero-cta-row,
   .hero-note,
   .hero-visual {
     opacity: 1 !important;
@@ -330,7 +329,7 @@ onUnmounted(() => heroTimers.forEach(clearTimeout))
   .hero--entered .hero-sub {
     animation: heroFadeUp 0.55s ease 80ms forwards;
   }
-  .hero--entered .hero-cta {
+  .hero--entered .hero-cta-row {
     animation: heroFadeUp 0.55s ease 160ms forwards;
   }
   .hero--entered .hero-note {
@@ -369,44 +368,79 @@ onUnmounted(() => heroTimers.forEach(clearTimeout))
   max-width: 440px;
 }
 
-.hero-cta {
-  display: inline-flex;
+.hero-cta-row {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  padding: 12px 24px;
-  border-radius: 9px;
-  background: var(--accent);
-  color: #fff;
-  font-size: 15px;
-  font-weight: 600;
-  text-decoration: none;
-  transition: background-color 0.15s ease;
+  gap: 10px;
   margin-bottom: 12px;
 }
 
-.hero-cta:hover {
-  background: var(--accent-text);
+.hero-cta,
+.hero-cta-alt {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 22px;
+  border-radius: 11px;
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast),
+              background-color var(--transition-fast), border-color var(--transition-fast),
+              color var(--transition-fast);
 }
 
-.hero-cta:focus-visible {
+.hero-cta {
+  background: var(--grad-brand);
+  color: #fff;
+  box-shadow: var(--shadow-tile);
+}
+
+.hero-cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 26px -12px rgba(10, 92, 82, 0.7);
+}
+
+.hero-cta-alt {
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  color: var(--text-primary);
+}
+
+.hero-cta-alt:hover {
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.hero-cta-alt:hover .hero-cta-icon {
+  transform: translateX(3px);
+}
+
+.hero-cta-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  transition: transform var(--transition-fast);
+}
+
+.hero-cta:focus-visible,
+.hero-cta-alt:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-cta:hover,
+  .hero-cta-alt:hover .hero-cta-icon {
+    transform: none;
+  }
 }
 
 .hero-note {
   font-size: 13px;
   color: var(--text-tertiary);
   margin: 0;
-}
-
-.hero-note-link {
-  color: var(--accent-text);
-  font-weight: 500;
-  text-decoration: none;
-  border-bottom: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
-}
-
-.hero-note-link:hover {
-  border-bottom-color: var(--accent);
 }
 
 /* ── Visual ── */
