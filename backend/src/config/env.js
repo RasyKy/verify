@@ -51,6 +51,27 @@ const schema = z.object({
   RESEND_API_KEY: z.string().min(1).optional(),
   RESEND_FROM_EMAIL: z.string().min(1).default('Verify <noreply@verify.app>'),
 
+  // ── SMTP (Gmail app password) — the no-domain alternative to Resend ──
+  // Resend's shared sender only delivers to the Resend account owner's own
+  // address until a domain is verified, which makes it useless for testing the
+  // claim flow against real recipients. Authenticating as a Gmail account sends
+  // as that account, so SPF/DKIM align and any recipient receives the mail.
+  SMTP_HOST: z.string().min(1).default('smtp.gmail.com'),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_USER: z.email().optional(),
+  // Google app password. Shown with spaces ("abcd efgh ijkl mnop"); they are
+  // presentational and rejected by the SMTP AUTH exchange, so strip them here
+  // rather than leaving a login failure to be debugged at send time.
+  SMTP_PASSWORD: z
+    .string()
+    .transform((v) => v.replace(/\s+/g, ''))
+    .pipe(z.string().min(1))
+    .optional(),
+  // Display name only. Gmail rewrites the From address to the authenticated
+  // account unless it is a verified "send mail as" alias, so the address half
+  // is always SMTP_USER and is not configurable.
+  MAIL_FROM_NAME: z.string().min(1).default('Verify'),
+
   SENTRY_DSN: z.string().default(''),
   LOG_LEVEL: z.enum(['error', 'warn', 'info', 'http', 'debug']).default('info'),
 });
@@ -76,8 +97,19 @@ const PRODUCTION_REQUIRED = [
   'ALCHEMY_RPC_URL',
   'PRIVATE_KEY',
   'CONTRACT_ADDRESS',
-  'RESEND_API_KEY',
 ];
+
+/**
+ * Which transport `services/email.js` sends through. SMTP wins when its
+ * credentials are present, so switching to it is purely additive to .env —
+ * nothing has to be deleted, and reverting to Resend is a matter of removing
+ * two lines. Returns null when neither is configured, which disables email.
+ */
+function resolveEmailTransport(parsed) {
+  if (parsed.SMTP_USER && parsed.SMTP_PASSWORD) return 'smtp';
+  if (parsed.RESEND_API_KEY) return 'resend';
+  return null;
+}
 
 function load(source = process.env) {
   // Treat empty/whitespace values as absent, so `SUPABASE_ANON_KEY=` in a
@@ -111,10 +143,16 @@ function load(source = process.env) {
   const parsed = result.data;
   const isProduction = parsed.NODE_ENV === 'production';
 
+  const emailTransport = resolveEmailTransport(parsed);
+
   // In production the optional vars become mandatory — refuse to ship a build
-  // that cannot issue certificates or send claim emails.
+  // that cannot issue certificates or send claim emails. Email is checked by
+  // transport rather than by key, since either provider satisfies it.
   if (isProduction) {
     const missing = PRODUCTION_REQUIRED.filter((key) => !parsed[key]);
+    if (!emailTransport) {
+      missing.push('RESEND_API_KEY (or SMTP_USER + SMTP_PASSWORD)');
+    }
     if (missing.length) {
       throw new Error(
         `Missing required production environment variables:\n` +
@@ -126,7 +164,7 @@ function load(source = process.env) {
   const blockchainEnabled = Boolean(
     parsed.ALCHEMY_RPC_URL && parsed.PRIVATE_KEY && parsed.CONTRACT_ADDRESS
   );
-  const emailEnabled = Boolean(parsed.RESEND_API_KEY);
+  const emailEnabled = emailTransport !== null;
 
   // Surfaced rather than logged here (no logger yet at this point); server.js
   // prints them at boot so a developer knows which features are inert.
@@ -137,7 +175,9 @@ function load(source = process.env) {
     );
   }
   if (!emailEnabled) {
-    warnings.push('Email disabled: set RESEND_API_KEY to send claim emails.');
+    warnings.push(
+      'Email disabled: set SMTP_USER + SMTP_PASSWORD (Gmail app password), or RESEND_API_KEY, to send claim emails.'
+    );
   }
   if (!parsed.SUPABASE_ANON_KEY) {
     warnings.push(
@@ -170,6 +210,18 @@ function load(source = process.env) {
     isTest: parsed.NODE_ENV === 'test',
     blockchainEnabled,
     emailEnabled,
+    /** 'smtp' | 'resend' | null — see resolveEmailTransport. */
+    emailTransport,
+    /**
+     * The From header every outbound message uses. Under SMTP the address half
+     * must be the authenticated account: Gmail rewrites anything else, so a
+     * configured RESEND_FROM_EMAIL left over from before would be silently
+     * ignored rather than honoured.
+     */
+    mailFrom:
+      emailTransport === 'smtp'
+        ? `${parsed.MAIL_FROM_NAME} <${parsed.SMTP_USER}>`
+        : parsed.RESEND_FROM_EMAIL,
     warnings,
     /** Origins allowed by CORS. */
     allowedOrigins: parsed.FRONTEND_URL.split(',')

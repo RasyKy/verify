@@ -121,6 +121,32 @@ export function revokeCertificate(id: string, reason?: string) {
   })
 }
 
+export interface ResendClaimResult {
+  id: string
+  sent_to: string
+  /** false means the provider refused the message — see `claim_url`. */
+  claim_email_sent: boolean
+  expires_at: string
+  /**
+   * The live claim link. Present outside production only, so the flow stays
+   * testable when mail cannot be delivered (unverified sending domain, a
+   * colleague's inbox, no DNS yet). Never assume it is there.
+   */
+  claim_url?: string
+}
+
+/**
+ * Mints a fresh claim link and emails it again, retiring the previous one.
+ *
+ * The raw token only ever existed inside the email that carried it, so this is
+ * the only way back from a delivery failure.
+ */
+export function resendClaimEmail(id: string) {
+  return useApi()<ResendClaimResult>(`/api/certificates/${id}/resend-claim`, {
+    method: 'POST',
+  })
+}
+
 /** Idempotent server-side on (organization, name). */
 export function createCourse(name: string) {
   return useApi()<{ id: string; name: string }>('/api/courses', {

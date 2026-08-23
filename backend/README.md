@@ -62,8 +62,9 @@ explaining:
 ## Database
 
 ```bash
-db/migrations/0001_init.sql   # enums, tables, indexes, triggers
-db/migrations/0002_rls.sql    # RLS: deny-by-default
+db/migrations/0001_init.sql          # enums, tables, indexes, triggers
+db/migrations/0002_rls.sql           # RLS: deny-by-default
+db/migrations/0003_claim_resend.sql  # audit action for POST …/resend-claim
 ```
 
 Apply them in order — paste into the Supabase SQL editor, run `supabase db push`,
@@ -122,6 +123,76 @@ read anything directly. All access goes through this API with the service-role
 key. Safe because the frontend's Supabase client is used only for authentication
 and never queries a table — and it means a leaked anon key (it ships to every
 browser) exposes nothing.
+
+## When a claim email does not arrive
+
+The raw claim token exists in exactly one place — the email carrying it, since
+`claim_tokens` stores only its sha256. A delivery failure therefore leaves a
+certificate that is valid, on chain and verifiable, but that nobody can ever
+claim. `POST /api/certificates/:id/resend-claim` is the way back: it retires the
+outstanding token, mints a replacement, and sends it again. Issuers may call it
+for their own institution; admins for any.
+
+Outside production the response also carries the live `claim_url`, so the claim
+flow can be exercised with no working mail at all — which is the normal state
+locally.
+
+### Choosing a transport
+
+`services/email.js` sends through one of two providers, chosen by which
+variables are set. SMTP wins when `SMTP_USER` and `SMTP_PASSWORD` are both
+present; otherwise Resend, if `RESEND_API_KEY` is set; otherwise email is off
+and claim links are logged. Production refuses to boot without one of them.
+
+**Resend needs a verified sending domain.** Without one the only usable sender
+is the shared `onboarding@resend.dev`, and that delivers _only_ to the Resend
+account owner's own address — every other recipient comes back `403 You can
+only send testing emails to your own email address`. Since the sender swallows
+provider errors by design, this looks like silence rather than failure: the
+certificate issues, `claim_email_sent` is `false`, and the rejection appears
+only in the log line `claim email rejected by provider`.
+
+**SMTP is the way around that with no domain.** `SMTP_USER` plus a Google [app
+password](https://myaccount.google.com/apppasswords) (2-Step Verification must
+be on) authenticates as a Gmail account and sends as it, so SPF and DKIM align
+and any recipient receives the mail — roughly 500/day. `smtpAdapter` wraps
+nodemailer in the Resend SDK's `{ emails: { send } } → { data, error }` shape,
+so both senders stay provider-agnostic and one set of error handling covers
+both. Note that Gmail rewrites the From address to the authenticated account
+unless it is a verified "send mail as" alias, which is why only the display
+name (`MAIL_FROM_NAME`) is configurable under SMTP.
+
+**The Resend SDK never throws.** `emails.send()` reports a refused message
+through `{ data, error }`, so a bare `await` in a try/catch sees only the happy
+path and reports success for mail the provider rejected outright.
+`services/email.js` reads `error` explicitly; anything new that sends mail must
+do the same. nodemailer has the opposite convention — it throws, and it also
+_resolves_ for a per-recipient refusal — so `smtpAdapter` translates both into
+the same `error` object rather than letting either be read as a delivery.
+
+## Auth email templates
+
+Password reset and certificate claim both work by **typed code**, not by clicked
+link — the frontend renders an 8-box pin input and calls `verifyOtp`. Supabase
+always mints that code, but its stock email templates render only
+`{{ .ConfirmationURL }}`, so the mail arrives with a link and no digits and the
+flow dead-ends with nothing to type. The templates are project settings, so a
+fresh project starts out broken this way.
+
+```bash
+SUPABASE_ACCESS_TOKEN=sbp_… npm run auth:templates            # report only
+SUPABASE_ACCESS_TOKEN=sbp_… npm run auth:templates -- --write # fix them
+```
+
+That covers **Reset Password**, **Magic Link** and **Confirm signup**, and each
+one is deliberately code-only: `{{ .Token }}` and the token inside
+`{{ .ConfirmationURL }}` are the same one-time token, so a mail scanner that
+prefetches the link spends the code the user is still typing.
+
+Two settings the script reports but does not change, both under Authentication →
+Sign In / Providers → Email: **Email OTP Length** must stay `8` to match
+`OTP_LENGTH` in `frontend/app/composables/useOtp.ts`, and Email OTP Expiration
+drives the "expires in one hour" line in the templates.
 
 ## Six things that will surprise you
 

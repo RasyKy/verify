@@ -1,0 +1,24 @@
+<svg viewBox="0 0 374 466" xmlns="http://www.w3.org/2000/svg">
+  <!-- document: white fill, white outline (was dark charcoal outline) so it reads on green -->
+  <rect x="40" y="66" width="230" height="292" rx="26"
+        fill="#FFFFFF" stroke="#FFFFFF" stroke-width="14"/>
+
+  <!-- inner lines: keep the same soft blue-gray, still reads fine on white -->
+  <rect x="72" y="128" width="168" height="12" rx="6" fill="#D8E2EC"/>
+  <rect x="72" y="160" width="168" height="12" rx="6" fill="#D8E2EC"/>
+  <rect x="72" y="192" width="112" height="12" rx="6" fill="#D8E2EC"/>
+
+  <!-- pen-tool anchor points: white (was teal-green, invisible on green bg) -->
+  <g fill="#FFFFFF" stroke="#FFFFFF">
+    <line x1="238" y1="404" x2="312" y2="300" stroke-width="6"/>
+    <line x1="312" y1="300" x2="312" y2="252" stroke-width="6"/>
+    <rect x="226" y="392" width="24" height="24" rx="6"/>
+    <rect x="300" y="288" width="24" height="24" rx="6"/>
+    <rect x="300" y="240" width="24" height="24" rx="6"/>
+  </g>
+
+  <!-- badge circle: white fill (was dark gradient) with green check (was white check) -->
+  <circle cx="248" cy="330" r="72" fill="#FFFFFF" stroke="#26574F" stroke-width="4"/>
+  <path d="M212 330 L238 358 L286 302" fill="none" stroke="#26574F"
+        stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

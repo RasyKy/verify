@@ -13,12 +13,15 @@ import { createAuthRouter } from '../src/routes/auth.js';
 import { errorHandler } from '../src/middleware/errorHandler.js';
 
 /** Builds an app around the auth router with injected fakes. */
-function makeApp({ authClient, adminClient, user } = {}) {
+function makeApp({ authClient, adminClient, user, authUserExists } = {}) {
   const app = express();
   app.use(express.json());
   const router = createAuthRouter({
     getAuthClient: () => authClient,
     adminClient,
+    // Injected so account-exists never reaches for GoTrue's admin API over
+    // the network; the routes that ignore it are unaffected.
+    authUserExists: authUserExists ?? (async () => false),
     // Fake auth middleware: attaches the given user, or 401s.
     requireAuth: (req, res, next) => {
       if (!user)
@@ -285,9 +288,14 @@ describe('GET /api/auth/account-exists', () => {
     };
   }
 
+  const noAuthUser = async () => false;
+
   it('reports true when a profile exists', async () => {
     const res = await request(
-      makeApp({ adminClient: adminWithProfile(true) })
+      makeApp({
+        adminClient: adminWithProfile(true),
+        authUserExists: noAuthUser,
+      })
     ).get('/api/auth/account-exists?email=has@account.com');
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ exists: true });
@@ -295,15 +303,36 @@ describe('GET /api/auth/account-exists', () => {
 
   it('reports false when none exists', async () => {
     const res = await request(
-      makeApp({ adminClient: adminWithProfile(false) })
+      makeApp({
+        adminClient: adminWithProfile(false),
+        authUserExists: noAuthUser,
+      })
     ).get('/api/auth/account-exists?email=new@user.com');
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ exists: false });
   });
 
+  it('reports true for an auth user with no profile row yet', async () => {
+    // The claim page's login-code path creates the auth user (shouldCreateUser)
+    // while the profile is only written once a claim completes, so this state
+    // is one the claim flow itself produces. Answering "no account" here sends
+    // the holder to a sign-up Supabase will silently refuse.
+    const res = await request(
+      makeApp({
+        adminClient: adminWithProfile(false),
+        authUserExists: async () => true,
+      })
+    ).get('/api/auth/account-exists?email=orphan@user.com');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ exists: true });
+  });
+
   it('422s on a malformed email', async () => {
     const res = await request(
-      makeApp({ adminClient: adminWithProfile(false) })
+      makeApp({
+        adminClient: adminWithProfile(false),
+        authUserExists: noAuthUser,
+      })
     ).get('/api/auth/account-exists?email=nope');
     expect(res.status).toBe(422);
   });

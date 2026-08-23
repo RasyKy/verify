@@ -1,9 +1,16 @@
 <script setup lang="ts">
-import { ACTION_META, ACTION_LABELS, timeAgo } from '~/composables/useAdminMockData'
+import { actionMeta, actionLabel, timeAgo } from '~/composables/useAdmin'
 
 definePageMeta({ layout: 'admin' })
 
-const { totalOrgs, totalCerts, activeIssuers, verificationsLast30, monthlyCerts, auditEvents } = useAdminMockData()
+const { data: stats } = useAdminStats()
+const { auditEvents } = useAdminAudit()
+
+const totalOrgs = computed(() => stats.value.totalOrgs)
+const totalCerts = computed(() => stats.value.totalCerts)
+const activeIssuers = computed(() => stats.value.activeIssuers)
+const verificationsLast30 = computed(() => stats.value.verificationsLast30)
+const monthlyCerts = computed(() => stats.value.monthlyCerts)
 
 const recentActivity = computed(() => auditEvents.value.slice(0, 8))
 
@@ -20,7 +27,11 @@ const tintStyle = (tint: string) => {
 
 <template>
   <div>
-    <AdminPageHeader title="Overview" description="Platform-wide snapshot across all organizations." />
+    <AdminPageHeader
+      eyebrow="Admin portal"
+      title="Overview"
+      description="Platform-wide snapshot across all organizations."
+    />
 
     <!-- Stat cards -->
     <div class="stats-grid">
@@ -43,17 +54,17 @@ const tintStyle = (tint: string) => {
           <li v-for="event in recentActivity" :key="event.id" class="activity-item">
             <div
               class="activity-icon"
-              :style="`background: ${tintStyle(ACTION_META[event.action].tint).bg}`"
+              :style="`background: ${tintStyle(actionMeta(event.action).tint).bg}`"
             >
               <UIcon
-                :name="ACTION_META[event.action].icon"
+                :name="actionMeta(event.action).icon"
                 class="size-3.5"
-                :style="`color: ${tintStyle(ACTION_META[event.action].tint).icon}`"
+                :style="`color: ${tintStyle(actionMeta(event.action).tint).icon}`"
               />
             </div>
             <div class="activity-body">
               <span class="activity-actor">{{ event.actorName }}</span>
-              <span class="activity-action"> · {{ ACTION_LABELS[event.action] }}</span>
+              <span class="activity-action"> · {{ actionLabel(event.action) }}</span>
               <p class="activity-target">{{ event.targetLabel }}</p>
             </div>
             <span class="activity-time">{{ timeAgo(event.timestamp) }}</span>
@@ -84,10 +95,10 @@ const tintStyle = (tint: string) => {
 
 .card {
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   padding: 20px;
   background: var(--surface);
-  box-shadow: var(--shadow-card);
+  box-shadow: var(--shadow-panel);
 }
 
 .empty-state {

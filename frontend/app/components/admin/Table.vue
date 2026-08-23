@@ -53,10 +53,18 @@ const sortedRows = computed(() => {
           >
             <span class="th-inner">
               {{ col.label }}
-              <span v-if="col.sortable" class="sort-caret">
-                <template v-if="sortKey === col.key">{{ sortDir === 'asc' ? '↑' : '↓' }}</template>
-                <template v-else>↕</template>
-              </span>
+              <UIcon
+                v-if="col.sortable"
+                :name="
+                  sortKey === col.key
+                    ? sortDir === 'asc'
+                      ? 'i-heroicons-bars-arrow-up'
+                      : 'i-heroicons-bars-arrow-down'
+                    : 'i-heroicons-chevron-up-down'
+                "
+                class="sort-caret"
+                :class="{ 'sort-caret--active': sortKey === col.key }"
+              />
             </span>
           </th>
         </tr>
@@ -96,10 +104,11 @@ const sortedRows = computed(() => {
 <style scoped>
 .table-wrap {
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-card);
   overflow: hidden;
   overflow-x: auto;
-  box-shadow: var(--shadow-card);
+  background: var(--surface);
+  box-shadow: var(--shadow-panel);
 }
 
 .admin-table {
@@ -108,25 +117,37 @@ const sortedRows = computed(() => {
   min-width: 560px;
 }
 
+/* Solid dark header band — the row reads as a header at a glance, without
+   needing a rule under it to separate it from the first record. */
 .th {
   padding: 0 16px;
-  height: 40px;
+  height: 46px;
   text-align: left;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  background: var(--surface-hover);
-  border-bottom: 1px solid var(--border);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+  color: var(--rail-text);
+  background: var(--rail-bg);
   white-space: nowrap;
   user-select: none;
 }
 
+.th .sort-caret {
+  color: var(--rail-text-dim);
+}
+
+.th .sort-caret--active {
+  color: #7FD3C5;
+}
+
 .col-sortable {
   cursor: pointer;
+  transition: color var(--transition-fast);
 }
 
 .col-sortable:hover {
-  color: var(--text-primary);
+  color: var(--rail-text-strong);
 }
 
 .th-inner {
@@ -136,8 +157,14 @@ const sortedRows = computed(() => {
 }
 
 .sort-caret {
-  font-size: 10px;
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
   color: var(--text-tertiary);
+}
+
+.sort-caret--active {
+  color: var(--accent);
 }
 
 .tr {

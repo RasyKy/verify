@@ -25,17 +25,58 @@ html::-webkit-scrollbar-thumb:hover {
   background: color-mix(in srgb, var(--border-strong) 80%, var(--text-tertiary) 20%);
 }
 
-/* ── Scroll reveal (IntersectionObserver-driven) ── */
+/* ── Scroll reveal (IntersectionObserver-driven) ──
+   Gated on `.reveal-ready`, which useScrollReveal() puts on <html> only after
+   it has an observer wired up. Without that class every .reveal section renders
+   normally, so a JS failure or a late-mounting section costs an animation —
+   never the content itself. */
 @media (prefers-reduced-motion: no-preference) {
-  .reveal {
+  .reveal-ready .reveal {
     opacity: 0;
     transform: translateY(14px);
     transition: opacity 0.5s ease, transform 0.5s ease;
     transition-delay: var(--reveal-delay, 0s);
   }
 
-  .reveal--visible {
+  .reveal-ready .reveal--visible {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* ── Shared surfaces ──
+   The standalone pages (verify, claim, set-password) sit outside the portal
+   layouts, so they have no shell to inherit from. These two utilities give
+   them the same ground and card treatment the dashboards use, instead of each
+   page hand-rolling Tailwind greys. */
+.page-ground {
+  background: var(--canvas-app);
+}
+
+.surface-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-panel);
+}
+
+/* ── Display type ──
+   Headings, the wordmark and tile numerals take Bricolage Grotesque; running
+   text keeps the system stack. Applied here rather than per-component so a
+   heading added later inherits it without anyone remembering to. */
+h1, h2, h3, h4,
+.brand-word,
+.dash-title,
+.page-title,
+.tile-value,
+.stat-value,
+.headline,
+.hero-headline,
+.section-headline,
+.cta-headline,
+.auth-headline,
+.brand-headline {
+  font-family: var(--font-display);
+  letter-spacing: -0.022em;
+  font-optical-sizing: auto;
 }

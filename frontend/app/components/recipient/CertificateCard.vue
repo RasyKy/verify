@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { RecipientCert } from '~/composables/useRecipientMockData'
+import type { HolderCertificate } from '~/composables/useHolderCertificates'
 
-const props = defineProps<{ cert: RecipientCert }>()
-const emit = defineEmits<{ view: [id: string]; 'toggle-hidden': [id: string] }>()
+const props = defineProps<{ cert: HolderCertificate }>()
+const emit = defineEmits<{ view: [id: string]; 'toggle-hidden': [id: string, isHidden: boolean] }>()
 
 const statusConfig: Record<'valid' | 'revoked' | 'expired', { label: string; style: string }> = {
   valid: { label: 'Valid', style: 'background: var(--status-valid-bg); color: var(--status-valid-text)' },
@@ -38,10 +38,10 @@ function formatDate(dateStr: string) {
 
     <div class="flex items-center justify-between pt-3 card-footer">
       <USwitch
-        :model-value="!cert.hidden"
-        :label="cert.hidden ? 'Hidden' : 'Public'"
+        :model-value="!cert.is_hidden"
+        :label="cert.is_hidden ? 'Hidden' : 'Public'"
         size="sm"
-        @update:model-value="emit('toggle-hidden', cert.id)"
+        @update:model-value="(isPublic) => emit('toggle-hidden', cert.id, !isPublic)"
       />
       <UButton
         variant="ghost"
@@ -60,11 +60,12 @@ function formatDate(dateStr: string) {
 .cert-card {
   background: var(--surface);
   border: 1px solid var(--border);
-  box-shadow: var(--shadow-card);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-panel);
   transition: box-shadow var(--transition-base), transform var(--transition-base);
 }
 .cert-card:hover {
-  box-shadow: var(--shadow-card-hover);
+  box-shadow: var(--shadow-panel-hover);
   transform: translateY(-2px);
 }
 .badge-icon {

@@ -33,6 +33,7 @@ import {
   adminClient as defaultAdminClient,
   unwrap,
 } from '../config/supabase.js';
+import { env } from '../config/env.js';
 import { conflict, notFound } from '../lib/errors.js';
 import { logger } from '../lib/logger.js';
 import { issuerStatus, todayUtc, verifyStatus } from '../lib/derivedStatus.js';
@@ -44,7 +45,10 @@ import {
   hashesEqual,
 } from './hash.js';
 import { blockchainService } from './blockchain.js';
-import { sendClaimEmail as defaultSendClaimEmail } from './email.js';
+import {
+  buildClaimUrl,
+  sendClaimEmail as defaultSendClaimEmail,
+} from './email.js';
 import { AUDIT_ACTIONS, writeAuditEvent } from './audit.js';
 
 /** Claim links are single-use and short-lived (FR-AUTH-03). */
@@ -357,6 +361,125 @@ export function createCertificateService({
   }
 
   /**
+   * Reissues the claim link for a certificate nobody has claimed yet.
+   *
+   * ── Why this has to exist ──
+   *
+   * The raw claim token lives in exactly one place: the email that carries it.
+   * `claim_tokens` stores only its sha256, deliberately (T-02), so a delivery
+   * that fails leaves a certificate that is valid, on chain, verifiable — and
+   * permanently unclaimable, with no way for anyone to recover the link. And
+   * delivery failing is not exotic: `sendClaimEmail` is best-effort by design,
+   * an unverified sending domain refuses every recipient, and people mistype
+   * their own address.
+   *
+   * ── Retiring the old link is not optional ──
+   *
+   * `claim_tokens_one_active_idx` (0001) permits exactly ONE row per
+   * certificate with `used_at is null`. Inserting a replacement without
+   * retiring the previous token violates that index, which is the schema
+   * saying what the security model wants: a reissue must leave one way in, not
+   * two. The old link then reports "already been used", which is accurate — it
+   * is spent, just by us rather than by the recipient.
+   *
+   * Unlike `issue`, the token step here IS the operation, so its failures
+   * propagate instead of being swallowed. The email is still best-effort: a
+   * fresh token that was minted but not delivered is exactly what `claimUrl`
+   * below is for.
+   *
+   * @param {object} args
+   * @param {string} args.id
+   * @param {object} args.user  req.user — an admin carries no organizationId,
+   *                            which reads as "not scoped to one org", the same
+   *                            convention `revoke` uses. The route is
+   *                            responsible for refusing an ISSUER who has no
+   *                            institution, or that scope silently widens.
+   */
+  async function resendClaim({ id, user, organizationId = null }) {
+    const scopeOrg = organizationId ?? user.organizationId;
+
+    let query = adminClient
+      .from('certificates')
+      .select(
+        'id, organization_id, student_name, student_email, course_name, claim_state, revoked_at'
+      )
+      .eq('id', id);
+    if (scopeOrg) query = query.eq('organization_id', scopeOrg);
+
+    const row = unwrap(
+      await query.maybeSingle(),
+      'load certificate for claim resend'
+    );
+    if (!row) throw notFound('Certificate not found.');
+    if (row.claim_state === 'claimed') {
+      throw conflict('This certificate has already been claimed.');
+    }
+    if (row.revoked_at) {
+      throw conflict('This certificate has been revoked.');
+    }
+
+    unwrap(
+      await adminClient
+        .from('claim_tokens')
+        .update({ used_at: new Date().toISOString() })
+        .eq('certificate_id', id)
+        .is('used_at', null),
+      'retire previous claim token'
+    );
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(
+      Date.now() + CLAIM_TOKEN_TTL_DAYS * 86_400_000
+    ).toISOString();
+
+    unwrap(
+      await adminClient.from('claim_tokens').insert({
+        certificate_id: id,
+        token_hash: hashClaimToken(token),
+        expires_at: expiresAt,
+        sent_to: row.student_email,
+      }),
+      'insert replacement claim token'
+    );
+
+    const institutionName = await organizationName(row.organization_id);
+    const { sent } = await sendClaimEmail({
+      to: row.student_email,
+      token,
+      studentName: row.student_name,
+      courseName: row.course_name,
+      institutionName,
+    });
+
+    await audit({
+      action: AUDIT_ACTIONS.CLAIM_RESENT,
+      targetLabel: row.student_name,
+      actor: user,
+      organizationId: row.organization_id,
+      metadata: { certificateId: id, sentTo: row.student_email, sent },
+    });
+
+    return {
+      id,
+      sent_to: row.student_email,
+      claim_email_sent: sent,
+      expires_at: expiresAt,
+      /*
+       * The live link, outside production only.
+       *
+       * This is the one place the API hands back a working claim token, and it
+       * is what makes the flow testable when mail cannot be delivered — an
+       * unverified Resend domain, a local stub, a colleague's inbox. It is not
+       * a way to claim someone else's certificate: /api/claim/confirm still
+       * requires a session whose email matches `sent_to`, so holding the URL
+       * without holding the mailbox gets you nothing. Withheld in production
+       * regardless, because there the email IS the channel.
+       */
+      ...(env.isProduction ? {} : { claim_url: buildClaimUrl(token) }),
+    };
+  }
+
+  /**
    * FR-MGMT-04 — presented as an edit, implemented as revoke-then-reissue.
    * The certificate UUID is preserved.
    */
@@ -387,11 +510,24 @@ export function createCertificateService({
     });
     const expiresAtUnix = expiryToUnix(expiryDate);
 
-    // Both chain writes before any database write, for the same reason issuance
-    // orders them that way.
+    /*
+     * Both chain writes happen before any database write, for the same reason
+     * issuance orders them that way — but ISSUE GOES FIRST, and the order is
+     * load-bearing.
+     *
+     * Revoking first meant a failure between the two calls stranded the
+     * certificate: the old hash revoked on chain, no new hash issued, and a
+     * database row still saying `issued`. The holder's genuine credential then
+     * read as `revoked` to the public while the issuer saw nothing wrong.
+     *
+     * Issuing first inverts that. If the revoke then fails, both hashes are
+     * live on chain, the row points at the new one, and verification succeeds —
+     * an orphaned hash nothing references, rather than a working certificate
+     * reported as withdrawn.
+     */
+    const issueResult = await chain.issue(newHash, expiresAtUnix);
     let revokeResult = { txHash: null };
     if (previous) revokeResult = await chain.revoke(previous.hash);
-    const issueResult = await chain.issue(newHash, expiresAtUnix);
 
     const course = await ensureCourse(user.organizationId, courseName, user.id);
 
@@ -607,6 +743,7 @@ export function createCertificateService({
     getById,
     issue,
     update,
+    resendClaim,
     revoke,
     verify,
     logVerification,

@@ -4,10 +4,7 @@
       <!-- Brand -->
       <div class="footer-brand">
         <div class="footer-logo">
-          <div class="logo-badge">
-            <span class="logo-letter">V</span>
-          </div>
-          <span class="wordmark">Verify</span>
+          <BrandLogo :size="28" wordmark />
         </div>
         <p class="footer-tagline">Verifiable credentials for every institution.</p>
         <p class="footer-copy">© {{ year }} Verify. All rights reserved.</p>
@@ -18,21 +15,27 @@
         <div class="link-col">
           <p class="link-col-label">Product</p>
           <ul class="link-list">
-            <li><a href="/issuer" class="footer-link">Issuer portal</a></li>
             <li><a href="/verify" class="footer-link">Verify a certificate</a></li>
+            <li><a href="/issuer" class="footer-link">Issuer portal</a></li>
+            <li>
+              <a href="/login?redirect=/recipient" class="footer-link">
+                Holder portal
+              </a>
+            </li>
           </ul>
         </div>
         <div class="link-col">
           <p class="link-col-label">Company</p>
           <ul class="link-list">
-            <li><a href="#" class="footer-link">Contact</a></li>
+            <li><a href="/contact" class="footer-link">Contact</a></li>
+            <li><a href="/#for-holders" class="footer-link">For certificate holders</a></li>
           </ul>
         </div>
         <div class="link-col">
           <p class="link-col-label">Legal</p>
           <ul class="link-list">
-            <li><a href="#" class="footer-link">Terms of service</a></li>
-            <li><a href="#" class="footer-link">Privacy policy</a></li>
+            <li><a href="/terms" class="footer-link">Terms of service</a></li>
+            <li><a href="/privacy" class="footer-link">Privacy policy</a></li>
           </ul>
         </div>
       </div>
@@ -70,30 +73,6 @@ const year = new Date().getFullYear()
   align-items: center;
   gap: 10px;
   margin-bottom: 12px;
-}
-
-.logo-badge {
-  width: 28px;
-  height: 28px;
-  border-radius: 7px;
-  background: var(--accent);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.logo-letter {
-  color: #fff;
-  font-weight: 700;
-  font-size: 13px;
-  line-height: 1;
-}
-
-.wordmark {
-  font-weight: 600;
-  font-size: 14px;
-  color: var(--text-primary);
 }
 
 .footer-tagline {

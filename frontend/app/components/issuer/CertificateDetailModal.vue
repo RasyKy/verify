@@ -89,7 +89,7 @@ function formatDate(dateStr: string) {
         <UButton
           variant="ghost"
           color="neutral"
-          :to="`/verify/${cert?.id}`"
+          :to="`/cert/${cert?.id}`"
           target="_blank"
           icon="i-heroicons-arrow-top-right-on-square"
         >

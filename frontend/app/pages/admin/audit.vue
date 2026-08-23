@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ACTION_LABELS, type AuditAction } from '~/composables/useAdminMockData'
+import { ACTION_LABELS, actionLabel, type AuditAction } from '~/composables/useAdmin'
 import type { Column } from '~/components/admin/Table.vue'
 
 definePageMeta({ layout: 'admin' })
 
-const { auditEvents } = useAdminMockData()
+const { auditEvents } = useAdminAudit()
 
 const actionFilter = ref('')
 

@@ -1,26 +1,53 @@
 <script setup lang="ts">
-import type { RecipientCert } from '~/composables/useRecipientMockData'
+import type { HolderCertificate } from '~/composables/useHolderCertificates'
 
 definePageMeta({ layout: 'recipient' })
 
-const { certs, recipient, totalCerts, hiddenCount, toggleHidden } = useRecipientMockData()
+const toast = useToast()
+const { certificates, refresh: refreshCertificates } = useHolderCertificates()
+const { profile, refresh: refreshProfile } = useHolderProfile()
+const me = useMe()
 
-const selectedCert = ref<RecipientCert | null>(null)
+async function toggleHidden(id: string, isHidden: boolean) {
+  try {
+    await setCertificateVisibility(id, isHidden)
+    toast.add({ title: isHidden ? 'Certificate hidden' : 'Certificate made public', color: 'success' })
+    refreshCertificates()
+  } catch (err) {
+    toast.add({ title: 'Could not update certificate', description: apiErrorMessage(err), color: 'error' })
+  }
+}
+
+async function toggleProfilePublic(isPublic: boolean) {
+  try {
+    await setProfileVisibility(isPublic)
+    toast.add({ title: isPublic ? 'Profile made public' : 'Profile made private', color: 'success' })
+    refreshProfile()
+  } catch (err) {
+    toast.add({ title: 'Could not update profile', description: apiErrorMessage(err), color: 'error' })
+  }
+}
+
+const selectedCert = ref<HolderCertificate | null>(null)
 const modalOpen = ref(false)
 
 function openDetail(id: string) {
-  selectedCert.value = certs.value.find((c) => c.id === id) ?? null
+  selectedCert.value = certificates.value.find((c) => c.id === id) ?? null
   modalOpen.value = true
 }
 
-const initials = computed(() =>
-  recipient.name
+const totalCerts = computed(() => certificates.value.length)
+const hiddenCount = computed(() => certificates.value.filter((c) => c.is_hidden).length)
+
+const initials = computed(() => {
+  const name = displayName(me.value)
+  return name
     .split(' ')
     .map((part) => part[0])
     .join('')
     .slice(0, 2)
-    .toUpperCase(),
-)
+    .toUpperCase()
+})
 
 const summaryLine = computed(() => {
   const count = `${totalCerts.value} certificate${totalCerts.value === 1 ? '' : 's'}`
@@ -33,15 +60,23 @@ const summaryLine = computed(() => {
     <!-- Profile header -->
     <div class="profile-header">
       <div class="avatar">{{ initials }}</div>
-      <h1 class="profile-name">{{ recipient.name }}</h1>
+      <h1 class="profile-name">{{ displayName(me) }}</h1>
       <p class="profile-summary">{{ summaryLine }}</p>
+      <USwitch
+        v-if="profile"
+        class="profile-visibility"
+        :model-value="profile.profile_is_public"
+        :label="profile.profile_is_public ? 'Public profile' : 'Private profile'"
+        size="sm"
+        @update:model-value="toggleProfilePublic"
+      />
     </div>
 
     <h2 class="section-heading">My Certificates</h2>
 
-    <div v-if="certs.length" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div v-if="certificates.length" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       <RecipientCertificateCard
-        v-for="(cert, index) in certs"
+        v-for="(cert, index) in certificates"
         :key="cert.id"
         class="card-in"
         :style="{ '--i': index }"
@@ -94,6 +129,10 @@ const summaryLine = computed(() => {
   font-size: 13px;
   color: var(--text-tertiary);
   margin-top: 4px;
+}
+
+.profile-visibility {
+  margin-top: 16px;
 }
 
 .section-heading {

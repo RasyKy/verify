@@ -1,27 +1,21 @@
 <template>
   <header class="landing-header">
     <div class="header-inner">
-      <a href="/" class="logo-link">
-        <div class="logo-badge">
-          <span class="logo-letter">V</span>
-        </div>
-        <span class="wordmark">Verify</span>
+      <a href="/" class="logo-link" aria-label="Verify — home">
+        <BrandLogo :size="30" wordmark />
       </a>
-      <nav class="header-nav">
-        <!-- The primary public action. Verifying needs no account at all
-             (FR-AUTH-04, FR-VERIFY-05), and until now the only route to it was
-             a link in the footer. -->
-        <a href="/verify" class="nav-link" aria-label="Verify a certificate">
-          <svg class="nav-icon" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-            <path d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM13 13l4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
-            <path d="m6.8 9 1.6 1.6L11.4 7.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
-          </svg>
-          Verify a certificate
+
+      <!--
+        Still one action. Verification is what the hero's search bar does, so a
+        "Verify a certificate" link here pointed at the page the visitor is
+        already on — but sign-in is no longer institution-only: certificate
+        holders have accounts too, and /login routes all three roles by itself.
+      -->
+      <nav class="header-actions">
+        <a href="/login" class="solid-btn">
+          Sign in
+          <UIcon name="i-heroicons-arrow-right" class="btn-icon btn-icon--trail" />
         </a>
-        <!-- Institutions receive credentials from an admin; there is no
-             self-registration path by design (T-09), so this is "Sign in",
-             not "Sign up". -->
-        <a href="/login" class="cta-btn">Sign in</a>
       </nav>
     </div>
   </header>
@@ -32,7 +26,8 @@
   position: sticky;
   top: 0;
   z-index: 50;
-  background: var(--canvas);
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: saturate(160%) blur(12px);
   border-bottom: 1px solid var(--border);
 }
 
@@ -40,118 +35,74 @@
   max-width: 1120px;
   margin: 0 auto;
   padding: 0 40px;
-  height: 56px;
+  height: 62px;
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
 .logo-link {
-  display: flex;
-  align-items: center;
-  gap: 10px;
   text-decoration: none;
 }
 
-.logo-badge {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: var(--accent);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.logo-letter {
-  color: #fff;
-  font-weight: 700;
-  font-size: 15px;
-  line-height: 1;
-}
-
-.wordmark {
-  font-weight: 600;
-  font-size: 15px;
-  color: var(--text-primary);
-}
-
-.header-nav {
+.header-actions {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.nav-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 8px 12px;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-secondary);
-  text-decoration: none;
-  transition:
-    color 0.15s ease,
-    background-color 0.15s ease;
-}
-
-.nav-link:hover {
-  color: var(--accent-text);
-  background: var(--accent-light);
-}
-
-.nav-link:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.nav-icon {
-  width: 16px;
-  height: 16px;
+.btn-icon {
+  width: 15px;
+  height: 15px;
   flex-shrink: 0;
 }
 
-.cta-btn {
+.solid-btn {
   display: inline-flex;
   align-items: center;
-  padding: 8px 16px;
-  border-radius: 8px;
-  background: var(--accent);
-  color: #fff;
-  font-size: 14px;
-  font-weight: 500;
+  gap: 7px;
+  padding: 8px 15px;
+  border-radius: 9px;
+  font-size: 13.5px;
+  font-weight: 600;
   text-decoration: none;
-  transition: background-color 0.15s ease;
+  transition: background-color var(--transition-fast), color var(--transition-fast),
+              border-color var(--transition-fast), transform var(--transition-fast);
 }
 
-.cta-btn:hover {
-  background: var(--accent-text);
+.solid-btn {
+  background: var(--grad-brand);
+  color: #fff;
+  box-shadow: var(--shadow-tile);
 }
 
-.cta-btn:focus-visible {
+.solid-btn:hover {
+  transform: translateY(-1px);
+}
+
+.btn-icon--trail {
+  transition: transform var(--transition-fast);
+}
+
+.solid-btn:hover .btn-icon--trail {
+  transform: translateX(3px);
+}
+
+.solid-btn:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .solid-btn:hover,
+  .solid-btn:hover .btn-icon--trail {
+    transform: none;
+  }
 }
 
 @media (max-width: 640px) {
   .header-inner {
     padding: 0 20px;
-  }
-
-  /* Keep the icon as the affordance and drop the label — "Sign in" is the one
-     that must stay legible, and two full labels overflow a phone header. */
-  .nav-link {
-    font-size: 0;
-    padding: 8px;
-    gap: 0;
-  }
-
-  .nav-icon {
-    width: 20px;
-    height: 20px;
   }
 }
 </style>

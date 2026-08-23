@@ -25,6 +25,9 @@ export const AUDIT_ACTIONS = Object.freeze({
   CERTIFICATE_REVOKED: 'certificate.revoked',
   CERTIFICATE_REISSUED: 'certificate.reissued',
   CERTIFICATE_CLAIMED: 'certificate.claimed',
+  // Requires db/migrations/0003 — writeAuditEvent swallows the enum error if
+  // that migration has not been applied, so a resend still succeeds without it.
+  CLAIM_RESENT: 'certificate.claim_resent',
   ISSUER_INVITED: 'issuer.invited',
   ISSUER_REMOVED: 'issuer.removed',
   ORG_CREATED: 'org.created',

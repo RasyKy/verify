@@ -1,12 +1,24 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
 import type { IssuerCertificate as Certificate } from '~/composables/useCertificates'
+import { apiErrorMessage, resendClaimEmail } from '~/composables/useCertificates'
 
 definePageMeta({ layout: 'issuer' })
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 
-const { certificates: certs, pending, refresh } = useCertificates()
+// Scoped to the signed-in issuer's institution by the backend, not here.
+const { certificates: certs, pending, refresh, error } = useCertificates()
+
+// Recovery for a claim email that never arrived. Only offered on 'unclaimed'
+// rows: anything else either has no outstanding link or should not get one.
+const { resendClaim, resendingId } = useClaimResend(resendClaimEmail)
+
+// Rendered as an alert below. A load failure must read as "we could not fetch",
+// never as an empty institution with no certificates.
+const loadError = computed(() =>
+  error.value ? apiErrorMessage(error.value, 'Could not load certificates') : null,
+)
 
 // Shared state: issue modal open trigger, toggled by the sidebar's "Issue
 // certificate" button and the empty-state CTA below.
@@ -131,6 +143,18 @@ watch(certsRefreshKey, () => refresh())
       </button>
     </div>
 
+    <!-- A load failure must read as "we could not fetch", never as an empty
+         institution with no certificates. -->
+    <UAlert
+      v-if="loadError"
+      class="mb-4"
+      color="error"
+      variant="subtle"
+      icon="i-heroicons-exclamation-triangle"
+      title="Could not load certificates"
+      :description="loadError"
+    />
+
     <!-- Filter bar -->
     <div class="flex items-center gap-3 mb-4">
       <UInput
@@ -187,6 +211,18 @@ watch(certsRefreshKey, () => refresh())
             size="sm"
             aria-label="Edit certificate"
             @click="openEdit(row.original)"
+          />
+          <UButton
+            v-if="row.original.status === 'unclaimed'"
+            variant="ghost"
+            color="neutral"
+            icon="i-heroicons-paper-airplane"
+            size="sm"
+            :loading="resendingId === row.original.id"
+            :disabled="!!resendingId"
+            aria-label="Send the claim link again"
+            title="Send the claim link again"
+            @click="resendClaim(row.original.id)"
           />
           <UButton
             v-if="row.original.status !== 'revoked'"

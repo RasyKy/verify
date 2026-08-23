@@ -1,0 +1,11 @@
+{
+  "network": "amoy",
+  "chainId": 80002,
+  "contractName": "Verifier",
+  "contractAddress": "0x46Cc4B537fd6B74650A21B6f5f82FE8146Fb0F66",
+  "deploymentTxHash": "0x02d3949cf12dcc842d2f4dd060a69f02a7d452fad158c62fcd2ce3eb7abe15d2",
+  "deployerAddress": "0xb23d176a5D17F21a9AD4D020132588090F81aeD3",
+  "blockNumber": 45131421,
+  "deployedAt": "2026-08-17T06:57:42Z",
+  "notes": "FR-SC-06. deploy.ts never logged the tx hash/block number and nothing was captured at deploy time, so these values were recovered and cross-verified from Amoy PolygonScan (contract page + the creation tx's own page independently agreeing on the creator address), corroborated by git commit b7a8a1e's timestamp landing ~40 minutes after this deployment. deployerAddress also holds ISSUER_ROLE (see scripts/grantIssuer.ts) — one shared relayer wallet, no per-institution wallets yet (FR-INST-03)."
+}

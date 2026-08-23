@@ -1,25 +1,15 @@
 <script setup lang="ts">
 // Gated by app/middleware/auth.global.ts, which requires role === 'admin' from
 // GET /api/auth/me. The backend enforces the same on every /api/admin/* route.
-const me = useMe()
 await fetchMe()
-
-const adminEmail = computed(() => me.value?.email ?? '')
-const adminName = computed(() => displayName(me.value) || 'Admin')
-const adminInitials = computed(() =>
-  adminName.value
-    .split(/[\s.]+/)
-    .slice(0, 2)
-    .map((part) => part[0] ?? '')
-    .join('')
-    .toUpperCase(),
-)
 
 const menuOpen = ref(false)
 
 async function logout() {
   const supabase = useSupabaseClient()
   await supabase.auth.signOut()
+  // Drop the cached profile too, or the next person to sign in on this tab
+  // inherits the previous user's role until the state is rebuilt.
   clearMe()
   await navigateTo('/login?redirect=/admin')
 }
@@ -52,17 +42,12 @@ function isActive(item: typeof nav[number]) {
     <aside class="admin-sidebar" :class="{ 'admin-sidebar--open': menuOpen }">
       <!-- Logo -->
       <div class="sidebar-logo">
-        <div class="logo-badge">
-          <span>V</span>
-        </div>
-        <div>
-          <span class="wordmark">Verify</span>
-          <span class="portal-label">Admin</span>
-        </div>
+        <BrandLogo :size="34" tone="mono" wordmark label="Admin" />
       </div>
 
       <!-- Nav -->
       <nav class="sidebar-nav">
+        <p class="nav-section">Manage</p>
         <NuxtLink
           v-for="item in nav"
           :key="item.to"
@@ -75,22 +60,16 @@ function isActive(item: typeof nav[number]) {
             :class="{ 'nav-item--active': isActive(item) }"
             @click="navigate(); menuOpen = false"
           >
+            <span class="nav-marker" aria-hidden="true" />
             <UIcon :name="item.icon" class="nav-icon" />
             {{ item.label }}
           </button>
         </NuxtLink>
       </nav>
 
-      <!-- Admin user placeholder -->
       <div class="sidebar-footer">
-        <div class="admin-user">
-          <div class="admin-avatar">{{ adminInitials }}</div>
-          <div class="admin-user-info">
-            <span class="admin-user-name">{{ adminName }}</span>
-            <span class="admin-user-email">{{ adminEmail }}</span>
-          </div>
-        </div>
         <button class="nav-item logout-item" @click="logout">
+          <span class="nav-marker" aria-hidden="true" />
           <UIcon name="i-heroicons-arrow-right-on-rectangle" class="nav-icon" />
           Log out
         </button>
@@ -104,7 +83,7 @@ function isActive(item: typeof nav[number]) {
         <button class="hamburger" @click="menuOpen = true" aria-label="Open menu">
           <UIcon name="i-heroicons-bars-3" class="size-5" />
         </button>
-        <span class="mobile-wordmark">Verify Admin</span>
+        <BrandLogo :size="26" wordmark label="Admin" />
       </div>
 
       <main class="admin-main">
@@ -119,147 +98,113 @@ function isActive(item: typeof nav[number]) {
   display: flex;
   height: 100vh;
   overflow: hidden;
-  background: var(--canvas);
+  background: var(--canvas-app);
 }
 
 /* ── Sidebar ── */
 .admin-sidebar {
-  width: 220px;
+  width: 236px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  border-right: 1px solid var(--border);
-  background: var(--canvas);
+  background: var(--rail-bg);
+  background-image: linear-gradient(180deg, var(--rail-bg-soft) 0%, var(--rail-bg) 45%);
+  color: var(--rail-text);
   transition: transform 0.25s ease;
 }
 
 .sidebar-logo {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 24px 16px 20px;
-}
-
-.logo-badge {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: var(--accent);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.logo-badge span {
-  color: #fff;
-  font-weight: 700;
-  font-size: 14px;
-  line-height: 1;
-}
-
-.wordmark {
-  display: block;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
-  line-height: 1.2;
-}
-
-.portal-label {
-  display: block;
-  font-size: 11px;
-  color: var(--text-tertiary);
-  line-height: 1;
+  padding: 22px 18px 18px;
+  color: var(--rail-text-strong);
+  border-bottom: 1px solid var(--rail-border);
 }
 
 .sidebar-nav {
   flex: 1;
-  padding: 0 12px;
+  padding: 18px 14px 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
+  overflow-y: auto;
+}
+
+.nav-section {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--rail-text-dim);
+  margin: 0 0 8px;
+  padding-left: 12px;
 }
 
 .nav-item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
   width: 100%;
-  padding: 8px 12px;
-  border-radius: 8px;
-  font-size: 14px;
+  padding: 9px 12px;
+  border-radius: 9px;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
   text-align: left;
-  color: var(--text-secondary);
+  color: var(--rail-text);
   background: transparent;
   border: none;
   cursor: pointer;
-  transition: background-color 0.1s ease;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
 }
 
 .nav-item:hover {
-  background: var(--surface-hover);
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--rail-text-strong);
 }
 
 .nav-item--active {
-  background: var(--accent-light);
-  color: var(--accent-text);
+  background: var(--rail-active-bg);
+  color: var(--rail-text-strong);
+  font-weight: 600;
 }
 
-.nav-item--active:hover {
-  background: var(--accent-light);
+.nav-item:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.7);
+  outline-offset: -2px;
+}
+
+/* Left edge marker — grows in on the active item only */
+.nav-marker {
+  position: absolute;
+  left: -14px;
+  top: 50%;
+  width: 3px;
+  height: 0;
+  border-radius: 0 3px 3px 0;
+  background: #7FD3C5;
+  transform: translateY(-50%);
+  transition: height var(--transition-base);
+}
+
+.nav-item--active .nav-marker {
+  height: 20px;
 }
 
 .nav-icon {
-  width: 16px;
-  height: 16px;
+  width: 17px;
+  height: 17px;
   flex-shrink: 0;
 }
 
 /* ── Sidebar footer ── */
 .sidebar-footer {
-  padding: 12px 16px 16px;
-  border-top: 1px solid var(--border);
-}
-
-.admin-user {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.admin-avatar {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--accent-light);
-  color: var(--accent-text);
-  font-size: 10px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.admin-user-name {
-  display: block;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-primary);
-  line-height: 1.3;
-}
-
-.admin-user-email {
-  display: block;
-  font-size: 11px;
-  color: var(--text-tertiary);
-  line-height: 1.2;
+  padding: 12px 14px 16px;
+  border-top: 1px solid var(--rail-border);
 }
 
 .logout-item {
-  margin-top: 10px;
   width: 100%;
+  color: var(--rail-text-dim);
 }
 
 /* ── Body ── */
@@ -273,8 +218,8 @@ function isActive(item: typeof nav[number]) {
 .admin-main {
   flex: 1;
   overflow-y: auto;
-  padding: 40px;
-  background: var(--canvas);
+  padding: 34px 38px 48px;
+  background: var(--canvas-app);
 }
 
 /* ── Mobile ── */
@@ -284,6 +229,12 @@ function isActive(item: typeof nav[number]) {
 
 .mobile-backdrop {
   display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-marker {
+    transition: none;
+  }
 }
 
 @media (max-width: 767px) {
@@ -327,12 +278,6 @@ function isActive(item: typeof nav[number]) {
     color: var(--text-secondary);
     display: flex;
     align-items: center;
-  }
-
-  .mobile-wordmark {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--text-primary);
   }
 
   .admin-main {

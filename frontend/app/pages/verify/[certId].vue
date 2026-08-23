@@ -8,13 +8,15 @@ useHead({
 })
 
 const route = useRoute()
-const certId = route.params.certId as string
+// A getter, not a snapshot: navigating from /verify/a to /verify/b reuses this
+// component, so reading the param once would leave the first result on screen.
+const certId = computed(() => route.params.certId as string)
 const { public: { apiBase } } = useRuntimeConfig()
 
 // Public endpoint — no bearer token, so plain useFetch rather than useApi().
 // SSR-rendered so a shared link shows the verdict without a client round-trip.
 const { data: displayResult, pending, error } = useFetch<VerifyResult>(
-  () => `/api/certificates/verify/${certId}`,
+  () => `/api/certificates/verify/${certId.value}`,
   { baseURL: apiBase, default: () => null },
 )
 
@@ -30,22 +32,22 @@ const unavailable = computed(() => Boolean(error.value))
 const newCertId = ref('')
 const qrModalOpen = ref(false)
 
-function onNewSearch() {
-  const id = newCertId.value.trim()
-  if (id) navigateTo(`/verify/${id}`)
+function onNewSearch(id: string) {
+  navigateTo(`/verify/${encodeURIComponent(id)}`)
 }
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50">
-    <div class="max-w-xl mx-auto px-4 pt-16 pb-16">
+  <div class="min-h-screen page-ground">
+    <div class="max-w-2xl mx-auto px-4 pt-7 pb-16">
+      <!-- Same exit as /verify: a shared result link has no history to go back
+           through either. -->
+      <VerifyBackHomeLink class="mb-9" />
+
       <!-- Logo + wordmark -->
       <div class="flex items-center justify-center gap-2.5 mb-8">
-        <NuxtLink to="/verify" class="flex items-center gap-2.5">
-          <div class="w-9 h-9 bg-teal-600 rounded-lg flex items-center justify-center shrink-0">
-            <span class="text-white font-bold text-sm leading-none">V</span>
-          </div>
-          <span class="font-semibold text-gray-900">Verify</span>
+        <NuxtLink to="/verify" aria-label="Verify — home">
+          <BrandLogo :size="32" wordmark />
         </NuxtLink>
       </div>
 
@@ -86,8 +88,16 @@ function onNewSearch() {
           <span class="text-xs text-gray-400 shrink-0">Verify another certificate</span>
           <div class="flex-1 h-px bg-gray-200" />
         </div>
-        <VerifySearchBar v-model="newCertId" @submit="onNewSearch" />
-        <div class="flex justify-center mt-3">
+        <!-- The same bar as the hero and /verify. A second, smaller search
+             control here made the result page look like a different product. -->
+        <div class="flex justify-center">
+          <VerifyHeroSearch
+            v-model="newCertId"
+            input-id="another-cert-id"
+            @submit="onNewSearch"
+          />
+        </div>
+        <div class="flex justify-center mt-4">
           <UButton
             variant="ghost"
             color="neutral"

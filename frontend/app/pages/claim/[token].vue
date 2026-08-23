@@ -19,12 +19,20 @@ const claimed = ref(false)
 const claimError = ref('')
 let redirectTimer: ReturnType<typeof setTimeout> | null = null
 
+// Order matters. `valid` is defined server-side as `!used && !expired`, so
+// testing `!valid` before the specific cases would swallow both of them and
+// every dead link — used, superseded, expired — would read "invalid", which is
+// the one message that tells the holder nothing about what to do next.
+// `!preview` here means the fetch itself produced nothing; an unknown token
+// still returns a blank preview and falls through to the final `!valid`.
 const viewState = computed(() => {
   if (claimed.value) return 'success'
   if (pending.value) return 'loading'
-  if (error.value || !preview.value?.valid) return 'invalid'
+  if (error.value || !preview.value) return 'invalid'
+  if (preview.value.superseded) return 'superseded'
   if (preview.value.used) return 'used'
   if (preview.value.expired) return 'expired'
+  if (!preview.value.valid) return 'invalid'
   return 'form'
 })
 
@@ -33,15 +41,7 @@ async function finalizeClaim() {
   claiming.value = true
   claimError.value = ''
   try {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) {
-      claimError.value = 'Your session could not be verified. Please try again.'
-      return
-    }
-    await $fetch(`/api/claim/${token}/confirm`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    })
+    await confirmClaim(token)
     claimed.value = true
     redirectTimer = setTimeout(() => navigateTo('/recipient'), 1500)
   } catch (err: any) {
@@ -96,22 +96,11 @@ const otpCodeValue = computed(() => otpCode.value.join(''))
 const otpSending = ref(false)
 const otpVerifying = ref(false)
 const otpError = ref('')
-const resendSeconds = ref(0)
-let resendTimer: ReturnType<typeof setInterval> | null = null
-
-const canResend = computed(() => resendSeconds.value <= 0)
-
-function startResendCountdown(seconds = 30) {
-  if (resendTimer) clearInterval(resendTimer)
-  resendSeconds.value = seconds
-  resendTimer = setInterval(() => {
-    resendSeconds.value -= 1
-    if (resendSeconds.value <= 0 && resendTimer) {
-      clearInterval(resendTimer)
-      resendTimer = null
-    }
-  }, 1000)
-}
+const {
+  remaining: resendSeconds,
+  canResend,
+  start: startResendCountdown,
+} = useResendCountdown()
 
 async function sendOtp() {
   const p = preview.value
@@ -129,7 +118,7 @@ async function sendOtp() {
     }
     otpStep.value = 'sent'
     otpCode.value = []
-    startResendCountdown(30)
+    startResendCountdown()
   } finally {
     otpSending.value = false
   }
@@ -137,7 +126,7 @@ async function sendOtp() {
 
 async function verifyCode(code: string) {
   const p = preview.value
-  if (otpVerifying.value || code.length !== 6 || !p) return
+  if (otpVerifying.value || code.length !== OTP_LENGTH || !p) return
   otpVerifying.value = true
   otpError.value = ''
   try {
@@ -171,9 +160,7 @@ watch(viewState, async (state) => {
   const p = preview.value
   if (state !== 'form' || accountExists.value !== null || !p) return
   try {
-    const res = await $fetch<{ exists: boolean }>('/api/auth/account-exists', {
-      query: { email: p.email },
-    })
+    const res = await checkAccountExists(p.email)
     accountExists.value = res.exists
   } catch {
     accountExists.value = false
@@ -241,15 +228,15 @@ async function onForgotPassword() {
   }
 }
 
+// useResendCountdown() clears its own interval on unmount.
 onUnmounted(() => {
-  if (resendTimer) clearInterval(resendTimer)
   if (redirectTimer) clearTimeout(redirectTimer)
 })
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-    <div class="max-w-sm w-full bg-white border border-gray-200 rounded-lg p-8 shadow-sm">
+  <div class="min-h-screen page-ground flex items-center justify-center px-4">
+    <div class="max-w-sm w-full surface-panel p-8">
       <!-- Loading -->
       <div v-if="viewState === 'loading'" class="flex justify-center py-8">
         <UIcon name="i-heroicons-arrow-path" class="w-6 h-6 text-gray-300 animate-spin" />
@@ -262,6 +249,18 @@ onUnmounted(() => {
         </div>
         <h1 class="text-lg font-medium text-gray-900">This claim link is invalid.</h1>
         <p class="text-sm text-gray-500 mt-2">Please check the email again or contact your institution.</p>
+      </div>
+
+      <!-- Superseded — a newer claim email retired this link -->
+      <div v-else-if="viewState === 'superseded'" class="text-center py-4">
+        <div class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
+          <UIcon name="i-heroicons-arrow-path" class="w-6 h-6 text-gray-400" />
+        </div>
+        <h1 class="text-lg font-medium text-gray-900">This link has been replaced.</h1>
+        <p class="text-sm text-gray-500 mt-2">
+          A newer claim email was sent to you — please open the most recent one. Your certificate
+          has not been claimed yet.
+        </p>
       </div>
 
       <!-- Used -->
@@ -296,9 +295,7 @@ onUnmounted(() => {
       <!-- Valid token: claim form -->
       <div v-else>
         <div class="flex justify-center mb-5">
-          <div class="w-10 h-10 bg-teal-600 rounded-lg flex items-center justify-center">
-            <span class="text-white font-bold text-base leading-none">V</span>
-          </div>
+          <BrandLogo :size="40" />
         </div>
 
         <h1 class="text-lg font-medium text-gray-900 text-center">Claim your certificate</h1>
@@ -363,7 +360,7 @@ onUnmounted(() => {
             </label>
             <UPinInput
               v-model="otpCode"
-              :length="6"
+              :length="OTP_LENGTH"
               type="number"
               otp
               size="xl"
@@ -374,7 +371,7 @@ onUnmounted(() => {
             <UButton
               class="w-full justify-center"
               :loading="otpVerifying"
-              :disabled="otpCodeValue.length !== 6"
+              :disabled="otpCodeValue.length !== OTP_LENGTH"
               @click="verifyCode(otpCodeValue)"
             >
               Verify code

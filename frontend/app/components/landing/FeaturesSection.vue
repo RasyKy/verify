@@ -160,9 +160,14 @@
                       <span class="win-cert-title">Web Dev</span>
                       <span class="win-cert-sub">Mekong Uni</span>
                     </div>
-                    <span class="win-chip win-chip--green">✓</span>
+                    <span class="win-chip win-chip--green">
+                      <UIcon name="i-heroicons-check-badge-solid" class="win-chip-icon" />
+                    </span>
                   </div>
-                  <div class="win-share">Share →</div>
+                  <div class="win-share">
+                    Share
+                    <UIcon name="i-heroicons-arrow-up-right" class="win-share-icon" />
+                  </div>
                 </div>
               </div>
 
@@ -893,6 +898,25 @@ onUnmounted(() => {
 .win-chip--green  { background: var(--status-valid-bg);  color: var(--status-valid-text); }
 .win-chip--violet { background: var(--tint-violet);       color: var(--tint-violet-icon); }
 
+/* Icon-only chip: the padding above is tuned for text, so shed it here */
+.win-chip:has(.win-chip-icon) {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px;
+}
+
+.win-chip-icon {
+  width: 10px;
+  height: 10px;
+  display: block;
+}
+
+.win-share-icon {
+  width: 9px;
+  height: 9px;
+  flex-shrink: 0;
+}
+
 .win-btn {
   font-size: 9px;
   font-weight: 600;
@@ -970,7 +994,10 @@ onUnmounted(() => {
   font-size: 9px;
   color: var(--tint-blue-icon);
   font-weight: 600;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
   margin-top: 6px;
 }
 

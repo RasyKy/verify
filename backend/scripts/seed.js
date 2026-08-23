@@ -3,6 +3,7 @@
  *
  *   node --env-file=.env scripts/seed.js
  *   node --env-file=.env scripts/seed.js --clean   (remove seed data, insert nothing)
+ *   node --env-file=.env scripts/seed.js --chain   (anchor every hash on Amoy for real)
  *
  * Re-runnable: every run deletes what a previous run created before inserting,
  * so there is no "already exists" failure mode and no accumulating duplicates.
@@ -19,10 +20,15 @@
  * seeded certificate read as Invalid the moment verification recomputes it,
  * which is precisely the bug the seed exists to help you catch.
  *
- * Blockchain fields (issue_tx_hash, chain_issued_at) are SYNTHETIC — the
- * contract is not deployed and these transactions do not exist on Amoy. They
- * are shaped correctly so response payloads look right; do not expect a block
- * explorer to find them.
+ * Blockchain fields (issue_tx_hash, chain_issued_at) are SYNTHETIC by default:
+ * shaped correctly so response payloads look right, but no block explorer will
+ * find them. Pass `--chain` to anchor every hash on the real contract instead
+ * and record the transactions that actually happened.
+ *
+ * Note the default seed produces certificates that verify as INVALID against
+ * the real chain, because their hashes were never issued on it. That is
+ * intentional for offline work — but it means `--chain` is what you want as
+ * soon as the verify page is pointed at a live backend.
  */
 /* eslint-disable no-console -- seeding script, stdout is the point */
 import crypto from 'node:crypto';
@@ -51,6 +57,19 @@ const db = createClient(url, serviceKey, {
 
 const cleanOnly = process.argv.includes('--clean');
 
+/**
+ * `--chain` anchors every seeded certificate on the real contract instead of
+ * writing synthetic transaction hashes. Opt-in because it costs testnet gas and
+ * needs a funded wallet holding ISSUER_ROLE.
+ *
+ * Worth knowing before you use it: the seeded dates are relative to today
+ * (`day(-400)`), and the date is part of the hash preimage — so each run
+ * produces a different set of hashes. Previous runs' hashes stay on chain
+ * forever; nothing can delete them. That is harmless on a testnet, but it does
+ * mean re-seeding is not free.
+ */
+const useChain = process.argv.includes('--chain');
+
 /** One password for every seeded account. Development only, obviously. */
 const PASSWORD = 'Password123!';
 
@@ -62,6 +81,17 @@ const ORG = {
   rupp: '10000000-0000-4000-8000-000000000001',
   istad: '10000000-0000-4000-8000-000000000002',
   defunct: '10000000-0000-4000-8000-000000000003',
+  aupp: '10000000-0000-4000-8000-000000000004',
+  dgc: '10000000-0000-4000-8000-000000000005',
+  google: '10000000-0000-4000-8000-000000000006',
+  mef: '10000000-0000-4000-8000-000000000007',
+  moeys: '10000000-0000-4000-8000-000000000008',
+  moi: '10000000-0000-4000-8000-000000000009',
+  academy: '10000000-0000-4000-8000-000000000010',
+  // Created through the admin portal before it was seeded, so this keeps the
+  // id the live row already has — inserting a second row would collide on the
+  // unique `slug`.
+  mekong: '063bcd40-5365-431a-b102-a33e24d8ab3d',
 };
 
 const COURSE = {
@@ -92,6 +122,116 @@ function ts(days) {
   const d = new Date();
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString();
+}
+
+/**
+ * Anchors the seeded hashes on the real contract, rewriting each row's chain
+ * fields in place with the transaction that actually happened.
+ *
+ * Two rules, both about not lying in the database:
+ *
+ *   • A hash already on chain keeps a NULL `issue_tx_hash`. The contract emits
+ *     no events, so there is no log to recover the original transaction from —
+ *     and a synthetic hash that 404s on a block explorer is worse than an
+ *     honest null.
+ *   • The artificial `pending` status is dropped. With no reconcile job built
+ *     yet, a permanently-pending row is just a record that looks broken.
+ *
+ * @param {object[]} hashes rows about to be inserted, mutated in place
+ * @param {object[]} certificates the matching certificate rows
+ */
+async function anchorOnChain(hashes, certificates) {
+  const { ethers } = await import('ethers');
+  const abi = (
+    await import('../src/blockchain/abi/Verifier.json', {
+      with: { type: 'json' },
+    })
+  ).default;
+
+  const { ALCHEMY_RPC_URL, PRIVATE_KEY, CONTRACT_ADDRESS } = process.env;
+  if (!ALCHEMY_RPC_URL || !PRIVATE_KEY || !CONTRACT_ADDRESS) {
+    console.error(
+      '✗ --chain needs ALCHEMY_RPC_URL, PRIVATE_KEY and CONTRACT_ADDRESS in .env'
+    );
+    process.exit(1);
+  }
+
+  const provider = new ethers.JsonRpcProvider(ALCHEMY_RPC_URL);
+  const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
+  const contract = new ethers.Contract(CONTRACT_ADDRESS, abi.abi, wallet);
+
+  const role = await contract.ISSUER_ROLE();
+  if (!(await contract.hasRole(role, wallet.address))) {
+    console.error(`✗ ${wallet.address} does not hold ISSUER_ROLE.`);
+    process.exit(1);
+  }
+
+  // Price the whole run up front. Running out of gas halfway would leave some
+  // certificates anchored and others not — the exact inconsistency this flag
+  // exists to remove.
+  const revocations = certificates.filter((c) => c.revoked_at).length;
+  const feeData = await provider.getFeeData();
+  const gasPrice = feeData.maxFeePerGas ?? feeData.gasPrice;
+  const needed =
+    gasPrice *
+    (90_000n * BigInt(hashes.length) + 50_000n * BigInt(revocations));
+  const balance = await provider.getBalance(wallet.address);
+
+  console.log(
+    `\nAnchoring ${hashes.length} certificates on chain (${revocations} to revoke)`
+  );
+  console.log(`  estimated cost ${ethers.formatEther(needed)} POL`);
+  console.log(`  balance        ${ethers.formatEther(balance)} POL`);
+
+  if (balance < needed) {
+    console.error(
+      `\n✗ Not enough gas for the full run. Top up at ` +
+        `https://faucet.polygon.technology (Amoy) and try again.\n` +
+        '  Nothing has been written — re-run when funded.'
+    );
+    process.exit(1);
+  }
+
+  for (const [i, row] of hashes.entries()) {
+    const cert = certificates[i];
+    const label = `${i + 1}/${hashes.length} ${cert.student_name}`;
+
+    const [exists] = await contract.verify(row.hash);
+    if (exists) {
+      // Already anchored by an earlier run with identical inputs.
+      const [, , issuedAt] = await contract.verify(row.hash);
+      row.issue_tx_hash = null;
+      row.chain_issued_at = new Date(Number(issuedAt) * 1000).toISOString();
+      row.chain_status = 'confirmed';
+      console.log(`  ${label} — already on chain, tx unrecoverable`);
+    } else {
+      const tx = await contract.issue(row.hash, BigInt(row.expires_at_unix));
+      const receipt = await tx.wait(1);
+      const block = await provider.getBlock(receipt.blockNumber);
+      row.issue_tx_hash = tx.hash;
+      row.chain_issued_at = new Date(block.timestamp * 1000).toISOString();
+      row.chain_status = 'confirmed';
+      console.log(`  ${label} — issued ${tx.hash}`);
+    }
+
+    if (cert.revoked_at) {
+      const [, alreadyRevoked] = await contract.verify(row.hash);
+      if (alreadyRevoked) {
+        row.revoke_tx_hash = null;
+        console.log(`  ${label} — already revoked on chain`);
+      } else {
+        const tx = await contract.revoke(row.hash);
+        await tx.wait(1);
+        row.revoke_tx_hash = tx.hash;
+        console.log(`  ${label} — revoked ${tx.hash}`);
+      }
+    } else {
+      row.revoke_tx_hash = null;
+    }
+  }
+
+  const spent = balance - (await provider.getBalance(wallet.address));
+  console.log(`  gas spent ${ethers.formatEther(spent)} POL\n`);
 }
 
 const USERS = [
@@ -213,6 +353,7 @@ async function seed() {
         slug: 'rupp',
         type: 'university',
         website: 'https://rupp.edu.kh',
+        logo_url: '/rupp-logo.png',
         status: 'active',
         accredited: true,
         joined_at: day(-400),
@@ -223,6 +364,7 @@ async function seed() {
         slug: 'istad',
         type: 'bootcamp',
         website: 'https://istad.co',
+        logo_url: '/istad-logo.png',
         status: 'active',
         accredited: true,
         joined_at: day(-200),
@@ -237,6 +379,98 @@ async function seed() {
         status: 'suspended',
         accredited: false,
         joined_at: day(-600),
+      },
+      // ── The rest of the accredited registry ──
+      // These carry no users, courses or certificates: they exist so the
+      // landing page's trust bar has the full set of marks that ship in
+      // frontend/public, and so the admin organizations table has enough rows
+      // to be worth paging through. Every one is active + accredited, which is
+      // what GET /api/registry filters on.
+      {
+        id: ORG.moeys,
+        name: 'Ministry of Education, Youth and Sport',
+        slug: 'ministry-of-education-youth-and-sport',
+        type: 'professional-body',
+        website: 'https://www.moeys.gov.kh',
+        logo_url: '/ministry-of-education-logo.svg',
+        status: 'active',
+        accredited: true,
+        joined_at: day(-540),
+      },
+      {
+        id: ORG.aupp,
+        name: 'AUPP Technology Center',
+        slug: 'aupp-technology-center',
+        type: 'university',
+        website: 'https://www.aupp.edu.kh',
+        logo_url: '/aupp-technology-center.webp',
+        status: 'active',
+        accredited: true,
+        joined_at: day(-330),
+      },
+      {
+        id: ORG.mef,
+        name: 'Ministry of Economy and Finance',
+        slug: 'ministry-of-economy-and-finance',
+        type: 'professional-body',
+        website: 'https://www.mef.gov.kh',
+        logo_url: '/ministry-of-economy-and-finance-logo.png',
+        status: 'active',
+        accredited: true,
+        joined_at: day(-280),
+      },
+      {
+        id: ORG.moi,
+        name: 'Ministry of Interior',
+        slug: 'ministry-of-interior',
+        type: 'professional-body',
+        website: 'https://www.moi.gov.kh',
+        logo_url: '/ministry-of-interior-logo.png',
+        status: 'active',
+        accredited: true,
+        joined_at: day(-240),
+      },
+      {
+        id: ORG.dgc,
+        name: 'Digital Government Committee',
+        slug: 'digital-government-committee',
+        type: 'professional-body',
+        website: 'https://dgc.gov.kh',
+        logo_url: '/digital-government-committee.png',
+        status: 'active',
+        accredited: true,
+        joined_at: day(-170),
+      },
+      {
+        id: ORG.academy,
+        name: 'National Training Academy',
+        slug: 'national-training-academy',
+        type: 'professional-body',
+        logo_url: '/training-academy-logo.png',
+        status: 'active',
+        accredited: true,
+        joined_at: day(-130),
+      },
+      {
+        id: ORG.google,
+        name: 'Google',
+        slug: 'google',
+        type: 'professional-body',
+        website: 'https://grow.google/certificates',
+        logo_url: '/google-logo.png',
+        status: 'active',
+        accredited: true,
+        joined_at: day(-95),
+      },
+      {
+        id: ORG.mekong,
+        name: 'Mekong Coding Academy',
+        slug: 'mekong-coding-academy',
+        type: 'bootcamp',
+        logo_url: '/mekong-coding-academy-logo.png',
+        status: 'active',
+        accredited: true,
+        joined_at: day(-6),
       },
     ]),
     'insert organizations'
@@ -435,6 +669,10 @@ async function seed() {
     revoked_at: c.revoked_at ?? null,
     is_current: true,
   }));
+
+  if (useChain) {
+    await anchorOnChain(hashes, certificates);
+  }
 
   must(
     await db.from('certificate_hashes').insert(hashes),

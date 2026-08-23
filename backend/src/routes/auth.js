@@ -26,6 +26,7 @@
  */
 import { Router } from 'express';
 
+import { env } from '../config/env.js';
 import {
   getAuthClient,
   adminClient as defaultAdminClient,
@@ -42,15 +43,46 @@ import {
 } from '../schemas/auth.js';
 
 /**
+ * Whether GoTrue holds an account for this exact address.
+ *
+ * supabase-js's admin API has no lookup-by-email — only `listUsers`, which
+ * pages through every user — so this calls GoTrue's admin endpoint directly.
+ * `filter` is a SUBSTRING match, so "a@b.com" would also return "xa@b.com";
+ * the returned addresses are compared exactly rather than trusting the count.
+ */
+async function authUserExistsByEmail(email) {
+  const url = `${env.SUPABASE_URL}/auth/v1/admin/users?filter=${encodeURIComponent(email)}&per_page=50`;
+  const response = await fetch(url, {
+    headers: {
+      apikey: env.SUPABASE_SERVICE_KEY,
+      Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`,
+    },
+  });
+  if (!response.ok) {
+    throw new Error(`GoTrue admin user lookup failed (${response.status})`);
+  }
+  const body = await response.json();
+  const wanted = email.trim().toLowerCase();
+  return (body.users ?? []).some(
+    (u) =>
+      String(u.email ?? '')
+        .trim()
+        .toLowerCase() === wanted
+  );
+}
+
+/**
  * @param {object} [deps]
  * @param {() => import('@supabase/supabase-js').SupabaseClient} [deps.getAuthClient]
  * @param {import('@supabase/supabase-js').SupabaseClient} [deps.adminClient]
  * @param {import('express').RequestHandler} [deps.requireAuth]
+ * @param {(email: string) => Promise<boolean>} [deps.authUserExists]
  */
 export function createAuthRouter({
   getAuthClient: getAuth = getAuthClient,
   adminClient = defaultAdminClient,
   requireAuth: auth = requireAuth,
+  authUserExists = authUserExistsByEmail,
 } = {}) {
   const router = Router();
 
@@ -61,6 +93,21 @@ export function createAuthRouter({
    *     summary: Sign in with email and password
    *     tags: [Auth]
    *     security: []
+   *     responses:
+   *       200:
+   *         description: Signed in
+   *       401:
+   *         description: Invalid email or password
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       422:
+   *         description: Validation failed
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
    */
   router.post('/login', validate(loginSchema), async (req, res, next) => {
     const { email, password } = req.validated.body;
@@ -93,6 +140,21 @@ export function createAuthRouter({
    *     summary: Exchange a refresh token for a fresh session
    *     tags: [Auth]
    *     security: []
+   *     responses:
+   *       200:
+   *         description: New session issued
+   *       401:
+   *         description: Invalid or expired refresh token
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       422:
+   *         description: Validation failed
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
    */
   router.post('/refresh', validate(refreshSchema), async (req, res, next) => {
     const { refreshToken } = req.validated.body;
@@ -119,6 +181,17 @@ export function createAuthRouter({
    *   post:
    *     summary: Revoke the caller's session
    *     tags: [Auth]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: Session revoked
+   *       401:
+   *         description: Missing or invalid bearer token
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
    */
   router.post('/logout', auth, async (req, res, next) => {
     try {
@@ -144,6 +217,17 @@ export function createAuthRouter({
    *   get:
    *     summary: Current user, role and organization
    *     tags: [Auth]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: The authenticated user's profile
+   *       401:
+   *         description: Missing or invalid bearer token
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
    */
   router.get('/me', auth, async (req, res, next) => {
     try {
@@ -177,6 +261,22 @@ export function createAuthRouter({
    *     summary: Whether an account already exists for an email (claim-flow branch)
    *     tags: [Auth]
    *     security: []
+   *     parameters:
+   *       - name: email
+   *         in: query
+   *         required: true
+   *         schema:
+   *           type: string
+   *           format: email
+   *     responses:
+   *       200:
+   *         description: Whether a profile exists for that email
+   *       422:
+   *         description: Validation failed
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
    */
   router.get(
     '/account-exists',
@@ -184,17 +284,31 @@ export function createAuthRouter({
     async (req, res, next) => {
       const { email } = req.validated.query;
       try {
-        // Source of truth is `profiles`, not auth.users: a row exists only once
-        // an account has been provisioned by our flows.
-        const data = unwrap(
-          await adminClient
+        // auth.users is the source of truth, NOT `profiles`.
+        //
+        // The only caller is the claim page, deciding whether to show "set a
+        // password" or "sign in" — an auth question. A `profiles` row is
+        // written by the claim's confirm step, so it appears only AFTER a
+        // successful claim, while an auth user can exist well before one: the
+        // claim page's own login-code path calls signInWithOtp with
+        // shouldCreateUser, and an abandoned sign-up leaves one behind too.
+        //
+        // Asking `profiles` about those users answers "no account" for someone
+        // who very much has one, so the page offers sign-up; Supabase then
+        // refuses to re-register a confirmed address but reports no error and
+        // returns no session (it will not confirm to an anonymous caller that
+        // the address is taken), and the claim proceeds with whatever stale
+        // session the browser held. That is a dead end no retry escapes.
+        const [inAuth, profile] = await Promise.all([
+          authUserExists(email),
+          adminClient
             .from('profiles')
             .select('id')
             .eq('email', email)
             .maybeSingle(),
-          'account-exists lookup'
-        );
-        res.json({ exists: Boolean(data) });
+        ]);
+        const data = unwrap(profile, 'account-exists lookup');
+        res.json({ exists: inAuth || Boolean(data) });
       } catch (err) {
         next(err);
       }

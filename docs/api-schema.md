@@ -185,6 +185,22 @@ Body optional `{ "reason": "…" }` — `RevokeConfirmModal.vue` sends none.
 `200`: `{ "id": "uuid", "status": "revoked", "revoked_at": "…", "revoke_tx_hash": "0x…" }`
 → `409` already revoked · `503`
 
+### `POST /api/certificates/:id/resend-claim` · issuer + admin
+No body. Retires the outstanding claim token and mints a replacement, valid
+another 7 days, then emails it. The only route open to both roles: an issuer is
+scoped to their own institution, an admin is not scoped at all.
+
+Exists because the raw token lives *only* inside the email that carries it —
+`claim_tokens` stores the sha256 — so a delivery failure otherwise leaves a
+valid certificate nobody can ever claim.
+
+`200`: `{ "id", "sent_to", "claim_email_sent", "expires_at", "claim_url"? }`
+→ `404` no such certificate · `409` already claimed, or revoked
+
+`claim_url` is the live link and is **present outside production only**, so the
+flow stays testable when mail cannot be delivered. It is not a way in: the
+claim still requires a session whose email matches `sent_to`.
+
 ### `GET /api/certificates/:id/qr` · public · FR-HOLD-02
 PNG of `${FRONTEND_URL}/verify/${id}` — the exact form
 `QrScannerModal.vue` parses. `?format=svg&size=512` supported. Public because a
@@ -292,12 +308,16 @@ admin portal swaps that composable for `useApi()` and needs no other change.
 | `GET /api/admin/stats` | `{ totalOrgs, totalCerts, activeIssuers, verificationsLast30, monthlyCerts }` — `verificationsLast30` from `verification_logs`, `monthlyCerts` a 6-month rollup |
 | `GET` `POST /api/admin/organizations` | `POST` creates an org · FR-INST-02 |
 | `GET /api/admin/organizations/:id` | Org + its issuers + its certificates |
-| `POST /api/admin/organizations/:id/suspend` | Writes `org.suspended` to the audit log |
-| `POST /api/admin/organizations/:id/reactivate` | |
-| `GET` `POST /api/admin/users` | `POST` creates an issuer — the ONLY way an issuer account comes into being (FR-AUTH-01) |
-| `POST /api/admin/users/:id/deactivate` | Takes effect within 60s (profile cache TTL) |
-| `GET /api/admin/certificates` | Platform-wide; `status` is `issued` \| `revoked` per the admin union |
+| `PATCH /api/admin/organizations/:id` | Partial: `name` `type` `status` `website` `logoUrl` `accredited`. Suspend/reactivate is `status`, not its own endpoint |
+| `DELETE /api/admin/organizations/:id` | Refused while any issuer or certificate still belongs to it |
+| `GET` `POST /api/admin/users` | `POST` creates an issuer — the ONLY way an issuer account comes into being (FR-AUTH-01). Note it sends no mail |
+| `PATCH /api/admin/users/:id` | Partial: `fullName` `status` `organizationId`. Deactivation takes effect within 60s (profile cache TTL) |
+| `DELETE /api/admin/users/:id` | Deletes the auth user; the profile cascades. Certificates the account had claimed are returned to `unclaimed` first — `certificates_claimed_has_holder` would otherwise abort the cascade |
+| `GET /api/admin/certificates` | Platform-wide. `status` is `issued` \| `revoked` per the admin union; `claimState` is reported separately, alongside `completionDate` and `expiryDate` |
+| `POST /api/admin/certificates` | Issue on any institution's behalf — `organizationId` is required, an admin has no default |
+| `PUT /api/admin/certificates/:id` | Correction: revokes the old hash and anchors a new one, keeping the certificate ID (FR-MGMT-04) |
 | `POST /api/admin/certificates/:id/revoke` | Platform override of an institution's certificate |
+| `DELETE /api/admin/certificates/:id` | Erases the row. The chain entry cannot be erased, so the ID then reports `invalid`, not `revoked` |
 | `GET /api/admin/audit` | `?action=&organizationId=&limit=&offset=` · T-08 |
 
 Every admin mutation writes an `audit_events` row. That is the whole of T-08

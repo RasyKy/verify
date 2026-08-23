@@ -5,9 +5,15 @@
  * first through `node --import` so Sentry is initialised before Express is
  * imported.
  */
+import cron from 'node-cron';
+
 import { createApp } from './app.js';
 import { env } from './config/env.js';
 import { logger } from './lib/logger.js';
+import {
+  EXPIRY_SWEEP_CRON,
+  expiryNotificationsJob,
+} from './jobs/expiryNotifications.js';
 
 const app = createApp();
 
@@ -30,6 +36,16 @@ const server = app.listen(env.PORT, () => {
   });
 });
 
+// FR-EXP-03 — daily 60-day expiry sweep. noOverlap guards a slow run still
+// executing when the next day's tick fires; the DB unique constraint on
+// expiry_notifications is the real idempotency guard against a restart
+// re-triggering the sweep mid-day.
+const expiryTask = cron.schedule(
+  EXPIRY_SWEEP_CRON,
+  () => expiryNotificationsJob.run(),
+  { name: 'expiry-notifications', noOverlap: true, unref: true }
+);
+
 /**
  * Railway sends SIGTERM on redeploy. Draining in-flight requests matters here:
  * an issuance that has submitted a transaction but not yet written the receipt
@@ -37,6 +53,7 @@ const server = app.listen(env.PORT, () => {
  */
 function shutdown(signal) {
   logger.info(`${signal} received — draining connections`);
+  expiryTask.stop();
 
   const forced = setTimeout(() => {
     logger.error('Graceful shutdown timed out — exiting');

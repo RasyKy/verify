@@ -1,789 +1,485 @@
-<template>
-  <section ref="heroSectionRef" class="hero reveal" :class="{ 'hero--entered': heroEntered }">
-    <!-- Aria-live outside aria-hidden visual so screen readers pick it up -->
-    <div aria-live="polite" aria-atomic="true" class="sr-only">{{ ariaAnnounce }}</div>
-
-    <div class="hero-inner">
-      <!-- Copy -->
-      <div class="hero-copy">
-        <h1 class="hero-headline">
-          Issue certificates your recipients actually trust.
-        </h1>
-        <p class="hero-sub">
-          Verify lets institutions issue, manage, and revoke digital credentials
-          that recipients can share and employers can check instantly. Minutes,
-          not days.
-        </p>
-        <!-- "Get started free" pointed here and promised self-service signup.
-             There is no signup: every issuer account is created by a platform
-             admin after the institution is vetted, because an unvetted issuer
-             can attest that someone graduated (docs/user-flows.md §1, T-09).
-             The CTA now matches what a visitor can actually do. -->
-        <a href="#get-started" class="hero-cta">
-          Request issuer access
-        </a>
-        <p class="hero-note">
-          Verifying a certificate is free and needs no account —
-          <a href="/verify" class="hero-note-link">check one now</a>.
-        </p>
-      </div>
-
-      <!-- Certificate card mockup -->
-      <div
-        class="hero-visual"
-        aria-hidden="true"
-        @mousemove="onVisualMouseMove"
-        @mouseleave="onVisualMouseLeave"
-      >
-        <div
-          ref="cardRef"
-          class="cert-card"
-          :class="{ 'cert-card--glowing': isGlowing }"
-        >
-          <!-- Card header -->
-          <div class="cert-header">
-            <div class="cert-issuer">
-              <div class="cert-issuer-badge">U</div>
-              <span class="cert-issuer-name">University of Phnom Penh</span>
-            </div>
-            <!-- Fixed-height status area prevents layout shift across badge states -->
-            <div class="cert-status-area">
-              <span
-                :key="verifyState"
-                class="cert-status-badge"
-                :class="badgeClass"
-              >
-                <svg
-                  v-if="verifyState === 'verified'"
-                  width="11"
-                  height="11"
-                  viewBox="0 0 12 12"
-                  fill="none"
-                  aria-hidden="true"
-                >
-                  <path d="M2 6L5 9L10 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
-                {{ badgeLabel }}
-              </span>
-              <span
-                class="cert-verify-time"
-                :class="{ 'cert-verify-time--visible': verifyState === 'verified' }"
-              >
-                Verified just now · 0.4s
-              </span>
-            </div>
-          </div>
-
-          <!-- Divider -->
-          <div class="cert-divider" />
-
-          <!-- Title -->
-          <p class="cert-title-label">Certificate of Completion</p>
-
-          <!-- Recipient -->
-          <div class="cert-recipient-block">
-            <p class="cert-field-label">Awarded to</p>
-            <p class="cert-recipient-name">Sarah Kimura</p>
-          </div>
-
-          <!-- Course & date -->
-          <div class="cert-meta">
-            <div>
-              <p class="cert-field-label">Course</p>
-              <p class="cert-field-value">Web Development Bootcamp</p>
-            </div>
-            <div>
-              <p class="cert-field-label">Completed</p>
-              <p class="cert-field-value">June 12, 2025</p>
-            </div>
-          </div>
-
-          <!-- Bottom bar: QR + cert ID -->
-          <div class="cert-footer">
-            <div class="cert-qr">
-              <div v-for="row in qrRows" :key="row.id" class="cert-qr-row">
-                <div
-                  v-for="cell in row.cells"
-                  :key="cell.id"
-                  class="cert-qr-cell"
-                  :class="{ 'cert-qr-cell--filled': cell.filled }"
-                />
-              </div>
-              <!-- Scan line mounts only during scanning; CSS animation fires on mount -->
-              <div v-if="verifyState === 'scanning'" class="qr-scan-line" aria-hidden="true" />
-            </div>
-            <div class="cert-id-block">
-              <p class="cert-field-label">Certificate ID</p>
-              <p class="cert-hash">a3f9e1…c72b</p>
-              <p class="cert-chain">Issued via Verify</p>
-            </div>
-          </div>
-
-          <!-- Verify button: secondary style, reads as part of card mock, not a page CTA -->
-          <button
-            class="cert-verify-btn"
-            :class="{ 'cert-verify-btn--verified': showVerifiedBtn }"
-            :disabled="verifyState === 'scanning'"
-            @click="onVerifyClick"
-          >
-            <svg
-              v-if="showVerifiedBtn"
-              width="12"
-              height="12"
-              viewBox="0 0 12 12"
-              fill="none"
-              aria-hidden="true"
-              style="flex-shrink: 0"
-            >
-              <path d="M2 6L5 9L10 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
-            {{ btnLabel }}
-          </button>
-        </div>
-      </div>
-    </div>
-  </section>
-</template>
-
 <script setup lang="ts">
-const QR_PATTERN = [
-  [1,1,1,1,1,1,1,0,1,0,1,1,1,1,1,1,1],
-  [1,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,1],
-  [1,0,1,1,1,0,1,0,1,0,1,0,1,1,1,0,1],
-  [1,0,1,1,1,0,1,0,0,1,1,0,1,1,1,0,1],
-  [1,0,0,0,0,0,1,0,1,0,1,0,0,0,0,0,1],
-  [1,1,1,1,1,1,1,0,0,0,1,1,1,1,1,1,1],
-  [0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0],
-  [1,0,1,1,0,1,1,0,0,1,0,1,1,0,1,0,1],
-  [0,1,0,0,1,0,0,1,1,0,1,0,0,1,0,1,0],
-  [1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1],
-  [1,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,1],
-  [1,0,1,1,1,0,1,1,0,1,0,1,1,0,1,0,1],
-  [1,0,0,0,0,0,1,0,1,0,0,0,0,1,0,0,1],
-  [1,1,1,1,1,1,1,1,0,1,1,0,1,0,1,1,0],
-]
+/**
+ * The landing hero IS the verification tool.
+ *
+ * Almost everyone arriving here holds a certificate ID and wants one answer:
+ * is this real? Sending them to /verify first added a click and a page load to
+ * the only job they came to do, so the search bar lives here and submits
+ * straight to /verify/:id. That is also why the header no longer carries a
+ * "Verify a certificate" link — you are already on it.
+ *
+ * The 3D is deliberately small: a shallow parallax on the cards behind the bar
+ * and a two-degree tilt on the bar itself. Enough to give the page depth,
+ * never enough to compete with the input for attention — and it flattens the
+ * moment the field is focused, so nothing moves while someone is typing.
+ */
+const certId = ref('')
+const qrModalOpen = ref(false)
+// The search bar owns its own focus styling; the hero tracks focus only to
+// freeze the parallax while someone is typing.
+const focused = ref(false)
 
-const qrRows = QR_PATTERN.map((row, ri) => ({
-  id: ri,
-  cells: row.map((filled, ci) => ({ id: ci, filled: !!filled })),
-}))
+const stageRef = ref<HTMLElement | null>(null)
+const reducedMotion = ref(false)
+const canParallax = ref(false)
 
-const heroSectionRef       = ref<HTMLElement | null>(null)
-const cardRef              = ref<HTMLElement | null>(null)
-const prefersReducedMotion = ref(false)
-const canTilt              = ref(false)
-const heroEntered          = ref(false)
-
-const verifyState     = ref<'unchecked' | 'scanning' | 'verified'>('unchecked')
-const isGlowing       = ref(false)
-const showVerifiedBtn = ref(false)
-const ariaAnnounce    = ref('')
-const heroTimers: ReturnType<typeof setTimeout>[] = []
-
-const badgeLabel = computed(() => {
-  if (verifyState.value === 'verified') return 'Verified'
-  if (verifyState.value === 'scanning') return 'Checking…'
-  return 'Not yet checked'
-})
-
-const btnLabel = computed(() =>
-  showVerifiedBtn.value ? 'Verified' : 'Verify this certificate'
-)
-
-const badgeClass = computed(() =>
-  verifyState.value === 'verified' ? 'cert-status-badge--verified' : 'cert-status-badge--neutral'
-)
-
-function runVerifyDemo() {
-  const s = (fn: () => void, ms: number) => heroTimers.push(setTimeout(fn, ms))
-  ariaAnnounce.value = ''
-  verifyState.value = 'scanning'
-  s(() => {
-    verifyState.value = 'verified'
-    isGlowing.value = true
-    showVerifiedBtn.value = true
-    ariaAnnounce.value = 'Certificate verified'
-  }, 700)
-  s(() => { isGlowing.value = false }, 950)
-  s(() => { showVerifiedBtn.value = false }, 2700)
-  // Reset and loop — badge returns to unchecked then demo replays
-  s(() => { verifyState.value = 'unchecked'; ariaAnnounce.value = '' }, 3500)
-  s(runVerifyDemo, 4000)
+function onSubmit(id: string) {
+  navigateTo(`/verify/${encodeURIComponent(id)}`)
 }
 
-function onVerifyClick() {
-  if (verifyState.value === 'scanning') return
-  heroTimers.forEach(clearTimeout)
-  heroTimers.length = 0
-  showVerifiedBtn.value = false
-  runVerifyDemo()
+/**
+ * Pointer parallax, written to CSS custom properties rather than inline
+ * transforms so each layer can scale the same input by its own depth factor.
+ */
+function onPointerMove(e: PointerEvent) {
+  if (!canParallax.value || reducedMotion.value || focused.value) return
+  const el = stageRef.value
+  if (!el) return
+  const r = el.getBoundingClientRect()
+  const x = (e.clientX - (r.left + r.width / 2)) / (r.width / 2)
+  const y = (e.clientY - (r.top + r.height / 2)) / (r.height / 2)
+  el.style.setProperty('--mx', String(Math.max(-1, Math.min(1, x))))
+  el.style.setProperty('--my', String(Math.max(-1, Math.min(1, y))))
 }
 
-function onVisualMouseMove(e: MouseEvent) {
-  if (!canTilt.value || !cardRef.value || prefersReducedMotion.value) return
-  const rect = cardRef.value.getBoundingClientRect()
-  const cx = rect.left + rect.width / 2
-  const cy = rect.top + rect.height / 2
-  const dx = (e.clientX - cx) / (rect.width / 2)
-  const dy = (e.clientY - cy) / (rect.height / 2)
-  cardRef.value.style.transform = `perspective(1000px) rotateX(${-dy * 2}deg) rotateY(${dx * 3}deg)`
-  cardRef.value.style.transition = 'transform 0.15s ease'
-}
-
-function onVisualMouseLeave() {
-  if (!canTilt.value || !cardRef.value) return
-  cardRef.value.style.transform = ''
-  cardRef.value.style.transition = 'transform 0.3s ease'
+function onPointerLeave() {
+  const el = stageRef.value
+  if (!el) return
+  el.style.setProperty('--mx', '0')
+  el.style.setProperty('--my', '0')
 }
 
 onMounted(() => {
-  prefersReducedMotion.value = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  canTilt.value = window.matchMedia('(hover: hover) and (pointer: fine)').matches
-
-  // Always mark entered — CSS opacity:1 !important rule handles reduced-motion immediately
-  heroEntered.value = true
-
-  if (!prefersReducedMotion.value) {
-    const root = heroSectionRef.value
-    const enterSelectors = ['.hero-headline', '.hero-sub', '.hero-cta', '.hero-note', '.hero-visual']
-    enterSelectors.forEach(sel =>
-      root?.querySelector<HTMLElement>(sel)?.style.setProperty('will-change', 'transform, opacity')
-    )
-    // Remove will-change after last element finishes (.hero-visual: 380ms + 600ms = 980ms)
-    heroTimers.push(setTimeout(() => {
-      enterSelectors.forEach(sel =>
-        root?.querySelector<HTMLElement>(sel)?.style.removeProperty('will-change')
-      )
-    }, 1050))
-  }
-
-  // Always auto-play — CSS gates which animations play based on prefers-reduced-motion
-  heroTimers.push(setTimeout(runVerifyDemo, 1400))
+  reducedMotion.value = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  canParallax.value = window.matchMedia('(hover: hover) and (pointer: fine)').matches
 })
-
-onUnmounted(() => heroTimers.forEach(clearTimeout))
 </script>
 
-<style scoped>
-/* ── Accessibility ── */
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
+<template>
+  <section
+    ref="stageRef"
+    class="hero"
+    @pointermove="onPointerMove"
+    @pointerleave="onPointerLeave"
+  >
+    <!-- ── Depth layers. Purely decorative: no text a reader would miss. ── -->
+    <div class="depth" aria-hidden="true">
+      <div class="glow" />
+      <div class="card-float card-float--back">
+        <div class="cf-line cf-line--sm" />
+        <div class="cf-line" />
+        <div class="cf-chip" />
+      </div>
+      <div class="card-float card-float--mid">
+        <div class="cf-seal">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="m5 12.5 4.5 4.5L19 7.5" stroke="currentColor" stroke-width="2.6"
+                  stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </div>
+        <div class="cf-line cf-line--sm" />
+        <div class="cf-line" />
+      </div>
+      <div class="card-float card-float--front">
+        <div class="cf-line cf-line--sm" />
+        <div class="cf-line" />
+        <div class="cf-chip cf-chip--wide" />
+      </div>
+      <div class="card-float card-float--low">
+        <div class="cf-line cf-line--sm" />
+        <div class="cf-line" />
+      </div>
+    </div>
 
-/* ── Section ── */
+    <!-- ── Content ── -->
+    <div class="hero-inner">
+      <p class="eyebrow">Blockchain-anchored credentials</p>
+
+      <h1 class="headline">
+        Is this certificate real?<br />
+        <span class="headline-accent">Find out in seconds.</span>
+      </h1>
+
+      <p class="subline">
+        Paste the certificate ID and check it against the blockchain record.
+        No account, no waiting on the issuing institution.
+      </p>
+
+      <!--
+        The one action on this page. focusin/focusout bubble out of the
+        component, which is all the hero needs to know to stop the parallax —
+        cheaper than an emit the search bar would otherwise carry for one
+        caller.
+      -->
+      <VerifyHeroSearch
+        v-model="certId"
+        input-id="hero-cert-id"
+        tilt
+        @focusin="focused = true"
+        @focusout="focused = false"
+        @submit="onSubmit"
+      />
+
+      <div class="under-search">
+        <button type="button" class="qr-btn" @click="qrModalOpen = true">
+          <UIcon name="i-heroicons-qr-code" class="qr-icon" />
+          Scan QR code instead
+        </button>
+        <span class="dot-sep" aria-hidden="true">·</span>
+        <span class="trust-note">
+          <UIcon name="i-heroicons-lock-closed" class="trust-icon" />
+          Checked against the chain, not a database copy
+        </span>
+      </div>
+
+      <!--
+        Sets the expectation before anyone searches, and gives the composition a
+        base wider than the search bar so the hero is not top-heavy. These are
+        the four values verifyStatus() can actually return — not marketing.
+      -->
+      <div class="outcomes">
+        <p class="outcomes-label">Every check comes back as one of four</p>
+        <ul class="outcome-list">
+          <li class="outcome outcome--verified">
+            <UIcon name="i-heroicons-check-circle-solid" class="outcome-icon" />
+            <span class="outcome-name">Verified</span>
+            <span class="outcome-note">Genuine and current</span>
+          </li>
+          <li class="outcome outcome--revoked">
+            <UIcon name="i-heroicons-x-circle-solid" class="outcome-icon" />
+            <span class="outcome-name">Revoked</span>
+            <span class="outcome-note">Withdrawn by the issuer</span>
+          </li>
+          <li class="outcome outcome--expired">
+            <UIcon name="i-heroicons-clock-solid" class="outcome-icon" />
+            <span class="outcome-name">Expired</span>
+            <span class="outcome-note">Past its expiry date</span>
+          </li>
+          <li class="outcome outcome--invalid">
+            <UIcon name="i-heroicons-exclamation-triangle-solid" class="outcome-icon" />
+            <span class="outcome-name">Invalid</span>
+            <span class="outcome-note">Not on the chain</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <VerifyQrScannerModal v-model:open="qrModalOpen" />
+  </section>
+</template>
+
+<style scoped>
+/* ── Stage ── */
 .hero {
-  padding: 88px 40px 80px;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: 92px 24px 64px;
+  perspective: 1200px;
+  --mx: 0;
+  --my: 0;
 }
 
 .hero-inner {
-  max-width: 1120px;
+  position: relative;
+  z-index: 2;
+  max-width: 780px;
   margin: 0 auto;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 64px;
-  align-items: center;
-}
-
-/* ── Copy ── */
-.hero-copy {
+  text-align: center;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-}
-
-/* ── Entrance: elements start invisible until JS sets .hero--entered ── */
-.hero-headline,
-.hero-sub,
-.hero-cta,
-.hero-note {
-  opacity: 0;
-}
-
-.hero-visual {
-  opacity: 0;
-}
-
-/* Reduced motion: show all immediately, before JS even runs */
-@media (prefers-reduced-motion: reduce) {
-  .hero-headline,
-  .hero-sub,
-  .hero-cta,
-  .hero-note,
-  .hero-visual {
-    opacity: 1 !important;
-  }
-}
-
-/* Entrance stagger — triggered by .hero--entered class set in onMounted */
-@media (prefers-reduced-motion: no-preference) {
-  .hero--entered .hero-headline {
-    animation: heroFadeUp 0.55s ease 0ms forwards;
-  }
-  .hero--entered .hero-sub {
-    animation: heroFadeUp 0.55s ease 80ms forwards;
-  }
-  .hero--entered .hero-cta {
-    animation: heroFadeUp 0.55s ease 160ms forwards;
-  }
-  .hero--entered .hero-note {
-    animation: heroFadeUp 0.55s ease 240ms forwards;
-  }
-  .hero--entered .hero-visual {
-    animation: heroSlideRight 0.6s cubic-bezier(0.22, 1, 0.36, 1) 380ms forwards;
-  }
-
-  @keyframes heroFadeUp {
-    from { opacity: 0; transform: translateY(12px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-
-  @keyframes heroSlideRight {
-    from { opacity: 0; transform: translateX(24px); }
-    to   { opacity: 1; transform: translateX(0); }
-  }
-}
-
-.hero-headline {
-  font-size: 44px;
-  font-weight: 700;
-  line-height: 1.15;
-  letter-spacing: -0.02em;
-  color: var(--text-primary);
-  margin: 0 0 20px;
-  max-width: 500px;
-}
-
-.hero-sub {
-  font-size: 17px;
-  line-height: 1.65;
-  color: var(--text-secondary);
-  margin: 0 0 32px;
-  max-width: 440px;
-}
-
-.hero-cta {
-  display: inline-flex;
   align-items: center;
-  padding: 12px 24px;
-  border-radius: 9px;
+}
+
+/* ── Depth layers ── */
+.depth {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  transform-style: preserve-3d;
+  pointer-events: none;
+}
+
+.glow {
+  position: absolute;
+  inset: -10%;
+  background:
+    radial-gradient(680px 420px at 50% 8%, rgba(15, 123, 108, 0.13), transparent 70%),
+    radial-gradient(520px 360px at 12% 88%, rgba(92, 170, 160, 0.14), transparent 72%),
+    radial-gradient(460px 340px at 88% 78%, rgba(10, 92, 82, 0.10), transparent 72%);
+}
+
+/* Floating credential cards. --d is the depth factor: bigger = moves more. */
+.card-float {
+  position: absolute;
+  width: 190px;
+  padding: 16px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--border);
+  box-shadow: 0 18px 40px -22px rgba(55, 53, 47, 0.35);
+  backdrop-filter: blur(3px);
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  transform:
+    translate3d(calc(var(--mx) * var(--d) * 14px), calc(var(--my) * var(--d) * 12px), 0)
+    rotateX(calc(var(--my) * -2deg))
+    rotateY(calc(var(--mx) * 3deg));
+  transition: transform 400ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.card-float--back {
+  --d: 0.45;
+  top: 13%; left: 5%;
+  opacity: 0.5;
+  scale: 0.84;
+}
+
+.card-float--mid {
+  --d: 0.8;
+  top: 46%; left: 8%;
+  opacity: 0.72;
+}
+
+.card-float--front {
+  --d: 1;
+  top: 22%; right: 6%;
+  opacity: 0.78;
+}
+
+/* Balances the lower right, which the other three left bare. */
+.card-float--low {
+  --d: 0.62;
+  top: 62%; right: 10%;
+  opacity: 0.55;
+  scale: 0.88;
+}
+
+/* Slow vertical drift, offset per card so they never move in lockstep */
+@media (prefers-reduced-motion: no-preference) {
+  .card-float--back  { animation: drift 13s ease-in-out -2s infinite alternate; }
+  .card-float--mid   { animation: drift 16s ease-in-out -7s infinite alternate; }
+  .card-float--front { animation: drift 11s ease-in-out -4s infinite alternate; }
+  .card-float--low   { animation: drift 15s ease-in-out -9s infinite alternate; }
+
+  @keyframes drift {
+    from { margin-top: -10px; }
+    to   { margin-top: 10px; }
+  }
+}
+
+.cf-line {
+  height: 7px;
+  border-radius: 4px;
+  background: var(--border);
+}
+
+.cf-line--sm { width: 52%; }
+
+.cf-chip {
+  height: 16px;
+  width: 58px;
+  border-radius: 999px;
+  background: var(--status-valid-bg);
+}
+
+.cf-chip--wide { width: 78px; }
+
+.cf-seal {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
   background: var(--accent);
   color: #fff;
-  font-size: 15px;
-  font-weight: 600;
-  text-decoration: none;
-  transition: background-color 0.15s ease;
-  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.hero-cta:hover {
-  background: var(--accent-text);
+.cf-seal svg { width: 17px; height: 17px; }
+
+/* ── Copy ── */
+.eyebrow {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 18px;
 }
 
-.hero-cta:focus-visible {
+.headline {
+  font-size: clamp(34px, 5.2vw, 54px);
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.032em;
+  color: var(--text-primary);
+  margin: 0 0 18px;
+}
+
+.headline-accent {
+  background: linear-gradient(100deg, var(--accent) 0%, #5CAAA0 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.subline {
+  font-size: 16.5px;
+  line-height: 1.65;
+  color: var(--text-secondary);
+  margin: 0 0 34px;
+  max-width: 30rem;
+}
+
+/* ── Under the bar ── */
+.under-search {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.qr-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 150ms ease, color 150ms ease;
+}
+
+.qr-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.qr-btn:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
 
-.hero-note {
-  font-size: 13px;
-  color: var(--text-tertiary);
-  margin: 0;
-}
+.qr-icon { width: 15px; height: 15px; }
 
-.hero-note-link {
-  color: var(--accent-text);
-  font-weight: 500;
-  text-decoration: none;
-  border-bottom: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
-}
+.dot-sep { color: var(--text-tertiary); }
 
-.hero-note-link:hover {
-  border-bottom-color: var(--accent);
-}
-
-/* ── Visual ── */
-.hero-visual {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  position: relative;
-}
-
-/* Faint dot-grid behind card — border-color contrast, barely visible */
-.hero-visual::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: radial-gradient(var(--border) 1px, transparent 1px);
-  background-size: 22px 22px;
-  opacity: 0.5;
-  pointer-events: none;
-  z-index: 0;
-}
-
-/* ── Certificate card ── */
-.cert-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 24px;
-  width: 100%;
-  max-width: 360px;
-  box-shadow: 0 4px 24px rgba(55, 53, 47, 0.07), 0 1px 4px rgba(55, 53, 47, 0.04);
-  transition: border-color 0.25s ease, transform 0.2s ease;
-  position: relative;
-  z-index: 1;
-}
-
-/* Hover shadow layer — only opacity transitions (compositor-safe) */
-.cert-card::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  box-shadow: 0 8px 32px rgba(55, 53, 47, 0.12), 0 2px 8px rgba(55, 53, 47, 0.06);
-  opacity: 0;
-  transition: opacity 0.25s ease;
-  pointer-events: none;
-  z-index: -1;
-}
-
-/* Glow ring layer — accent outline via opacity (compositor-safe) */
-.cert-card::before {
-  content: '';
-  position: absolute;
-  inset: -2px;
-  border-radius: inherit;
-  box-shadow: 0 0 0 2px var(--accent);
-  opacity: 0;
-  transition: opacity 0.25s ease;
-  pointer-events: none;
-  z-index: -1;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .cert-card:hover {
-    transform: translateY(-2px);
-  }
-
-  .cert-card:hover::after { opacity: 1; }
-
-  /* Pulse the verified badge on card hover */
-  .cert-card:hover .cert-status-badge--verified {
-    animation: verifyPulse 0.35s ease forwards;
-  }
-}
-
-/* Glow state during verification — accent ring via ::before opacity */
-.cert-card--glowing {
-  border-color: var(--accent);
-}
-
-.cert-card--glowing::before { opacity: 1; }
-
-@keyframes verifyPulse {
-  0%   { transform: scale(1);    opacity: 0.8; }
-  50%  { transform: scale(1.07); opacity: 1;   }
-  100% { transform: scale(1);    opacity: 1;   }
-}
-
-.cert-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 20px;
-}
-
-.cert-issuer {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.cert-issuer-badge {
-  width: 26px;
-  height: 26px;
-  border-radius: 6px;
-  background: var(--accent-light);
-  color: var(--accent-text);
-  font-size: 12px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.cert-issuer-name {
-  font-size: 12px;
-  color: var(--text-secondary);
-  font-weight: 500;
-}
-
-/* ── Status area: min-height reserves space for badge + timestamp — zero layout shift ── */
-.cert-status-area {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 3px;
-  min-height: 44px;
-  flex-shrink: 0;
-}
-
-.cert-status-badge {
+.trust-note {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.cert-status-badge--neutral {
-  background: var(--surface-hover);
+  gap: 6px;
+  font-size: 13px;
   color: var(--text-tertiary);
 }
 
-.cert-status-badge--verified {
-  background: var(--status-valid-bg);
-  color: var(--status-valid-text);
+.trust-icon { width: 13px; height: 13px; }
+
+.outcomes {
+  margin-top: 44px;
+  width: 100%;
+  max-width: 720px;
 }
 
-/* badgePop fires on mount via :key remount — no JS needed per-trigger */
-@media (prefers-reduced-motion: no-preference) {
-  .cert-status-badge--verified {
-    animation: badgePop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-  }
-
-  @keyframes badgePop {
-    from { transform: scale(0.7); opacity: 0; }
-    to   { transform: scale(1);   opacity: 1; }
-  }
+.outcomes-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin: 0 0 14px;
 }
 
-.cert-verify-time {
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-  opacity: 0;
-  transform: translateY(-3px);
-  transition: opacity 0.3s ease 0.2s, transform 0.3s ease 0.2s;
-  white-space: nowrap;
+.outcome-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
 }
 
-.cert-verify-time--visible {
-  opacity: 1;
-  transform: translateY(0);
+.outcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 14px 10px 13px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 2px rgba(55, 53, 47, 0.04);
 }
 
+.outcome-icon {
+  width: 19px;
+  height: 19px;
+  margin-bottom: 3px;
+}
+
+.outcome-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.outcome-note {
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
+.outcome--verified .outcome-icon { color: var(--status-valid-text); }
+.outcome--revoked  .outcome-icon { color: var(--status-revoked-text); }
+.outcome--expired  .outcome-icon { color: var(--status-expired-text); }
+.outcome--invalid  .outcome-icon { color: var(--status-revoked-text); }
+
+/* ── Reduced motion: no drift ──
+   The search bar flattens its own tilt and shake. */
 @media (prefers-reduced-motion: reduce) {
-  .cert-verify-time {
+  .card-float {
+    transform: none;
     transition: none;
   }
 }
 
-.cert-divider {
-  height: 1px;
-  background: var(--border);
-  margin-bottom: 16px;
-}
-
-.cert-title-label {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-tertiary);
-  margin: 0 0 12px;
-}
-
-.cert-recipient-block {
-  margin-bottom: 16px;
-}
-
-.cert-field-label {
-  font-size: 11px;
-  color: var(--text-tertiary);
-  margin: 0 0 2px;
-}
-
-.cert-recipient-name {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0;
-  letter-spacing: -0.01em;
-}
-
-.cert-meta {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 20px;
-}
-
-.cert-field-value {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-primary);
-  margin: 0;
-}
-
-/* ── Footer row: QR + cert ID ── */
-.cert-footer {
-  display: flex;
-  align-items: flex-end;
-  gap: 16px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
-}
-
-/* ── QR code ── */
-.cert-qr {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5px;
-  flex-shrink: 0;
-  position: relative;
-  /* 14 rows × 4px + 13 gaps × 1.5px ≈ 75.5px; scan line travels 74px */
-  --qr-h: 74px;
-}
-
-/* Scan line is v-if mounted; animation auto-starts on mount, auto-stops on unmount */
-.qr-scan-line {
-  position: absolute;
-  top: 0;       /* static starting position — animation uses transform, not top */
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, var(--accent), transparent);
-  border-radius: 1px;
-  pointer-events: none;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .qr-scan-line {
-    animation: qrScan 0.7s ease-in-out forwards;
-  }
-
-  /* translateY instead of top — compositor-safe, no layout reflow per frame */
-  @keyframes qrScan {
-    0%   { transform: translateY(0);              opacity: 1; }
-    85%  { transform: translateY(var(--qr-h));    opacity: 1; }
-    100% { transform: translateY(var(--qr-h));    opacity: 0; }
-  }
-}
-
-.cert-qr-row {
-  display: flex;
-  gap: 1.5px;
-}
-
-.cert-qr-cell {
-  width: 4px;
-  height: 4px;
-  border-radius: 0.5px;
-  background: var(--border);
-}
-
-.cert-qr-cell--filled {
-  background: var(--text-primary);
-}
-
-/* ── Cert ID block ── */
-.cert-id-block {
-  flex: 1;
-  min-width: 0;
-}
-
-.cert-hash {
-  font-size: 12px;
-  font-family: ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
-  color: var(--text-primary);
-  font-weight: 500;
-  margin: 2px 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.cert-chain {
-  font-size: 11px;
-  color: var(--text-tertiary);
-  margin: 0;
-}
-
-/* ── Verify button: secondary — part of the card mock, NOT a page CTA ── */
-.cert-verify-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  width: 100%;
-  margin-top: 12px;
-  padding: 7px 14px;
-  border-radius: 7px;
-  border: 1px solid var(--border-strong);
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 12px;
-  font-weight: 500;
-  font-family: inherit;
-  cursor: pointer;
-  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
-}
-
-.cert-verify-btn:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.cert-verify-btn:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.cert-verify-btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.cert-verify-btn--verified {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: var(--accent-light);
-}
-
 /* ── Responsive ── */
-@media (max-width: 860px) {
-  .hero {
-    padding: 64px 24px 56px;
+@media (max-width: 900px) {
+  /* The floating cards would sit under the text at this width. */
+  .card-float { display: none; }
+}
+
+@media (max-width: 720px) {
+  .outcome-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .hero { padding: 64px 20px 52px; }
+
+  .outcomes { margin-top: 34px; }
+
+  .outcome {
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 8px;
+    padding: 11px 13px;
   }
 
-  .hero-inner {
-    grid-template-columns: 1fr;
-    gap: 48px;
-  }
+  .outcome-icon { margin-bottom: 0; }
 
-  .hero-headline {
-    font-size: 34px;
-  }
-
-  .hero-visual {
-    order: -1;
-  }
-
-  .cert-card {
-    max-width: 100%;
-  }
+  /* The label carries it at this width; the gloss would wrap to three lines. */
+  .outcome-note { display: none; }
 }
 </style>
