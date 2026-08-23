@@ -102,7 +102,6 @@ async function confirmDeactivate() {
     />
 
     <AdminPageHeader
-      eyebrow="Admin portal"
       title="Users"
       description="All issuers and recipients across every organization."
     >
@@ -129,26 +128,25 @@ async function confirmDeactivate() {
       </template>
       <template #cell-_actions="{ row }">
         <div class="row-actions">
-          <button class="action-btn" @click.stop="openEdit(row)">
-            Edit
-          </button>
-          <button
+          <AdminRowAction icon="i-heroicons-pencil-square" label="Edit" @click="openEdit(row)" />
+          <AdminRowAction
             v-if="row.status === 'active'"
-            class="action-btn"
-            @click.stop="openDeactivate(row.id)"
-          >
-            Deactivate
-          </button>
-          <button
+            icon="i-heroicons-no-symbol"
+            label="Deactivate"
+            @click="openDeactivate(row.id)"
+          />
+          <AdminRowAction
             v-else
-            class="action-btn"
-            @click.stop="reactivate(row.id)"
-          >
-            Reactivate
-          </button>
-          <button class="action-btn action-btn--danger" @click.stop="deleteTarget = row.id">
-            Delete
-          </button>
+            icon="i-heroicons-check-circle"
+            label="Reactivate"
+            @click="reactivate(row.id)"
+          />
+          <AdminRowAction
+            icon="i-heroicons-trash"
+            label="Delete"
+            danger
+            @click="deleteTarget = row.id"
+          />
         </div>
       </template>
     </AdminTable>
@@ -226,34 +224,4 @@ async function confirmDeactivate() {
   font-size: 13px;
 }
 
-/* Neutral by default — the row carries non-destructive actions (Edit, Resend)
-   alongside the destructive ones, and painting them all red made every action
-   read as a warning. Danger is opt-in via --danger. */
-.action-btn {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--accent);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  padding: 4px 0;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.action-btn:hover {
-  opacity: 0.7;
-}
-
-.action-btn:disabled {
-  color: var(--text-tertiary);
-  cursor: default;
-  text-decoration: none;
-}
-
-/* Must follow .action-btn — same specificity, so source order decides which
-   colour wins. */
-.action-btn--danger {
-  color: var(--status-revoked-text);
-}
 </style>

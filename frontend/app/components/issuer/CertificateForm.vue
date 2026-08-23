@@ -89,49 +89,62 @@ const computedExpiryDate = computed<string | null>(() => {
   return base.toISOString().substring(0, 10)
 })
 
-// ── Courses ───────────────────────────────────────────────────────────────────
+// ── Courses ─────────────────────────────────────────────────────────────────
 
-const selectedCourse = ref<{ label: string; value: string } | undefined>(
-  props.initialData?.courseName
-    ? { label: props.initialData.courseName, value: props.initialData.courseName }
-    : undefined,
-)
 const courseQuery = ref('')
+const courseMenuOpen = ref(false)
+const savingCourse = ref(false)
+
+/*
+ * The selected course lives in `state.courseName` rather than in a separate
+ * option object, so a course added inline — which is not in `coursesStore`
+ * until the POST lands — still shows in the field.
+ */
+const courseModel = computed<string | undefined>({
+  get: () => state.courseName || undefined,
+  // The menu emits null when cleared; the schema expects a string.
+  set: (name) => { state.courseName = name ?? '' },
+})
 
 const courseOptions = computed(() => {
-  const term = courseQuery.value.toLowerCase().trim()
-  const filtered = coursesStore.value.filter((c) => !term || c.toLowerCase().includes(term))
-  const opts: Array<{ label: string; value: string }> = filtered.map((c) => ({ label: c, value: c }))
-  if (term && !coursesStore.value.some((c) => c.toLowerCase() === term)) {
-    opts.push({ label: `+ Add "${courseQuery.value}"`, value: '__create__' })
-  }
-  return opts
+  const names = coursesStore.value
+  return state.courseName && !names.includes(state.courseName)
+    ? [state.courseName, ...names]
+    : names
 })
 
-watch(selectedCourse, async (item) => {
-  if (!item) { state.courseName = ''; return }
-  if (item.value === '__create__') {
-    const name = courseQuery.value.trim()
-    // Select it immediately: the name is already valid for the certificate, so
-    // the form should not wait on a round-trip that only updates the typeahead.
-    // POST /api/courses is idempotent, so a double-click cannot duplicate it.
-    selectedCourse.value = { label: name, value: name }
-    state.courseName = name
-    courseQuery.value = ''
-    try {
-      await createCourse(name)
-      await refreshCourses()
-    } catch (err) {
-      toast.add({
-        title: 'Could not save the course to your list',
-        description: apiErrorMessage(err),
-        color: 'warning',
-      })
-    }
-  } else {
-    state.courseName = item.value
+/**
+ * Adds a course the organization has never issued before, straight from the
+ * certificate form.
+ *
+ * Selected immediately: the name is already valid for the certificate, so the
+ * form should not wait on a round-trip that only updates the typeahead. Issuing
+ * would register the course anyway, but saving it here means it is on the list
+ * even if this form is abandoned. POST /api/courses is idempotent on
+ * (organization, name), so a double-click cannot duplicate it.
+ */
+async function onCreateCourse(raw: string) {
+  const name = raw.trim()
+  if (!name) return
+
+  state.courseName = name
+  courseQuery.value = ''
+  courseMenuOpen.value = false
+
+  savingCourse.value = true
+  try {
+    await createCourse(name)
+    await refreshCourses()
+  } catch (err) {
+    toast.add({
+      title: 'Could not save the course to your list',
+      description: apiErrorMessage(err),
+      color: 'warning',
+    })
+  } finally {
+    savingCourse.value = false
   }
-})
+}
 
 // ── Submit ────────────────────────────────────────────────────────────────────
 
@@ -182,7 +195,6 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
       expiryType.value = 'none'
       duration.value = '1 year'
       customExpiryDate.value = ''
-      selectedCourse.value = undefined
       courseQuery.value = ''
     }
     emit('success')
@@ -245,15 +257,22 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
           Course name <span class="text-red-500">*</span>
         </template>
         <UInputMenu
-          v-model="selectedCourse"
-          v-model:query="courseQuery"
+          v-model="courseModel"
+          v-model:search-term="courseQuery"
+          v-model:open="courseMenuOpen"
           :items="courseOptions"
-          option-attribute="label"
+          create-item="always"
+          :loading="savingCourse"
           placeholder="Search or add a course..."
           class="w-full"
-        />
+          @create="onCreateCourse"
+        >
+          <template #create-item-label="{ item }">
+            Add &ldquo;{{ item }}&rdquo; as a new course
+          </template>
+        </UInputMenu>
         <template #help>
-          Type to search existing courses or add a new one.
+          Type to search your organization&rsquo;s courses, or type a new name to add it.
         </template>
       </UFormField>
 

@@ -1,41 +1,18 @@
 <script setup lang="ts">
 /**
- * Password reset, by code rather than by link.
+ * Password reset — request an emailed link.
  *
- * ── Why not the emailed link ──
+ * The link lands on /auth/set-password, which turns the recovery session it
+ * carries into a chosen password. One caveat is structural rather than a bug:
+ * @nuxtjs/supabase defaults `useSsrCookies: true`, so the client is built by
+ * @supabase/ssr's `createBrowserClient`, which hardcodes `flowType: 'pkce'`.
+ * The code verifier lives in the storage of the browser that asked, so the link
+ * only redeems there — hence the copy telling people to open it on this device,
+ * and the recoverable state set-password.vue shows when it does not.
  *
- * `resetPasswordForEmail` still sends the mail, but the link in it is no longer
- * what this flow depends on, because a link-only reset has three failure modes
- * that no amount of frontend care can fix:
- *
- *   1. Flow mismatch. @nuxtjs/supabase defaults `useSsrCookies: true`, which
- *      builds the client through @supabase/ssr's `createBrowserClient` — and
- *      that hardcodes `flowType: 'pkce'`. A recovery redirect that arrives as
- *      an implicit-grant URL (`#access_token=…`) is then rejected outright by
- *      auth-js with "Not a valid PKCE flow url", so no session is created and
- *      the landing page can only report that the link is dead.
- *   2. Wrong device. A PKCE link is only redeemable in the browser that asked
- *      for the reset, because the code verifier lives in that browser's
- *      storage. Requesting on a laptop and opening the mail on a phone — the
- *      single most common thing people do — cannot work by construction.
- *   3. Link scanners. Corporate mail filters and webmail previews fetch links
- *      before a human clicks them, and a one-time recovery token is spent on
- *      first fetch. The user then clicks an already-burned link.
- *
- * A typed code has none of those properties: it is device-independent, survives
- * being fetched by a scanner, and never touches the redirect allowlist. It is
- * also the mechanism the claim flow already uses, so there is one story here
- * rather than two.
- *
- * ── What this needs on the Supabase side ──
- *
- * The "Reset Password" email template must render `{{ .Token }}`. The stock
- * template only contains `{{ .ConfirmationURL }}`, and with that template the
- * mail carries no code to type.
- *
- * The mail itself is sent by Supabase Auth, NOT by services/email.js — that
- * module only handles claim and expiry notices. Routing these through Resend is
- * a Custom SMTP setting in the Supabase dashboard, not a code change here.
+ * The mail is sent by Supabase Auth, NOT by services/email.js — that module
+ * only handles claim and expiry notices. Routing it through Resend is a Custom
+ * SMTP setting in the Supabase dashboard, not a code change here.
  */
 definePageMeta({ layout: false })
 
@@ -43,14 +20,8 @@ useHead({ meta: [{ name: 'robots', content: 'noindex, nofollow' }] })
 
 const supabase = useSupabaseClient()
 
-type Step = 'email' | 'code' | 'password' | 'done'
-const step = ref<Step>('email')
-
+const step = ref<'email' | 'sent'>('email')
 const email = ref('')
-const code = ref<(string | number)[]>([])
-const codeValue = computed(() => code.value.join(''))
-const password = ref('')
-const confirm = ref('')
 
 const busy = ref(false)
 const errorMessage = ref('')
@@ -64,18 +35,13 @@ onMounted(() => {
   if (typeof q === 'string') email.value = q
 })
 
-async function sendCode() {
+async function sendResetLink() {
   const address = email.value.trim()
   if (!address || busy.value) return
 
   busy.value = true
   errorMessage.value = ''
   try {
-    /*
-     * `redirectTo` is still supplied so the link in the same email keeps
-     * working for anyone who opens it in the browser that asked — it is a
-     * bonus path, not the one this page depends on.
-     */
     const { error } = await supabase.auth.resetPasswordForEmail(address, {
       redirectTo: `${window.location.origin}/auth/set-password`,
     })
@@ -83,74 +49,15 @@ async function sendCode() {
      * Rate limits and transport failures are worth showing. "No such account"
      * is not, and Supabase does not report it either — confirming which
      * addresses have accounts would turn this form into a way to enumerate
-     * them. So a nonexistent address advances to the code step exactly like a
-     * real one, and simply never receives a code that works.
+     * them. So a nonexistent address advances to the sent step exactly like a
+     * real one, and simply never receives mail.
      */
     if (error) {
       errorMessage.value = error.message
       return
     }
-    step.value = 'code'
-    code.value = []
+    step.value = 'sent'
     startResend()
-  } finally {
-    busy.value = false
-  }
-}
-
-async function verifyCode() {
-  if (busy.value || codeValue.value.length !== OTP_LENGTH) return
-
-  busy.value = true
-  errorMessage.value = ''
-  try {
-    // `type: 'recovery'` — NOT 'email'. The recovery code is minted by
-    // resetPasswordForEmail and will not verify against the magic-link type.
-    const { data, error } = await supabase.auth.verifyOtp({
-      email: email.value.trim(),
-      token: codeValue.value,
-      type: 'recovery',
-    })
-    if (error || !data.session) {
-      errorMessage.value = 'That code is incorrect or has expired. Request a new one.'
-      code.value = []
-      return
-    }
-    // The code bought a real session; the account is now free to set a password.
-    step.value = 'password'
-  } finally {
-    busy.value = false
-  }
-}
-
-const passwordProblem = computed(() => {
-  if (!password.value) return null
-  if (password.value.length < 8) return 'Password must be at least 8 characters'
-  if (confirm.value && password.value !== confirm.value) return 'Passwords do not match'
-  return null
-})
-
-const canSavePassword = computed(
-  () => password.value.length >= 8 && password.value === confirm.value && !busy.value,
-)
-
-async function savePassword() {
-  if (!canSavePassword.value) return
-
-  busy.value = true
-  errorMessage.value = ''
-  try {
-    const { error } = await supabase.auth.updateUser({ password: password.value })
-    if (error) {
-      errorMessage.value = error.message
-      return
-    }
-    // Verifying the code signed them in, so send them to their own portal
-    // rather than back to a login form they no longer need.
-    clearMe()
-    const me = await fetchMe()
-    step.value = 'done'
-    await navigateTo(me ? (ROLE_HOME[me.role] ?? '/') : '/login')
   } finally {
     busy.value = false
   }
@@ -158,7 +65,6 @@ async function savePassword() {
 
 function backToEmail() {
   step.value = 'email'
-  code.value = []
   errorMessage.value = ''
 }
 </script>
@@ -178,11 +84,11 @@ function backToEmail() {
         <template v-if="step === 'email'">
           <h1 class="headline">Reset your password</h1>
           <p class="sub">
-            Enter the email you sign in with and we'll send you a code to set a
+            Enter the email you sign in with and we'll send you a link to set a
             new one.
           </p>
 
-          <form class="form" @submit.prevent="sendCode">
+          <form class="form" @submit.prevent="sendResetLink">
             <div class="field">
               <label class="label" for="fp-email">Email</label>
               <UInput
@@ -208,32 +114,25 @@ function backToEmail() {
 
             <button type="submit" class="submit" :disabled="busy || !email.trim()">
               <UIcon v-if="busy" name="i-heroicons-arrow-path" class="size-4 spin" />
-              {{ busy ? 'Sending…' : 'Send code' }}
+              {{ busy ? 'Sending…' : 'Send reset link' }}
             </button>
           </form>
         </template>
 
-        <!-- ── Step 2: the code ── -->
-        <template v-else-if="step === 'code'">
+        <!-- ── Step 2: it's in their inbox ── -->
+        <template v-else>
           <div class="step-icon">
             <UIcon name="i-heroicons-envelope-open" class="size-6" />
           </div>
-          <h1 class="headline">Enter your code</h1>
+          <h1 class="headline">Check your inbox</h1>
           <p class="sub">
-            If <strong>{{ email.trim() }}</strong> has an account, the
-            {{ OTP_LENGTH }}-digit code is on its way. It expires in one hour.
+            If <strong>{{ email.trim() }}</strong> has an account, a link to set
+            a new password is on its way. It expires in one hour.
           </p>
-
-          <div class="code-row">
-            <UPinInput
-              v-model="code"
-              :length="OTP_LENGTH"
-              otp
-              size="md"
-              :disabled="busy"
-              @complete="verifyCode"
-            />
-          </div>
+          <p class="sub note">
+            Open it in this browser — for security the link only works on the
+            device that asked for it.
+          </p>
 
           <UAlert
             v-if="errorMessage"
@@ -244,87 +143,20 @@ function backToEmail() {
             class="mt-4 text-left"
           />
 
-          <button
-            type="button"
-            class="submit mt-5"
-            :disabled="busy || codeValue.length !== OTP_LENGTH"
-            @click="verifyCode"
-          >
-            <UIcon v-if="busy" name="i-heroicons-arrow-path" class="size-4 spin" />
-            {{ busy ? 'Checking…' : 'Verify code' }}
-          </button>
-
           <div class="foot-actions">
             <button
               type="button"
               class="ghost"
               :disabled="!canResend || busy"
-              @click="sendCode"
+              @click="sendResetLink"
             >
-              {{ canResend ? 'Resend code' : `Resend in ${resendSeconds}s` }}
+              {{ canResend ? 'Resend email' : `Resend in ${resendSeconds}s` }}
             </button>
             <span class="dot" aria-hidden="true">·</span>
             <button type="button" class="ghost" @click="backToEmail">
               Use a different email
             </button>
           </div>
-        </template>
-
-        <!-- ── Step 3: the new password ── -->
-        <template v-else-if="step === 'password'">
-          <div class="step-icon step-icon--ok">
-            <UIcon name="i-heroicons-check" class="size-6" />
-          </div>
-          <h1 class="headline">Choose a new password</h1>
-          <p class="sub">Signed in as {{ email.trim() }}</p>
-
-          <form class="form" @submit.prevent="savePassword">
-            <div class="field">
-              <label class="label" for="fp-password">New password</label>
-              <UInput
-                id="fp-password"
-                v-model="password"
-                type="password"
-                autocomplete="new-password"
-                placeholder="At least 8 characters"
-                size="lg"
-                class="w-full"
-                :disabled="busy"
-              />
-            </div>
-
-            <div class="field">
-              <label class="label" for="fp-confirm">Confirm password</label>
-              <UInput
-                id="fp-confirm"
-                v-model="confirm"
-                type="password"
-                autocomplete="new-password"
-                size="lg"
-                class="w-full"
-                :disabled="busy"
-              />
-            </div>
-
-            <p v-if="passwordProblem" class="problem">{{ passwordProblem }}</p>
-
-            <UAlert
-              v-if="errorMessage"
-              color="error"
-              variant="subtle"
-              icon="i-heroicons-exclamation-triangle"
-              :title="errorMessage"
-            />
-
-            <button type="submit" class="submit" :disabled="!canSavePassword">
-              <UIcon v-if="busy" name="i-heroicons-arrow-path" class="size-4 spin" />
-              {{ busy ? 'Saving…' : 'Save password and continue' }}
-            </button>
-          </form>
-        </template>
-
-        <template v-else>
-          <p class="sub py-6">Taking you to your portal…</p>
         </template>
       </div>
     </main>
@@ -405,11 +237,6 @@ function backToEmail() {
   justify-content: center;
 }
 
-.step-icon--ok {
-  background: var(--status-valid-bg);
-  color: var(--status-valid-text);
-}
-
 .headline {
   font-size: 22px;
   font-weight: 700;
@@ -423,6 +250,11 @@ function backToEmail() {
   line-height: 1.6;
   color: var(--text-secondary);
   margin: 8px 0 0;
+}
+
+.note {
+  font-size: 12.5px;
+  color: var(--text-tertiary);
 }
 
 .form {
@@ -439,22 +271,6 @@ function backToEmail() {
   font-weight: 600;
   color: var(--text-primary);
   margin-bottom: 6px;
-}
-
-/* The pin boxes are the widest thing in the card; let them scroll rather than
-   burst the panel on a narrow phone. */
-.code-row {
-  margin-top: 22px;
-  display: flex;
-  justify-content: center;
-  overflow-x: auto;
-  padding-bottom: 4px;
-}
-
-.problem {
-  font-size: 12.5px;
-  color: var(--status-expired-text);
-  margin: -4px 0 0;
 }
 
 .submit {

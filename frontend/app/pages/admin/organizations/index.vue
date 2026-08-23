@@ -64,7 +64,6 @@ const columns: Column[] = [
     />
 
     <AdminPageHeader
-      eyebrow="Admin portal"
       title="Organizations"
       description="All institutions and organizations registered on the platform."
     >
@@ -107,12 +106,11 @@ const columns: Column[] = [
       <template #cell-createdAt="{ value }">
         <span class="date-cell">{{ formatDate(value) }}</span>
       </template>
-      <!-- @click.stop, or the row's navigate-to-detail handler fires too. -->
+      <!-- AdminRowAction stops the click, or the row's navigate-to-detail
+           handler fires too. -->
       <template #cell-_actions="{ row }">
         <div class="row-actions">
-          <button class="action-btn" @click.stop="openEdit(row)">
-            Edit
-          </button>
+          <AdminRowAction icon="i-heroicons-pencil-square" label="Edit" @click="openEdit(row)" />
         </div>
       </template>
     </AdminTable>
@@ -125,22 +123,6 @@ const columns: Column[] = [
   align-items: center;
   gap: 4px;
   justify-content: flex-end;
-}
-
-.action-btn {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--accent);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  padding: 4px 0;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.action-btn:hover {
-  opacity: 0.7;
 }
 
 .org-cell {
