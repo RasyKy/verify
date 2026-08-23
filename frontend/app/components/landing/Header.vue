@@ -6,14 +6,14 @@
       </a>
 
       <!--
-        Only one action here. Verification is what the hero's search bar does,
-        so a "Verify a certificate" link in the header pointed at the page the
-        visitor is already on. Institutions are the only group that needs sending
-        somewhere else.
+        Still one action. Verification is what the hero's search bar does, so a
+        "Verify a certificate" link here pointed at the page the visitor is
+        already on — but sign-in is no longer institution-only: certificate
+        holders have accounts too, and /login routes all three roles by itself.
       -->
       <nav class="header-actions">
         <a href="/login" class="solid-btn">
-          Institution sign in
+          Sign in
           <UIcon name="i-heroicons-arrow-right" class="btn-icon btn-icon--trail" />
         </a>
       </nav>

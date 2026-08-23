@@ -19,12 +19,20 @@ const claimed = ref(false)
 const claimError = ref('')
 let redirectTimer: ReturnType<typeof setTimeout> | null = null
 
+// Order matters. `valid` is defined server-side as `!used && !expired`, so
+// testing `!valid` before the specific cases would swallow both of them and
+// every dead link — used, superseded, expired — would read "invalid", which is
+// the one message that tells the holder nothing about what to do next.
+// `!preview` here means the fetch itself produced nothing; an unknown token
+// still returns a blank preview and falls through to the final `!valid`.
 const viewState = computed(() => {
   if (claimed.value) return 'success'
   if (pending.value) return 'loading'
-  if (error.value || !preview.value?.valid) return 'invalid'
+  if (error.value || !preview.value) return 'invalid'
+  if (preview.value.superseded) return 'superseded'
   if (preview.value.used) return 'used'
   if (preview.value.expired) return 'expired'
+  if (!preview.value.valid) return 'invalid'
   return 'form'
 })
 
@@ -88,22 +96,11 @@ const otpCodeValue = computed(() => otpCode.value.join(''))
 const otpSending = ref(false)
 const otpVerifying = ref(false)
 const otpError = ref('')
-const resendSeconds = ref(0)
-let resendTimer: ReturnType<typeof setInterval> | null = null
-
-const canResend = computed(() => resendSeconds.value <= 0)
-
-function startResendCountdown(seconds = 30) {
-  if (resendTimer) clearInterval(resendTimer)
-  resendSeconds.value = seconds
-  resendTimer = setInterval(() => {
-    resendSeconds.value -= 1
-    if (resendSeconds.value <= 0 && resendTimer) {
-      clearInterval(resendTimer)
-      resendTimer = null
-    }
-  }, 1000)
-}
+const {
+  remaining: resendSeconds,
+  canResend,
+  start: startResendCountdown,
+} = useResendCountdown()
 
 async function sendOtp() {
   const p = preview.value
@@ -121,7 +118,7 @@ async function sendOtp() {
     }
     otpStep.value = 'sent'
     otpCode.value = []
-    startResendCountdown(30)
+    startResendCountdown()
   } finally {
     otpSending.value = false
   }
@@ -129,7 +126,7 @@ async function sendOtp() {
 
 async function verifyCode(code: string) {
   const p = preview.value
-  if (otpVerifying.value || code.length !== 6 || !p) return
+  if (otpVerifying.value || code.length !== OTP_LENGTH || !p) return
   otpVerifying.value = true
   otpError.value = ''
   try {
@@ -231,8 +228,8 @@ async function onForgotPassword() {
   }
 }
 
+// useResendCountdown() clears its own interval on unmount.
 onUnmounted(() => {
-  if (resendTimer) clearInterval(resendTimer)
   if (redirectTimer) clearTimeout(redirectTimer)
 })
 </script>
@@ -252,6 +249,18 @@ onUnmounted(() => {
         </div>
         <h1 class="text-lg font-medium text-gray-900">This claim link is invalid.</h1>
         <p class="text-sm text-gray-500 mt-2">Please check the email again or contact your institution.</p>
+      </div>
+
+      <!-- Superseded — a newer claim email retired this link -->
+      <div v-else-if="viewState === 'superseded'" class="text-center py-4">
+        <div class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
+          <UIcon name="i-heroicons-arrow-path" class="w-6 h-6 text-gray-400" />
+        </div>
+        <h1 class="text-lg font-medium text-gray-900">This link has been replaced.</h1>
+        <p class="text-sm text-gray-500 mt-2">
+          A newer claim email was sent to you — please open the most recent one. Your certificate
+          has not been claimed yet.
+        </p>
       </div>
 
       <!-- Used -->
@@ -351,7 +360,7 @@ onUnmounted(() => {
             </label>
             <UPinInput
               v-model="otpCode"
-              :length="6"
+              :length="OTP_LENGTH"
               type="number"
               otp
               size="xl"
@@ -362,7 +371,7 @@ onUnmounted(() => {
             <UButton
               class="w-full justify-center"
               :loading="otpVerifying"
-              :disabled="otpCodeValue.length !== 6"
+              :disabled="otpCodeValue.length !== OTP_LENGTH"
               @click="verifyCode(otpCodeValue)"
             >
               Verify code

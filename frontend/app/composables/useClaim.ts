@@ -12,6 +12,8 @@ export interface ClaimPreview {
   valid: boolean
   expired: boolean
   used: boolean
+  /** Used, but the certificate is still unclaimed — a resend retired this link. */
+  superseded: boolean
   studentName: string
   courseName: string
   institutionName: string

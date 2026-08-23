@@ -43,6 +43,7 @@ const EMPTY_PREVIEW = {
   valid: false,
   expired: false,
   used: false,
+  superseded: false,
   studentName: '',
   courseName: '',
   institutionName: '',
@@ -127,10 +128,21 @@ export function createClaimRouter({
         const used = tokenRow.used_at != null;
         const expired = new Date(tokenRow.expires_at).getTime() < Date.now();
 
+        // `used_at` has two authors: a redeemed claim stamps it, and so does
+        // `resendClaim`, which retires the outstanding token that way before
+        // minting a replacement. So `used` alone cannot tell "you already
+        // claimed this" from "a newer email superseded this link" — and the
+        // second is the common case, since every resend kills the previous
+        // link. The certificate's claim_state is what separates them, and
+        // telling a holder their certificate was already claimed when it was
+        // not sends them to their institution over nothing.
+        const superseded = used && cert.claim_state !== 'claimed';
+
         res.json({
           valid: !used && !expired,
           expired,
           used,
+          superseded,
           studentName: cert.student_name,
           courseName: cert.course_name,
           institutionName: cert.organizations?.name ?? '',

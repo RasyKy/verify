@@ -64,6 +64,7 @@ useHead({
     <LazyLandingFeaturesSection hydrate-on-visible />
     <LazyLandingDashboardMock hydrate-on-visible />
     <LazyLandingHowItWorks hydrate-on-visible />
+    <LazyLandingForHolders hydrate-on-visible />
     <LazyLandingFaqSection :hydrate-on-idle="true" />
     <LazyLandingCtaSection :hydrate-on-idle="true" />
   </div>

@@ -15,21 +15,27 @@
         <div class="link-col">
           <p class="link-col-label">Product</p>
           <ul class="link-list">
-            <li><a href="/issuer" class="footer-link">Issuer portal</a></li>
             <li><a href="/verify" class="footer-link">Verify a certificate</a></li>
+            <li><a href="/issuer" class="footer-link">Issuer portal</a></li>
+            <li>
+              <a href="/login?redirect=/recipient" class="footer-link">
+                Holder portal
+              </a>
+            </li>
           </ul>
         </div>
         <div class="link-col">
           <p class="link-col-label">Company</p>
           <ul class="link-list">
-            <li><a href="#" class="footer-link">Contact</a></li>
+            <li><a href="/contact" class="footer-link">Contact</a></li>
+            <li><a href="/#for-holders" class="footer-link">For certificate holders</a></li>
           </ul>
         </div>
         <div class="link-col">
           <p class="link-col-label">Legal</p>
           <ul class="link-list">
-            <li><a href="#" class="footer-link">Terms of service</a></li>
-            <li><a href="#" class="footer-link">Privacy policy</a></li>
+            <li><a href="/terms" class="footer-link">Terms of service</a></li>
+            <li><a href="/privacy" class="footer-link">Privacy policy</a></li>
           </ul>
         </div>
       </div>

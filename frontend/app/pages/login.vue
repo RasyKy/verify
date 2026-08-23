@@ -10,14 +10,24 @@ const route = useRoute()
 // and sign-in can return them there. Allowlisted rather than trusting the raw
 // query value, to avoid an open-redirect via an arbitrary `?redirect=`.
 const PORTAL_COPY: Record<string, string> = {
-  '/recipient': 'Certificate recipient portal',
+  '/recipient': 'Certificate holder portal',
+  '/issuer': 'Institution issuer portal',
   '/admin': 'Platform admin portal',
 }
 const requestedRedirect = computed(() => {
   const r = route.query.redirect
   return typeof r === 'string' && r in PORTAL_COPY ? r : null
 })
-const portalLabel = computed(() => PORTAL_COPY[requestedRedirect.value] ?? 'Institution issuer portal')
+/*
+ * With no `?redirect=`, this form serves all three roles at once — holders who
+ * claimed a certificate, issuers, and admins all sign in here and are routed by
+ * role afterwards. Naming one of them in the subheading (it used to say
+ * "Institution issuer portal" unconditionally) told the other two they were in
+ * the wrong place.
+ */
+const portalLabel = computed(
+  () => PORTAL_COPY[requestedRedirect.value] ?? 'Holders, issuers and administrators',
+)
 
 /**
  * Where to land after a successful sign-in.
@@ -103,7 +113,8 @@ async function onSubmit() {
         </h2>
         <p class="brand-sub">
           Every certificate issued here is anchored on-chain, so anyone holding
-          the link can confirm it in seconds — without calling you.
+          the link can confirm it in seconds — without calling the institution
+          that issued it.
         </p>
       </div>
 
@@ -143,7 +154,7 @@ async function onSubmit() {
               id="email"
               v-model="email"
               type="email"
-              placeholder="you@institution.edu"
+              placeholder="you@example.com"
               autocomplete="email"
               icon="i-heroicons-envelope"
               size="lg"
@@ -207,10 +218,22 @@ async function onSubmit() {
           </button>
         </form>
 
-        <p class="auth-foot">
-          <UIcon name="i-heroicons-information-circle" class="size-3.5" />
-          No access yet? Your platform administrator creates accounts.
-        </p>
+        <!--
+          Two different "I have no account" situations, and conflating them sent
+          certificate holders to an administrator who has nothing to give them:
+          a holder's account is created by claiming a certificate, not by staff.
+        -->
+        <div class="auth-foot">
+          <p class="foot-line">
+            <UIcon name="i-heroicons-academic-cap" class="size-3.5" />
+            Received a certificate? Open the claim link your institution emailed
+            you to set up your account.
+          </p>
+          <p class="foot-line">
+            <UIcon name="i-heroicons-building-library" class="size-3.5" />
+            Institution staff accounts are created by your platform administrator.
+          </p>
+        </div>
       </div>
     </main>
   </div>
@@ -476,13 +499,28 @@ async function onSubmit() {
 }
 
 .auth-foot {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--text-tertiary);
   margin: 22px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.foot-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-tertiary);
+  margin: 0;
+  text-align: left;
+}
+
+.foot-line :deep(svg) {
+  flex-shrink: 0;
+  margin-top: 1px;
 }
 
 @media (prefers-reduced-motion: reduce) {

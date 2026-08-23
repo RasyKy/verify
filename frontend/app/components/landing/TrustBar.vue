@@ -199,13 +199,18 @@ function joinedLabel(joinedAt: string) {
   list-style: none;
 }
 
+/* Fixed width, not shrink-to-fit. The registry's marks range from a wide
+   wordmark to a circular seal, and sizing each tile to its own logo made the
+   rail lurch between narrow and wide tiles as it scrolled. */
 .trust-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  gap: 5px;
   flex-shrink: 0;
-  padding: 8px 14px;
+  width: 196px;
+  padding: 12px 14px;
   border: 1px solid var(--border-strong);
   border-radius: 8px;
   background: var(--surface);
@@ -216,10 +221,13 @@ function joinedLabel(joinedAt: string) {
   border-color: var(--text-tertiary);
 }
 
+/* One box for every mark. `contain` letterboxes inside it, so a square seal
+   gets the full 44px of height instead of being scaled down to the width a
+   wordmark happens to need. */
 .trust-mark {
-  height: 34px;
+  height: 44px;
   width: auto;
-  max-width: 128px;
+  max-width: 150px;
   object-fit: contain;
   display: block;
 }
@@ -268,6 +276,16 @@ function joinedLabel(joinedAt: string) {
   .trust-pass {
     gap: 14px;
     padding-right: 14px;
+  }
+
+  .trust-item {
+    width: 168px;
+    padding: 10px 12px;
+  }
+
+  .trust-mark {
+    height: 38px;
+    max-width: 128px;
   }
 }
 </style>

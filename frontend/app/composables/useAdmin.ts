@@ -20,6 +20,8 @@ export interface Org {
   website: string
   /** Path under /public or an absolute URL. Null when none is set. */
   logoUrl: string | null
+  /** Public-registry listing only — independent of `status`. */
+  accredited: boolean
   issuersCount: number
   certificatesCount: number
   status: 'active' | 'suspended'
@@ -44,21 +46,26 @@ export interface AdminCert {
   courseName: string
   organizationId: string
   organizationName: string
+  completionDate: string
+  expiryDate: string | null
+  /** Orthogonal to `status` — a claimed certificate can still be revoked. */
+  claimState: 'unclaimed' | 'claimed'
   issuedAt: string
   status: 'issued' | 'revoked'
   revokedAt?: string
 }
 
 /*
- * All nine values of the `audit_action` enum in 0001_init.sql. The mock only
- * knew six; a row carrying one of the other three would have rendered with an
- * undefined label and no icon.
+ * Every value of the `audit_action` enum — 0001_init.sql, plus
+ * 'certificate.claim_resent' from 0003. The mock only knew six; a row carrying
+ * one of the others rendered with an undefined label and no icon.
  */
 export type AuditAction =
   | 'certificate.issued'
   | 'certificate.revoked'
   | 'certificate.reissued'
   | 'certificate.claimed'
+  | 'certificate.claim_resent'
   | 'issuer.invited'
   | 'issuer.removed'
   | 'org.created'
@@ -89,6 +96,7 @@ export const ACTION_LABELS: Record<AuditAction, string> = {
   'certificate.revoked': 'Certificate revoked',
   'certificate.reissued': 'Certificate reissued',
   'certificate.claimed': 'Certificate claimed',
+  'certificate.claim_resent': 'Claim link resent',
   'issuer.invited': 'Issuer invited',
   'issuer.removed': 'Issuer removed',
   'org.created': 'Organization created',
@@ -101,6 +109,10 @@ export const ACTION_META: Record<AuditAction, { icon: string; tint: string }> = 
   'certificate.revoked': { icon: 'i-heroicons-x-circle', tint: 'red' },
   'certificate.reissued': { icon: 'i-heroicons-arrow-path', tint: 'blue' },
   'certificate.claimed': { icon: 'i-heroicons-hand-raised', tint: 'green' },
+  'certificate.claim_resent': {
+    icon: 'i-heroicons-paper-airplane',
+    tint: 'blue',
+  },
   'issuer.invited': { icon: 'i-heroicons-user-plus', tint: 'blue' },
   'issuer.removed': { icon: 'i-heroicons-user-minus', tint: 'amber' },
   'org.created': { icon: 'i-heroicons-building-office-2', tint: 'green' },
@@ -233,7 +245,14 @@ export function inviteIssuer(body: NewIssuer) {
 /** Partial update — only the keys passed are written. */
 export function updateOrganization(
   id: string,
-  patch: Partial<{ status: Org['status']; website: string; logoUrl: string | null; accredited: boolean }>,
+  patch: Partial<{
+    name: string
+    type: OrgType
+    status: Org['status']
+    website: string
+    logoUrl: string | null
+    accredited: boolean
+  }>,
 ) {
   return useApi()(`/api/admin/organizations/${id}`, { method: 'PATCH', body: patch })
 }
@@ -287,6 +306,17 @@ export function deleteUser(id: string) {
 /** Refused while the institution still has accounts or certificates. */
 export function deleteOrganization(id: string) {
   return useApi()(`/api/admin/organizations/${id}`, { method: 'DELETE' })
+}
+
+/**
+ * Same endpoint the issuer uses — it accepts an admin and, for one, is not
+ * scoped to a single institution.
+ */
+export function resendClaimEmailAsAdmin(id: string) {
+  return useApi()<import('./useCertificates').ResendClaimResult>(
+    `/api/certificates/${id}/resend-claim`,
+    { method: 'POST' },
+  )
 }
 
 export function deleteCertificate(id: string) {

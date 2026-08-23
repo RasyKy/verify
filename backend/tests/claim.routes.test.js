@@ -93,6 +93,7 @@ describe('GET /api/claim/:token — public', () => {
       valid: false,
       expired: false,
       used: false,
+      superseded: false,
       studentName: '',
       courseName: '',
       institutionName: '',
@@ -122,7 +123,7 @@ describe('GET /api/claim/:token — public', () => {
     expect(res.body.studentName).toBe('Chea Sophat');
   });
 
-  it('reports used:true for an already-claimed token', async () => {
+  it('reports used:true, superseded:false for a genuinely claimed token', async () => {
     const db = fakeDb({
       claim_tokens: {
         id: 'tok-1',
@@ -131,7 +132,7 @@ describe('GET /api/claim/:token — public', () => {
         used_at: new Date().toISOString(),
         sent_to: HOLDER_EMAIL,
       },
-      certificates: CERT,
+      certificates: { ...CERT, claim_state: 'claimed' },
     });
     const res = await request(makeApp({ adminClient: db })).get(
       '/api/claim/some-token'
@@ -139,6 +140,31 @@ describe('GET /api/claim/:token — public', () => {
 
     expect(res.body.valid).toBe(false);
     expect(res.body.used).toBe(true);
+    expect(res.body.superseded).toBe(false);
+  });
+
+  it('reports superseded:true when a resend retired the token', async () => {
+    // resendClaim stamps used_at on the outstanding token before minting a
+    // replacement, so this is what every pre-resend link looks like. The
+    // certificate is still unclaimed, which is the only thing distinguishing
+    // it from the case above.
+    const db = fakeDb({
+      claim_tokens: {
+        id: 'tok-1',
+        certificate_id: CERT_ID,
+        expires_at: FUTURE,
+        used_at: new Date().toISOString(),
+        sent_to: HOLDER_EMAIL,
+      },
+      certificates: { ...CERT, claim_state: 'unclaimed' },
+    });
+    const res = await request(makeApp({ adminClient: db })).get(
+      '/api/claim/some-token'
+    );
+
+    expect(res.body.valid).toBe(false);
+    expect(res.body.used).toBe(true);
+    expect(res.body.superseded).toBe(true);
   });
 
   it('reports a full, valid preview for a live token', async () => {
@@ -160,6 +186,7 @@ describe('GET /api/claim/:token — public', () => {
       valid: true,
       expired: false,
       used: false,
+      superseded: false,
       studentName: 'Chea Sophat',
       courseName: 'Web Development Fundamentals',
       institutionName: 'Royal Phnom Penh University',

@@ -1,19 +1,7 @@
 <script setup lang="ts">
 // Gated by app/middleware/auth.global.ts, which requires role === 'admin' from
 // GET /api/auth/me. The backend enforces the same on every /api/admin/* route.
-const me = useMe()
 await fetchMe()
-
-const adminEmail = computed(() => me.value?.email ?? '')
-const adminName = computed(() => displayName(me.value) || 'Admin')
-const adminInitials = computed(() =>
-  adminName.value
-    .split(/[\s.]+/)
-    .slice(0, 2)
-    .map((part) => part[0] ?? '')
-    .join('')
-    .toUpperCase(),
-)
 
 const menuOpen = ref(false)
 
@@ -80,13 +68,6 @@ function isActive(item: typeof nav[number]) {
       </nav>
 
       <div class="sidebar-footer">
-        <div class="admin-user">
-          <div class="admin-avatar">{{ adminInitials }}</div>
-          <div class="admin-user-info">
-            <span class="admin-user-name">{{ adminName }}</span>
-            <span v-if="adminEmail" class="admin-user-email">{{ adminEmail }}</span>
-          </div>
-        </div>
         <button class="nav-item logout-item" @click="logout">
           <span class="nav-marker" aria-hidden="true" />
           <UIcon name="i-heroicons-arrow-right-on-rectangle" class="nav-icon" />
@@ -221,51 +202,7 @@ function isActive(item: typeof nav[number]) {
   border-top: 1px solid var(--rail-border);
 }
 
-.admin-user {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 12px 4px;
-}
-
-.admin-avatar {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.16);
-  color: var(--rail-text-strong);
-  font-size: 10px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.admin-user-info {
-  min-width: 0;
-}
-
-.admin-user-name {
-  display: block;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--rail-text-strong);
-  line-height: 1.3;
-}
-
-.admin-user-email {
-  display: block;
-  font-size: 11px;
-  color: var(--rail-text-dim);
-  line-height: 1.2;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .logout-item {
-  margin-top: 10px;
   width: 100%;
   color: var(--rail-text-dim);
 }

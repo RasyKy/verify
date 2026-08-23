@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
 import type { IssuerCertificate as Certificate } from '~/composables/useCertificates'
-import { apiErrorMessage } from '~/composables/useCertificates'
+import { apiErrorMessage, resendClaimEmail } from '~/composables/useCertificates'
 
 definePageMeta({ layout: 'issuer' })
 
@@ -9,6 +9,10 @@ definePageMeta({ layout: 'issuer' })
 
 // Scoped to the signed-in issuer's institution by the backend, not here.
 const { certificates: certs, pending, refresh, error } = useCertificates()
+
+// Recovery for a claim email that never arrived. Only offered on 'unclaimed'
+// rows: anything else either has no outstanding link or should not get one.
+const { resendClaim, resendingId } = useClaimResend(resendClaimEmail)
 
 // Rendered as an alert below. A load failure must read as "we could not fetch",
 // never as an empty institution with no certificates.
@@ -207,6 +211,18 @@ watch(certsRefreshKey, () => refresh())
             size="sm"
             aria-label="Edit certificate"
             @click="openEdit(row.original)"
+          />
+          <UButton
+            v-if="row.original.status === 'unclaimed'"
+            variant="ghost"
+            color="neutral"
+            icon="i-heroicons-paper-airplane"
+            size="sm"
+            :loading="resendingId === row.original.id"
+            :disabled="!!resendingId"
+            aria-label="Send the claim link again"
+            title="Send the claim link again"
+            @click="resendClaim(row.original.id)"
           />
           <UButton
             v-if="row.original.status !== 'revoked'"

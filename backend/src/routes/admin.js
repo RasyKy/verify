@@ -119,6 +119,10 @@ export function createAdminRouter({
           type: org.type,
           website: org.website ?? '',
           logoUrl: org.logo_url ?? null,
+          // Selected above but previously dropped here. The edit form round
+          // trips this value, so a missing field reads as false and would
+          // quietly un-accredit an institution on any unrelated edit.
+          accredited: org.accredited,
           issuersCount: issuerCounts.get(org.id) ?? 0,
           certificatesCount: certCounts.get(org.id) ?? 0,
           status: org.status,
@@ -206,7 +210,9 @@ export function createAdminRouter({
               logo_url: logoUrl ?? null,
               accredited,
             })
-            .select('id, name, slug, type, website, logo_url, status, created_at')
+            .select(
+              'id, name, slug, type, website, logo_url, status, created_at'
+            )
             .single(),
           'create organization'
         );
@@ -446,12 +452,16 @@ export function createAdminRouter({
       // `head: true` with an exact count asks Postgres for the number only —
       // no rows cross the wire, which matters once a table has real volume.
       const countOf = (table, apply = (q) => q) =>
-        apply(adminClient.from(table).select('id', { count: 'exact', head: true }));
+        apply(
+          adminClient.from(table).select('id', { count: 'exact', head: true })
+        );
 
       const [orgs, certs, issuers, verifications, series] = await Promise.all([
         countOf('organizations'),
         countOf('certificates'),
-        countOf('profiles', (q) => q.eq('role', 'issuer').eq('status', 'active')),
+        countOf('profiles', (q) =>
+          q.eq('role', 'issuer').eq('status', 'active')
+        ),
         countOf('verification_logs', (q) => q.gte('created_at', since30)),
         adminClient
           .from('certificates')
@@ -461,7 +471,20 @@ export function createAdminRouter({
 
       // Pre-seed every month at zero. Deriving the buckets from the rows would
       // silently drop a quiet month and leave the chart with uneven spacing.
-      const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const MONTHS = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
       const buckets = new Map();
       for (let i = 0; i < 6; i += 1) {
         const d = new Date(seriesStart);
@@ -510,6 +533,7 @@ export function createAdminRouter({
           .from('certificates')
           .select(
             `id, student_name, student_email, course_name, organization_id,
+             completion_date, expiry_date, claim_state,
              created_at, revoked_at, organizations ( name )`
           )
           .order('created_at', { ascending: false })
@@ -525,6 +549,13 @@ export function createAdminRouter({
           courseName: row.course_name,
           organizationId: row.organization_id,
           organizationName: row.organizations?.name ?? '—',
+          // The edit form needs these two; the list itself does not show them.
+          completionDate: row.completion_date,
+          expiryDate: row.expiry_date ?? null,
+          // Not folded into `status`: whether a certificate is claimed is
+          // orthogonal to whether it is valid, and only the claim state says
+          // whether resending the claim link means anything.
+          claimState: row.claim_state,
           issuedAt: row.created_at,
           // adminStatus() in lib/derivedStatus.js: this table's union is only
           // issued/revoked — expiry is not a distinction it draws.
@@ -585,58 +616,54 @@ export function createAdminRouter({
    *     security:
    *       - bearerAuth: []
    */
-  router.delete(
-    '/certificates/:id',
-    ...adminOnly,
-    async (req, res, next) => {
-      try {
-        const row = unwrap(
-          await adminClient
-            .from('certificates')
-            .select('id, student_name, course_name, organization_id, revoked_at')
-            .eq('id', req.params.id)
-            .maybeSingle(),
-          'load certificate for delete'
-        );
-        if (!row) throw notFound('Certificate not found.');
+  router.delete('/certificates/:id', ...adminOnly, async (req, res, next) => {
+    try {
+      const row = unwrap(
+        await adminClient
+          .from('certificates')
+          .select('id, student_name, course_name, organization_id, revoked_at')
+          .eq('id', req.params.id)
+          .maybeSingle(),
+        'load certificate for delete'
+      );
+      if (!row) throw notFound('Certificate not found.');
 
-        /*
-         * Revoke on chain first, unless it already is.
-         *
-         * The hash cannot be erased from the registry — nothing can erase it.
-         * So deleting the row alone would leave a hash that still reads as
-         * ISSUED on chain while the database has no record of it, and the
-         * public verify path would answer `invalid`: the wording reserved for
-         * forgery. Revoking first makes the permanent half of the record tell
-         * the truth about what happened.
-         */
-        if (!row.revoked_at) {
-          const current = await certificateService.currentHashRow(row.id);
-          if (current) await chain.revoke(current.hash);
-        }
-
-        // certificate_hashes, claim_tokens and expiry_notifications are ON
-        // DELETE CASCADE; verification_logs is ON DELETE SET NULL, so the
-        // record that someone checked this ID survives the certificate.
-        unwrap(
-          await adminClient.from('certificates').delete().eq('id', row.id),
-          'delete certificate'
-        );
-
-        await audit({
-          action: AUDIT_ACTIONS.CERTIFICATE_REVOKED,
-          targetLabel: `${row.student_name} — ${row.course_name} (deleted)`,
-          actor: req.user,
-          organizationId: row.organization_id ?? null,
-          metadata: { certificate_id: row.id, deleted: true },
-        });
-
-        res.json({ id: row.id, deleted: true });
-      } catch (err) {
-        next(err);
+      /*
+       * Revoke on chain first, unless it already is.
+       *
+       * The hash cannot be erased from the registry — nothing can erase it.
+       * So deleting the row alone would leave a hash that still reads as
+       * ISSUED on chain while the database has no record of it, and the
+       * public verify path would answer `invalid`: the wording reserved for
+       * forgery. Revoking first makes the permanent half of the record tell
+       * the truth about what happened.
+       */
+      if (!row.revoked_at) {
+        const current = await certificateService.currentHashRow(row.id);
+        if (current) await chain.revoke(current.hash);
       }
+
+      // certificate_hashes, claim_tokens and expiry_notifications are ON
+      // DELETE CASCADE; verification_logs is ON DELETE SET NULL, so the
+      // record that someone checked this ID survives the certificate.
+      unwrap(
+        await adminClient.from('certificates').delete().eq('id', row.id),
+        'delete certificate'
+      );
+
+      await audit({
+        action: AUDIT_ACTIONS.CERTIFICATE_REVOKED,
+        targetLabel: `${row.student_name} — ${row.course_name} (deleted)`,
+        actor: req.user,
+        organizationId: row.organization_id ?? null,
+        metadata: { certificate_id: row.id, deleted: true },
+      });
+
+      res.json({ id: row.id, deleted: true });
+    } catch (err) {
+      next(err);
     }
-  );
+  });
 
   // ── Audit log ─────────────────────────────────────────────────────────────
 
@@ -781,7 +808,8 @@ export function createAdminRouter({
         const patch = {};
         if (status !== undefined) patch.status = status;
         if (fullName !== undefined) patch.full_name = fullName;
-        if (organizationId !== undefined) patch.organization_id = organizationId;
+        if (organizationId !== undefined)
+          patch.organization_id = organizationId;
 
         const rows = unwrap(
           await adminClient
@@ -924,6 +952,35 @@ export function createAdminRouter({
       if (!profile) throw notFound('User not found.');
 
       /*
+       * Release anything this account had claimed, BEFORE the delete.
+       *
+       * certificates.holder_id is ON DELETE SET NULL, but
+       * `certificates_claimed_has_holder` (0001_init.sql) forbids
+       * claim_state = 'claimed' alongside a null holder. So on any recipient
+       * who actually claimed something — which is the whole point of a
+       * recipient account — the cascade's own UPDATE trips that CHECK and
+       * Postgres aborts the entire delete. The account then simply cannot be
+       * removed, with an error that names a constraint rather than the cause.
+       *
+       * Returning the rows to 'unclaimed' is also the right outcome on its
+       * own terms: the person's account goes, the credential does not. The
+       * certificate stays valid, verifiable and attributed to the same
+       * student_name/student_email it was issued to.
+       */
+      const released = unwrap(
+        await adminClient
+          .from('certificates')
+          .update({
+            holder_id: null,
+            claim_state: 'unclaimed',
+            claimed_at: null,
+          })
+          .eq('holder_id', profile.id)
+          .select('id'),
+        'release claimed certificates'
+      );
+
+      /*
        * Delete the auth user, not the profile: profiles.id is a foreign key
        * onto auth.users with ON DELETE CASCADE, so removing the auth record
        * takes the profile with it. Deleting the profile alone would leave an
@@ -933,17 +990,28 @@ export function createAdminRouter({
        * actor_name/actor_email, so the trail of what they did survives.
        */
       const { error } = await adminClient.auth.admin.deleteUser(profile.id);
-      if (error) throw badRequest(`Could not delete the account: ${error.message}`);
+      if (error)
+        throw badRequest(`Could not delete the account: ${error.message}`);
 
       await audit({
         action: AUDIT_ACTIONS.ISSUER_REMOVED,
         targetLabel: `${profile.full_name ?? profile.email} (deleted)`,
         actor: req.user,
         organizationId: profile.organization_id ?? null,
-        metadata: { user_id: profile.id, deleted: true },
+        // Unclaiming someone's certificates is a side effect an admin did not
+        // explicitly ask for; the log has to say it happened.
+        metadata: {
+          user_id: profile.id,
+          deleted: true,
+          certificates_released: released.length,
+        },
       });
 
-      res.json({ id: profile.id, deleted: true });
+      res.json({
+        id: profile.id,
+        deleted: true,
+        certificatesReleased: released.length,
+      });
     } catch (err) {
       next(err);
     }

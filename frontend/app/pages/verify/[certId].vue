@@ -32,15 +32,14 @@ const unavailable = computed(() => Boolean(error.value))
 const newCertId = ref('')
 const qrModalOpen = ref(false)
 
-function onNewSearch() {
-  const id = newCertId.value.trim()
-  if (id) navigateTo(`/verify/${id}`)
+function onNewSearch(id: string) {
+  navigateTo(`/verify/${encodeURIComponent(id)}`)
 }
 </script>
 
 <template>
   <div class="min-h-screen page-ground">
-    <div class="max-w-xl mx-auto px-4 pt-7 pb-16">
+    <div class="max-w-2xl mx-auto px-4 pt-7 pb-16">
       <!-- Same exit as /verify: a shared result link has no history to go back
            through either. -->
       <VerifyBackHomeLink class="mb-9" />
@@ -89,8 +88,16 @@ function onNewSearch() {
           <span class="text-xs text-gray-400 shrink-0">Verify another certificate</span>
           <div class="flex-1 h-px bg-gray-200" />
         </div>
-        <VerifySearchBar v-model="newCertId" @submit="onNewSearch" />
-        <div class="flex justify-center mt-3">
+        <!-- The same bar as the hero and /verify. A second, smaller search
+             control here made the result page look like a different product. -->
+        <div class="flex justify-center">
+          <VerifyHeroSearch
+            v-model="newCertId"
+            input-id="another-cert-id"
+            @submit="onNewSearch"
+          />
+        </div>
+        <div class="flex justify-center mt-4">
           <UButton
             variant="ghost"
             color="neutral"

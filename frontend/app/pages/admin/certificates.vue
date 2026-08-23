@@ -1,11 +1,36 @@
 <script setup lang="ts">
-import { formatDate, revokeCertificateAsAdmin, deleteCertificate } from '~/composables/useAdmin'
+import {
+  formatDate,
+  revokeCertificateAsAdmin,
+  deleteCertificate,
+  resendClaimEmailAsAdmin,
+  type AdminCert,
+} from '~/composables/useAdmin'
 import type { Column } from '~/components/admin/Table.vue'
 
 definePageMeta({ layout: 'admin' })
 
 const { certs, refresh } = useAdminCerts()
 const { orgs } = useAdminOrgs()
+
+// Issue / correct. One modal instance serves both: `formTarget` null means
+// "new", a row means "correct that one".
+const formOpen = ref(false)
+const formTarget = ref<AdminCert | null>(null)
+
+function openIssue() {
+  formTarget.value = null
+  formOpen.value = true
+}
+
+function openEdit(cert: AdminCert) {
+  formTarget.value = cert
+  formOpen.value = true
+}
+
+// Only meaningful while a certificate is unclaimed and unrevoked; the backend
+// refuses the rest with a message the toast surfaces.
+const { resendClaim, resendingId } = useClaimResend(resendClaimEmailAsAdmin)
 
 const search = ref('')
 const orgFilter = ref('')
@@ -93,7 +118,19 @@ async function confirmRevoke() {
 
 <template>
   <div>
-    <AdminPageHeader title="Certificates" description="All certificates issued across the platform." />
+    <AdminCertFormModal
+      v-model:open="formOpen"
+      :cert="formTarget"
+      @saved="refresh()"
+    />
+
+    <AdminPageHeader title="Certificates" description="All certificates issued across the platform.">
+      <template #actions>
+        <UButton color="primary" icon="i-heroicons-plus" @click="openIssue">
+          Issue certificate
+        </UButton>
+      </template>
+    </AdminPageHeader>
 
     <div class="toolbar">
       <AdminSearchInput v-model="search" placeholder="Search by recipient or course…" />
@@ -110,9 +147,20 @@ async function confirmRevoke() {
       <template #cell-status="{ value }"><AdminStatusChip :status="value" /></template>
       <template #cell__actions="{ row }">
         <div class="row-actions">
+          <button class="action-btn" @click.stop="openEdit(row)">
+            Edit
+          </button>
+          <button
+            v-if="row.status === 'issued' && row.claimState === 'unclaimed'"
+            class="action-btn"
+            :disabled="!!resendingId"
+            @click.stop="resendClaim(row.id)"
+          >
+            {{ resendingId === row.id ? 'Sending…' : 'Resend link' }}
+          </button>
           <button
             v-if="row.status === 'issued'"
-            class="action-btn"
+            class="action-btn action-btn--danger"
             @click.stop="revokeTarget = row.id"
           >
             Revoke
@@ -159,10 +207,6 @@ async function confirmRevoke() {
   justify-content: flex-end;
 }
 
-.action-btn--danger {
-  color: var(--status-revoked-text);
-}
-
 .toolbar {
   display: flex;
   align-items: center;
@@ -182,10 +226,13 @@ async function confirmRevoke() {
   font-size: 13px;
 }
 
+/* Neutral by default — the row carries non-destructive actions (Edit, Resend)
+   alongside the destructive ones, and painting them all red made every action
+   read as a warning. Danger is opt-in via --danger. */
 .action-btn {
   font-size: 12px;
   font-weight: 500;
-  color: var(--status-revoked-text);
+  color: var(--accent);
   background: transparent;
   border: none;
   cursor: pointer;
@@ -196,5 +243,17 @@ async function confirmRevoke() {
 
 .action-btn:hover {
   opacity: 0.7;
+}
+
+.action-btn:disabled {
+  color: var(--text-tertiary);
+  cursor: default;
+  text-decoration: none;
+}
+
+/* Must follow .action-btn — same specificity, so source order decides which
+   colour wins. */
+.action-btn--danger {
+  color: var(--status-revoked-text);
 }
 </style>

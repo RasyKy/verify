@@ -70,6 +70,30 @@ describe('sendExpiryReminderEmail()', () => {
     expect(send.mock.calls[0][0].from).toBeTruthy();
   });
 
+  it('reports sent:false when the provider returns an error object', async () => {
+    // The Resend SDK resolves with { data, error } instead of throwing, so this
+    // is what a refused send actually looks like — an unverified sending
+    // domain, a rate limit, a bad key. Reading only the resolution would call
+    // this a success.
+    const send = jest.fn(async () => ({
+      data: null,
+      error: {
+        name: 'validation_error',
+        statusCode: 403,
+        message: 'You can only send testing emails to your own email address.',
+      },
+    }));
+
+    const result = await sendExpiryReminderEmail({
+      ...ARGS,
+      emailEnabled: true,
+      client: { emails: { send } },
+    });
+
+    expect(result).toEqual({ sent: false });
+    expect(send).toHaveBeenCalled();
+  });
+
   it('logs and swallows a send rejection rather than throwing', async () => {
     const send = jest.fn(async () => {
       throw new Error('resend down');

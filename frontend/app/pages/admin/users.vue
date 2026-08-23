@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { formatDate, setUserStatus, deleteUser } from '~/composables/useAdmin'
+import { formatDate, setUserStatus, deleteUser, type AdminUser } from '~/composables/useAdmin'
 import type { Column } from '~/components/admin/Table.vue'
 
 definePageMeta({ layout: 'admin' })
@@ -34,6 +34,14 @@ const columns: Column[] = [
   { key: 'joinedAt',         label: 'Joined',       sortable: true, hideMobile: true },
   { key: '_actions',         label: '',             sortable: false },
 ]
+
+const editOpen = ref(false)
+const editTarget = ref<AdminUser | null>(null)
+
+function openEdit(user: AdminUser) {
+  editTarget.value = user
+  editOpen.value = true
+}
 
 const deactivateTarget = ref<string | null>(null)
 
@@ -87,6 +95,11 @@ async function confirmDeactivate() {
 <template>
   <div>
     <AdminInviteIssuerModal v-model:open="inviteOpen" @invited="refresh()" />
+    <AdminUserEditModal
+      v-model:open="editOpen"
+      :user="editTarget"
+      @saved="refresh()"
+    />
 
     <AdminPageHeader
       eyebrow="Admin portal"
@@ -116,6 +129,9 @@ async function confirmDeactivate() {
       </template>
       <template #cell__actions="{ row }">
         <div class="row-actions">
+          <button class="action-btn" @click.stop="openEdit(row)">
+            Edit
+          </button>
           <button
             v-if="row.status === 'active'"
             class="action-btn"
@@ -196,10 +212,6 @@ async function confirmDeactivate() {
   justify-content: flex-end;
 }
 
-.action-btn--danger {
-  color: var(--status-revoked-text);
-}
-
 .toolbar {
   display: flex;
   align-items: center;
@@ -214,10 +226,13 @@ async function confirmDeactivate() {
   font-size: 13px;
 }
 
+/* Neutral by default — the row carries non-destructive actions (Edit, Resend)
+   alongside the destructive ones, and painting them all red made every action
+   read as a warning. Danger is opt-in via --danger. */
 .action-btn {
   font-size: 12px;
   font-weight: 500;
-  color: var(--status-revoked-text);
+  color: var(--accent);
   background: transparent;
   border: none;
   cursor: pointer;
@@ -228,5 +243,17 @@ async function confirmDeactivate() {
 
 .action-btn:hover {
   opacity: 0.7;
+}
+
+.action-btn:disabled {
+  color: var(--text-tertiary);
+  cursor: default;
+  text-decoration: none;
+}
+
+/* Must follow .action-btn — same specificity, so source order decides which
+   colour wins. */
+.action-btn--danger {
+  color: var(--status-revoked-text);
 }
 </style>

@@ -1,8 +1,25 @@
 <script setup lang="ts">
-import { createOrganization, type OrgType } from '~/composables/useAdmin'
+import {
+  createOrganization,
+  updateOrganization,
+  type Org,
+  type OrgType,
+} from '~/composables/useAdmin'
 
 const open = defineModel<boolean>('open', { required: true })
-const emit = defineEmits<{ created: [] }>()
+
+const props = defineProps<{
+  /** Present = edit that institution. Absent = create a new one. */
+  org?: Org | null
+}>()
+
+/*
+ * `created` is kept for callers that only ever create; `saved` fires for both
+ * so an edit-capable page can bind one handler.
+ */
+const emit = defineEmits<{ created: []; saved: [] }>()
+
+const isEdit = computed(() => !!props.org)
 
 const toast = useToast()
 
@@ -17,9 +34,17 @@ const TYPES: Array<{ value: OrgType; label: string }> = [
  * The logo files that ship in /public. An upload pipeline would need storage
  * and a signed-URL flow; until that exists, picking from what is already
  * deployed beats a free-text field nobody can fill in correctly.
+ *
+ * "No logo" carries a sentinel rather than '': reka-ui's SelectItem THROWS on
+ * an empty-string value (it reserves '' for clearing the selection), and the
+ * throw happens when the listbox mounts — so an empty value here does not
+ * degrade the option, it takes the whole dialog down the moment the dropdown
+ * is opened. The sentinel is translated back to "omit the field" in submit().
  */
+const NO_LOGO = 'none'
+
 const LOGOS = [
-  { value: '', label: 'No logo' },
+  { value: NO_LOGO, label: 'No logo' },
   { value: '/rupp-logo.png', label: 'Royal University of Phnom Penh' },
   { value: '/istad-logo.png', label: 'ISTAD' },
   { value: '/aupp-technology-center.webp', label: 'AUPP Technology Center' },
@@ -45,7 +70,7 @@ const form = reactive({
   name: '',
   type: 'university' as OrgType,
   website: '',
-  logoUrl: '',
+  logoUrl: NO_LOGO,
   accredited: false,
 })
 
@@ -54,31 +79,52 @@ const errorMessage = ref('')
 
 const canSubmit = computed(() => form.name.trim().length >= 2)
 
-function reset() {
-  form.name = ''
-  form.type = 'university'
-  form.website = ''
-  form.logoUrl = ''
-  form.accredited = false
+/*
+ * Refilled every time the dialog opens rather than on prop change: one instance
+ * serves every row, and a form still holding the previous institution is how
+ * the wrong one gets renamed.
+ */
+watch(open, (isOpen) => {
+  if (!isOpen) return
+  const o = props.org
+  form.name = o?.name ?? ''
+  form.type = o?.type ?? 'university'
+  form.website = o?.website ?? ''
+  form.logoUrl = o?.logoUrl || NO_LOGO
+  form.accredited = o?.accredited ?? false
   errorMessage.value = ''
-}
+})
 
 async function submit() {
   if (!canSubmit.value || saving.value) return
   saving.value = true
   errorMessage.value = ''
   try {
-    await createOrganization({
-      name: form.name.trim(),
-      type: form.type,
-      ...(form.website.trim() ? { website: form.website.trim() } : {}),
-      ...(form.logoUrl ? { logoUrl: form.logoUrl } : {}),
-      accredited: form.accredited,
-    })
-    toast.add({ title: 'Institution created', color: 'success' })
-    emit('created')
+    if (props.org) {
+      // PATCH: send every field the form owns, so clearing the website or
+      // removing the logo actually takes effect. `null` is how the backend
+      // spells "remove this logo"; an omitted key would leave the old one.
+      await updateOrganization(props.org.id, {
+        name: form.name.trim(),
+        type: form.type,
+        website: form.website.trim(),
+        logoUrl: form.logoUrl === NO_LOGO ? null : form.logoUrl,
+        accredited: form.accredited,
+      })
+      toast.add({ title: 'Institution updated', color: 'success' })
+    } else {
+      await createOrganization({
+        name: form.name.trim(),
+        type: form.type,
+        ...(form.website.trim() ? { website: form.website.trim() } : {}),
+        ...(form.logoUrl !== NO_LOGO ? { logoUrl: form.logoUrl } : {}),
+        accredited: form.accredited,
+      })
+      toast.add({ title: 'Institution created', color: 'success' })
+      emit('created')
+    }
+    emit('saved')
     open.value = false
-    reset()
   } catch (err: unknown) {
     // The most likely failure is a duplicate slug, and the backend says so
     // precisely — surface that rather than a generic retry message.
@@ -92,7 +138,10 @@ async function submit() {
 </script>
 
 <template>
-  <UModal v-model:open="open" title="Add an institution">
+  <UModal
+    v-model:open="open"
+    :title="isEdit ? 'Edit institution' : 'Add an institution'"
+  >
     <template #body>
       <form class="form" @submit.prevent="submit">
         <div class="field">
@@ -105,7 +154,11 @@ async function submit() {
             :disabled="saving"
           />
           <p class="hint">
-            The URL slug is derived from this. It can be changed later.
+            {{
+              isEdit
+                ? 'The URL slug was derived from the original name and does not change.'
+                : 'The URL slug is derived from this. It can be changed later.'
+            }}
           </p>
         </div>
 
@@ -144,7 +197,7 @@ async function submit() {
             size="lg"
             :disabled="saving"
           />
-          <div v-if="form.logoUrl" class="logo-preview">
+          <div v-if="form.logoUrl !== NO_LOGO" class="logo-preview">
             <img :src="form.logoUrl" alt="" />
             <span>Shown on the public registry and verification pages.</span>
           </div>
@@ -177,7 +230,7 @@ async function submit() {
           Cancel
         </UButton>
         <UButton color="primary" :loading="saving" :disabled="!canSubmit" @click="submit">
-          Create institution
+          {{ isEdit ? 'Save changes' : 'Create institution' }}
         </UButton>
       </div>
     </template>

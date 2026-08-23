@@ -18,6 +18,7 @@ const orgCerts = computed(() => certs.value.filter(c => c.organizationId === org
 
 const toast = useToast()
 const inviteOpen = ref(false)
+const editOpen = ref(false)
 const deleteDialog = ref(false)
 
 async function confirmDelete() {
@@ -88,6 +89,11 @@ const typeLabels: Record<string, string> = {
       :organization-id="org?.id"
       @invited="refreshUsers()"
     />
+    <AdminOrgFormModal
+      v-model:open="editOpen"
+      :org="org"
+      @saved="refreshOrgs()"
+    />
 
     <NuxtLink to="/admin/organizations" class="back-link">
       <UIcon name="i-heroicons-arrow-left" class="size-4" />
@@ -128,6 +134,9 @@ const typeLabels: Record<string, string> = {
           </div>
         </div>
         <div class="org-actions">
+          <button class="btn-secondary" @click="editOpen = true">
+            Edit details
+          </button>
           <button
             v-if="org.status === 'active'"
             class="btn-danger-outline"

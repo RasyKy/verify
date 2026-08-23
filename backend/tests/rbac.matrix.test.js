@@ -68,6 +68,7 @@ const certificateService = {
   getById: async () => ({ id: ID }),
   update: async () => ({ id: ID }),
   revoke: async () => ({ id: ID, status: 'revoked' }),
+  resendClaim: async () => ({ id: ID, claim_email_sent: true }),
   verify: async () => ({ status: 'verified', certificate: null }),
   logVerification: async () => {},
   currentHashRow: async () => ({ hash: '0x0' }),
@@ -240,6 +241,19 @@ const ROUTES = [
     path: `/api/certificates/${ID}/revoke`,
     body: {},
     allow: ['issuer'],
+  },
+  {
+    /*
+     * The only route open to issuer AND admin. `orphanIssuer` is the one that
+     * matters: the service treats a missing organizationId as "not scoped to
+     * one institution", so an issuer with no institution must be refused here
+     * or the scope silently widens to every certificate on the platform.
+     */
+    name: 'POST /api/certificates/:id/resend-claim',
+    method: 'post',
+    path: `/api/certificates/${ID}/resend-claim`,
+    body: {},
+    allow: ['issuer', 'admin'],
   },
 
   // ── Authenticated, any role ─────────────────────────────────────────────

@@ -2,10 +2,11 @@
   <section class="cta-section reveal" id="get-started">
     <div class="cta-inner">
       <!--
-        Speaks to institutions only. Anyone here to CHECK a certificate was
-        served by the hero's search bar before they ever scrolled this far, so
-        repeating that action at the foot of the page just split the one CTA
-        this section can afford.
+        Leads with institutions: anyone here to CHECK a certificate was served
+        by the hero's search bar before they ever scrolled this far, so that
+        action is not repeated. Holders get the quieter second line rather than
+        a competing button — they arrive by claim link, and the section above
+        already walks them through it.
       -->
       <h2 class="cta-headline">Issue credentials that verify themselves.</h2>
       <p class="cta-sub">
@@ -18,6 +19,10 @@
           <UIcon name="i-heroicons-arrow-right" class="cta-icon" />
         </a>
       </div>
+      <p class="cta-alt">
+        Hold a certificate from one of these institutions?
+        <a href="/login?redirect=/recipient" class="cta-alt-link">Sign in to your certificates</a>
+      </p>
     </div>
   </section>
 </template>
@@ -39,6 +44,26 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+}
+
+.cta-alt {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--text-tertiary);
+  margin: 20px 0 0;
+}
+
+.cta-alt-link {
+  color: var(--accent-text);
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.cta-alt-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 3px;
 }
 
 .cta-headline {

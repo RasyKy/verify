@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { formatDate } from '~/composables/useAdmin'
+import { formatDate, type Org } from '~/composables/useAdmin'
 import type { Column } from '~/components/admin/Table.vue'
 
 definePageMeta({ layout: 'admin' })
@@ -7,6 +7,15 @@ definePageMeta({ layout: 'admin' })
 const { orgs, refresh } = useAdminOrgs()
 
 const createOpen = ref(false)
+
+// One modal instance for both: null target = create, a row = edit.
+const editOpen = ref(false)
+const editTarget = ref<Org | null>(null)
+
+function openEdit(org: Org) {
+  editTarget.value = org
+  editOpen.value = true
+}
 
 const search = ref('')
 const typeFilter = ref('')
@@ -41,12 +50,18 @@ const columns: Column[] = [
   { key: 'certificatesCount',label: 'Certificates',   sortable: true, hideMobile: true },
   { key: 'status',           label: 'Status',         sortable: true  },
   { key: 'createdAt',        label: 'Created',        sortable: true, hideMobile: true },
+  { key: '_actions',         label: '',               sortable: false },
 ]
 </script>
 
 <template>
   <div>
     <AdminOrgFormModal v-model:open="createOpen" @created="refresh()" />
+    <AdminOrgFormModal
+      v-model:open="editOpen"
+      :org="editTarget"
+      @saved="refresh()"
+    />
 
     <AdminPageHeader
       eyebrow="Admin portal"
@@ -92,11 +107,42 @@ const columns: Column[] = [
       <template #cell-createdAt="{ value }">
         <span class="date-cell">{{ formatDate(value) }}</span>
       </template>
+      <!-- @click.stop, or the row's navigate-to-detail handler fires too. -->
+      <template #cell__actions="{ row }">
+        <div class="row-actions">
+          <button class="action-btn" @click.stop="openEdit(row)">
+            Edit
+          </button>
+        </div>
+      </template>
     </AdminTable>
   </div>
 </template>
 
 <style scoped>
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+.action-btn {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--accent);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.action-btn:hover {
+  opacity: 0.7;
+}
+
 .org-cell {
   display: flex;
   align-items: center;

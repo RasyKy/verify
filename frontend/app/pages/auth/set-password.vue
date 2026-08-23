@@ -85,15 +85,31 @@ async function onSubmit() {
         <p class="text-sm text-gray-500 text-center py-6">Checking your invitation…</p>
       </template>
 
+      <!--
+        Reaching this state is common, not exceptional: a recovery link opened
+        on a different device than the one that requested it cannot carry a
+        session, and mail scanners routinely burn one-time links before a human
+        clicks. So this offers the code-based reset rather than dead-ending on
+        "ask your administrator".
+      -->
       <template v-else-if="!hasSession">
         <h1 class="text-lg font-medium text-gray-900 text-center">
-          This link is no longer valid
+          This link didn't carry a session
         </h1>
         <p class="text-sm text-gray-500 text-center mt-2">
-          Invitation links expire after a short time and can only be used once. Ask your
-          administrator to send a new invitation.
+          These links work only once, and only in the browser that requested
+          them — opening one on a different device, or after a mail scanner has
+          followed it, lands here. Resetting with an emailed code works from
+          anywhere.
         </p>
-        <UButton to="/login" class="w-full justify-center mt-6" color="neutral" variant="soft">
+        <UButton
+          to="/auth/forgot-password"
+          class="w-full justify-center mt-6"
+          color="primary"
+        >
+          Reset with a code instead
+        </UButton>
+        <UButton to="/login" class="w-full justify-center mt-2" color="neutral" variant="ghost">
           Back to sign in
         </UButton>
       </template>

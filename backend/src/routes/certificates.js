@@ -7,6 +7,8 @@
  *   GET  /api/certificates/:id          issuer  single, org-scoped
  *   PUT  /api/certificates/:id          issuer  edit = revoke + reissue
  *   POST /api/certificates/:id/revoke   issuer  revoke (FR-MGMT-03)
+ *   POST /api/certificates/:id/resend-claim
+ *                                      issuer+admin  reissue the claim link
  *   GET  /api/certificates/:id/qr       PUBLIC  QR PNG/SVG (FR-HOLD-02)
  *
  * Route ORDER matters: `/verify/:certId` and the literal-prefixed routes are
@@ -62,6 +64,22 @@ export function createCertificatesRouter({
 } = {}) {
   const router = Router();
   const issuerOnly = [auth, requireRole(ROLES.ISSUER), requireOrganization];
+
+  /*
+   * Issuer OR admin. `requireOrganization` cannot sit in this chain because an
+   * admin belongs to no institution by design — but dropping it outright would
+   * let an ISSUER with no institution through, and the service reads a missing
+   * organizationId as "not scoped to one org", i.e. the whole platform. So the
+   * guard is kept for everyone except the role that is meant to be unscoped.
+   */
+  const issuerOrAdmin = [
+    auth,
+    requireRole(ROLES.ISSUER, ROLES.ADMIN),
+    function requireOrganizationUnlessAdmin(req, res, next) {
+      if (req.user?.role === ROLES.ADMIN) return next();
+      return requireOrganization(req, res, next);
+    },
+  ];
 
   /**
    * @openapi
@@ -530,6 +548,66 @@ export function createCertificatesRouter({
           await service.revoke({
             id: req.validated.params.id,
             reason: req.validated.body.reason ?? null,
+            user: req.user,
+          })
+        );
+      } catch (err) {
+        next(err);
+      }
+    }
+  );
+
+  /**
+   * @openapi
+   * /api/certificates/{id}/resend-claim:
+   *   post:
+   *     summary: Mint a fresh claim link and email it again
+   *     description: >
+   *       Retires the outstanding claim token and issues a replacement, valid
+   *       for another 7 days. Outside production the response also carries the
+   *       live `claim_url`, so the flow can be exercised when mail cannot be
+   *       delivered.
+   *     tags: [Certificates]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - name: id
+   *         in: path
+   *         required: true
+   *         schema:
+   *           type: string
+   *           format: uuid
+   *     responses:
+   *       200:
+   *         description: A new claim link was minted; `claim_email_sent` says whether the mail went out
+   *       403:
+   *         description: Caller is neither an admin nor an issuer at the owning institution
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       404:
+   *         description: No such certificate
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       409:
+   *         description: Already claimed, or revoked — neither has a link worth sending
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   */
+  router.post(
+    '/certificates/:id/resend-claim',
+    ...issuerOrAdmin,
+    validate(certIdParamSchema, 'params'),
+    async (req, res, next) => {
+      try {
+        res.json(
+          await service.resendClaim({
+            id: req.validated.params.id,
             user: req.user,
           })
         );
