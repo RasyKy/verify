@@ -3,9 +3,7 @@
  * (GET /api/holder/certificates). Replaces useRecipientMockData.ts.
  *
  * Fixed-key useAsyncData so every consumer shares one request/cache, same
- * pattern as useCertificates.ts. `is_hidden` is the real stored value — there
- * is no write endpoint yet (FR-HOLD-06), so any hide/unhide UI stays a
- * local-only overlay in the page, not a mutation on this data.
+ * pattern as useCertificates.ts.
  */
 export interface HolderCertificate {
   id: string
@@ -27,4 +25,9 @@ export function useHolderCertificates() {
     { default: () => [] },
   )
   return { certificates: data, pending, refresh, error }
+}
+
+/** FR-HOLD-06. Server is the source of truth — caller refetches after this resolves. */
+export function setCertificateVisibility(id: string, is_hidden: boolean) {
+  return useApi()(`/api/holder/certificates/${id}`, { method: 'PATCH', body: { is_hidden } })
 }

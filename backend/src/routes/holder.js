@@ -1,10 +1,6 @@
 /**
- * Holder dashboard — read-only (FR-HOLD-01/02/03).
- *
- * Deliberately scoped: this returns only what a signed-in holder is entitled
- * to see about their OWN certificates. No PATCH/write endpoint exists here —
- * profile_is_public and is_hidden stay whatever they already are. Wiring
- * writes for those is a separate, later change (FR-HOLD-04/05/06).
+ * Holder dashboard (FR-HOLD-01 through 06): the signed-in holder's own
+ * certificates, plus visibility controls over them and their profile.
  */
 import { Router } from 'express';
 
@@ -17,7 +13,14 @@ import {
   requireRole,
   ROLES,
 } from '../middleware/auth.js';
+import { validateAll } from '../middleware/validate.js';
+import { notFound } from '../lib/errors.js';
 import { issuerStatus } from '../lib/derivedStatus.js';
+import {
+  certIdParamSchema,
+  setCertVisibilitySchema,
+  setProfileVisibilitySchema,
+} from '../schemas/holder.js';
 
 const HOLDER_CERT_SELECT = `
   id, course_name, completion_date, expiry_date,
@@ -91,6 +94,133 @@ export function createHolderRouter({
           'list holder certificates'
         );
         res.json((rows ?? []).map((row) => toHolderShape(row)));
+      } catch (err) {
+        next(err);
+      }
+    }
+  );
+
+  /**
+   * @openapi
+   * /api/holder/certificates/{id}:
+   *   patch:
+   *     summary: Set whether one of the caller's certificates is hidden
+   *     tags: [Holder]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: Updated visibility.
+   *       404:
+   *         description: No such certificate belonging to the caller.
+   *         content:
+   *           application/json:
+   *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+   */
+  router.patch(
+    '/holder/certificates/:id',
+    requireAuth,
+    requireRole(ROLES.HOLDER),
+    validateAll({ params: certIdParamSchema, body: setCertVisibilitySchema }),
+    async (req, res, next) => {
+      try {
+        const { id } = req.validated.params;
+        const { is_hidden } = req.validated.body;
+
+        const owned = unwrap(
+          await adminClient
+            .from('certificates')
+            .select('id')
+            .eq('id', id)
+            .eq('holder_id', req.user.id)
+            .maybeSingle(),
+          'load certificate for visibility update'
+        );
+        if (!owned) throw notFound('Certificate not found.');
+
+        const updated = unwrap(
+          await adminClient
+            .from('certificates')
+            .update({ is_hidden })
+            .eq('id', id)
+            .select('id, is_hidden')
+            .maybeSingle(),
+          'update certificate visibility'
+        );
+        res.json({ id: updated.id, is_hidden: updated.is_hidden });
+      } catch (err) {
+        next(err);
+      }
+    }
+  );
+
+  /**
+   * @openapi
+   * /api/holder/profile:
+   *   get:
+   *     summary: The caller's own profile visibility setting
+   *     tags: [Holder]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: Current profile_is_public value.
+   */
+  router.get(
+    '/holder/profile',
+    requireAuth,
+    requireRole(ROLES.HOLDER),
+    async (req, res, next) => {
+      try {
+        const row = unwrap(
+          await adminClient
+            .from('profiles')
+            .select('profile_is_public')
+            .eq('id', req.user.id)
+            .maybeSingle(),
+          'load profile visibility'
+        );
+        res.json({ profile_is_public: row.profile_is_public });
+      } catch (err) {
+        next(err);
+      }
+    }
+  );
+
+  /**
+   * @openapi
+   * /api/holder/profile:
+   *   patch:
+   *     summary: Set whether the caller's profile is public
+   *     tags: [Holder]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: Updated profile_is_public value.
+   */
+  router.patch(
+    '/holder/profile',
+    requireAuth,
+    requireRole(ROLES.HOLDER),
+    validateAll({ body: setProfileVisibilitySchema }),
+    async (req, res, next) => {
+      try {
+        // requireAuth already loaded this exact profile row via loadProfile
+        // before setting req.user, so its existence is already proven — no
+        // SELECT-then-check needed. profile_is_public isn't one of the
+        // columns loadProfile's TTL cache selects, so no
+        // invalidateProfileCache() call is needed either.
+        const updated = unwrap(
+          await adminClient
+            .from('profiles')
+            .update({ profile_is_public: req.validated.body.profile_is_public })
+            .eq('id', req.user.id)
+            .select('profile_is_public')
+            .maybeSingle(),
+          'update profile visibility'
+        );
+        res.json({ profile_is_public: updated.profile_is_public });
       } catch (err) {
         next(err);
       }
