@@ -2,7 +2,7 @@
 import type { HolderCertificate } from '~/composables/useHolderCertificates'
 
 const props = defineProps<{ cert: HolderCertificate }>()
-const emit = defineEmits<{ view: [id: string]; 'toggle-hidden': [id: string] }>()
+const emit = defineEmits<{ view: [id: string]; 'toggle-hidden': [id: string, isHidden: boolean] }>()
 
 const statusConfig: Record<'valid' | 'revoked' | 'expired', { label: string; style: string }> = {
   valid: { label: 'Valid', style: 'background: var(--status-valid-bg); color: var(--status-valid-text)' },
@@ -41,7 +41,7 @@ function formatDate(dateStr: string) {
         :model-value="!cert.is_hidden"
         :label="cert.is_hidden ? 'Hidden' : 'Public'"
         size="sm"
-        @update:model-value="emit('toggle-hidden', cert.id)"
+        @update:model-value="(isPublic) => emit('toggle-hidden', cert.id, !isPublic)"
       />
       <UButton
         variant="ghost"
