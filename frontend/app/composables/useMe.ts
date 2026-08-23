@@ -57,7 +57,7 @@ export type MeResult =
   /** No Supabase session — genuinely signed out. */
   | { state: 'signed-out' }
   /** Session is valid but the API rejected it: expired token, or deactivated. */
-  | { state: 'refused'; status: number; code: string | null; message: string }
+  | { state: 'refused'; status: number; message: string }
   /** The API could not be reached at all. Not an auth problem. */
   | { state: 'unreachable'; message: string }
 
@@ -99,11 +99,10 @@ export async function resolveMe(): Promise<MeResult> {
     // never got an answer — wrong NUXT_PUBLIC_API_BASE, or the backend is down.
     if (status === 401 || status === 403) {
       unreachable.value = null
-      const body = (err as { data?: { code?: string; message?: string } })?.data
+      const body = (err as { data?: { message?: string } })?.data
       return {
         state: 'refused',
         status,
-        code: body?.code ?? null,
         message: body?.message ?? 'Your account cannot access this application.',
       }
     }
@@ -131,7 +130,7 @@ export function clearMe() {
  * and the like.
  *
  * Kept in shared state rather than a query parameter so the reason cannot be
- * spoofed by typing a URL, and cleared once shown.
+ * spoofed by typing a URL. Cleared when the next sign-in is attempted.
  */
 export function useAuthNotice() {
   return useState<string | null>('auth:notice', () => null)
