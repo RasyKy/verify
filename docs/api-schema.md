@@ -275,13 +275,60 @@ chart misrepresent the data. `recentActivity.type` is `issued` | `revoked` |
 ### `GET /api/holder/certificates` · holder
 Own certificates, snake_case, plus `is_hidden`.
 
-### `PATCH /api/holder/profile` · holder
-`{ "isPublic": false }` → hides all certificates from the public profile
-(FR-HOLD-05). Public by default (FR-HOLD-04).
+### `GET /api/holder/profile` · holder
+`{ "profile_is_public": true }` — the caller's current setting.
 
-### `PATCH /api/holder/certificates/:id/visibility` · holder
-`{ "hidden": true }` → hides one certificate without affecting the others
-(FR-HOLD-06). **Does not affect verifiability** (FR-HOLD-07).
+### `PATCH /api/holder/profile` · holder
+`{ "profile_is_public": false }` → takes the public profile page offline
+entirely (FR-HOLD-05). Public by default (FR-HOLD-04).
+
+### `PATCH /api/holder/certificates/:id` · holder
+`{ "is_hidden": true }` → hides one certificate from the public profile without
+affecting the others (FR-HOLD-06). **Does not affect verifiability**
+(FR-HOLD-07).
+
+### `GET /api/profiles/:holderId` · public · FR-HOLD-04/05/06
+The browsable profile the two flags above govern — **the only endpoint in the
+API that reads them**. Rendered by `pages/p/[holderId].vue`.
+
+```json
+{
+  "holder": { "id": "uuid", "display_name": "Chea Sophat" },
+  "certificates": [
+    {
+      "id": "uuid",
+      "course_name": "BSc Computer Science",
+      "institution_name": "Royal Phnom Penh University",
+      "completion_date": "2026-02-03",
+      "expiry_date": null,
+      "issued_at": "2026-02-03T09:15:00Z",
+      "issuedAtBlockchainTimestamp": "2026-02-03T09:15:22Z",
+      "status": "valid"
+    }
+  ]
+}
+```
+
+- Lists only `is_hidden = false`, filtered in the query — a hidden row never
+  leaves the database.
+- Returns neither `is_hidden` (every row here is visible by definition) nor
+  `student_name` / `student_email`. The holder's name lives on the profile, and
+  falls back to a certificate's `student_name` rather than the email local part
+  when `full_name` is unset — the label is published to anyone with the link.
+- Revoked and expired certificates are listed **with their status**, not
+  dropped. Silently omitting them would leave a browsing employer unable to
+  tell absence from revocation; the holder's own per-certificate hide toggle is
+  the tool for that.
+- Empty `certificates` with a `200` is a real state: profile public, every
+  certificate hidden.
+
+→ `404` for a nonexistent profile, a non-holder, a deactivated account, **and a
+private one** — deliberately indistinguishable. A distinct "this profile is
+private" response would confirm the account exists and has chosen to hide,
+which is the fact the setting exists to withhold, and would turn the endpoint
+into an existence oracle (T-05).
+
+→ `422` on a non-UUID `holderId` · `429` (30/min, `publicProfileLimiter`)
 
 ---
 
@@ -335,7 +382,7 @@ asked for it.
 | FR-INST-01..03 | `/api/admin/organizations`, `/api/admin/users` |
 | FR-ISSUE-01..07 | `POST /api/certificates` |
 | FR-MGMT-01..05 | `GET /api/certificates`, `PUT`, `/revoke`, `/api/dashboard` |
-| FR-HOLD-01..07 | `/api/holder/*`, `GET /api/certificates/:id/qr` |
+| FR-HOLD-01..07 | `/api/holder/*`, `GET /api/profiles/:holderId`, `GET /api/certificates/:id/qr` |
 | FR-VERIFY-01..05 | `GET /api/certificates/verify/:certId` |
 | FR-REG-01..03 | `GET /api/registry` |
 | FR-EXP-01..04 | `expiryDate` on issue/update; `jobs/expiryNotifications.js` |

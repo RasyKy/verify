@@ -108,7 +108,7 @@ const columns: Column[] = [
         <span class="date-cell">{{ formatDate(value) }}</span>
       </template>
       <!-- @click.stop, or the row's navigate-to-detail handler fires too. -->
-      <template #cell__actions="{ row }">
+      <template #cell-_actions="{ row }">
         <div class="row-actions">
           <button class="action-btn" @click.stop="openEdit(row)">
             Edit

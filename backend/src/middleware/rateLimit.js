@@ -45,12 +45,26 @@ function make({ windowMs, limit, name, keyGenerator }) {
 }
 
 /**
- * Public verification — the only endpoint an anonymous flood can reach at
- * scale (T-04). Generous enough for an employer checking a batch of
- * applicants, tight enough that scraping is impractical.
+ * Public verification — one of the two endpoints an anonymous flood can reach
+ * at scale (T-04; see publicProfileLimiter for the other). Generous enough for
+ * an employer checking a batch of applicants, tight enough that scraping is
+ * impractical.
  */
 export const verifyLimiter = make({
   name: 'verify',
+  windowMs: 60_000,
+  limit: 30,
+});
+
+/**
+ * Public holder profiles (FR-HOLD-04). Anonymous like verification, and the
+ * more attractive scraping target of the two: one request returns a person's
+ * whole visible credential history rather than a single certificate. Same
+ * budget as verify — enough for a recruiter opening a handful of profiles,
+ * far too little to harvest them.
+ */
+export const publicProfileLimiter = make({
+  name: 'public-profile',
   windowMs: 60_000,
   limit: 30,
 });

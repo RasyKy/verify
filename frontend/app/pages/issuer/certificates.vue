@@ -132,15 +132,9 @@ watch(certsRefreshKey, () => refresh())
 <template>
   <div>
     <!-- Page header -->
-    <div class="flex items-center justify-between mb-6">
-      <div>
-        <h1 class="text-2xl font-bold page-title">Certificates</h1>
-        <p class="text-sm mt-1 page-subtitle">View, search, and manage all issued certificates.</p>
-      </div>
-      <button class="btn-primary flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white" @click="issueModalOpen = true">
-        <UIcon name="i-heroicons-plus" class="size-4" />
-        Issue certificate
-      </button>
+    <div class="mb-6">
+      <h1 class="text-2xl font-bold page-title">Certificates</h1>
+      <p class="text-sm mt-1 page-subtitle">View, search, and manage all issued certificates.</p>
     </div>
 
     <!-- A load failure must read as "we could not fetch", never as an empty

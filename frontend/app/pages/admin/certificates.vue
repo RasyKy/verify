@@ -145,7 +145,7 @@ async function confirmRevoke() {
         <span class="date-cell">{{ formatDate(value) }}</span>
       </template>
       <template #cell-status="{ value }"><AdminStatusChip :status="value" /></template>
-      <template #cell__actions="{ row }">
+      <template #cell-_actions="{ row }">
         <div class="row-actions">
           <button class="action-btn" @click.stop="openEdit(row)">
             Edit

@@ -53,6 +53,35 @@ const summaryLine = computed(() => {
   const count = `${totalCerts.value} certificate${totalCerts.value === 1 ? '' : 's'}`
   return hiddenCount.value ? `${count} · ${hiddenCount.value} hidden` : count
 })
+
+/**
+ * The holder's own public profile URL.
+ *
+ * Shown here because the two visibility toggles are otherwise unfalsifiable
+ * from this screen: without a link to the page they govern, "Public" and
+ * "Hidden" are claims the holder has no way to check. useRequestURL() inside a
+ * computed matches CertificateDetailModal.vue's certUrl.
+ */
+const profileUrl = computed(() =>
+  me.value ? publicProfileUrl(useRequestURL().origin, me.value.id) : '',
+)
+
+const copiedProfileUrl = ref(false)
+let copyTimer: ReturnType<typeof setTimeout> | undefined
+
+async function copyProfileUrl() {
+  try {
+    await navigator.clipboard.writeText(profileUrl.value)
+    copiedProfileUrl.value = true
+    clearTimeout(copyTimer)
+    copyTimer = setTimeout(() => (copiedProfileUrl.value = false), 1600)
+  } catch {
+    // Clipboard is permission-gated and blocked outside a secure context;
+    // the URL is on screen and selectable either way.
+  }
+}
+
+onBeforeUnmount(() => clearTimeout(copyTimer))
 </script>
 
 <template>
@@ -70,6 +99,40 @@ const summaryLine = computed(() => {
         size="sm"
         @update:model-value="toggleProfilePublic"
       />
+
+      <!-- What the toggles above actually control. -->
+      <div v-if="profile?.profile_is_public && profileUrl" class="profile-link">
+        <div class="copy-row">
+          <code class="copy-value">{{ profileUrl }}</code>
+          <UButton
+            size="xs"
+            variant="ghost"
+            color="neutral"
+            :icon="copiedProfileUrl ? 'i-heroicons-check' : 'i-heroicons-square-2-stack'"
+            :aria-label="copiedProfileUrl ? 'Profile link copied' : 'Copy profile link'"
+            @click="copyProfileUrl"
+          />
+          <UButton
+            size="xs"
+            variant="ghost"
+            color="neutral"
+            icon="i-heroicons-arrow-top-right-on-square"
+            :to="`/p/${me?.id}`"
+            target="_blank"
+            aria-label="Open my public profile"
+          />
+        </div>
+        <p class="profile-link-note">
+          Anyone with this link sees your
+          {{ totalCerts - hiddenCount }} public
+          certificate{{ totalCerts - hiddenCount === 1 ? '' : 's' }}. Hidden ones
+          stay off it — but keep working as direct verification links.
+        </p>
+      </div>
+      <p v-else-if="profile" class="profile-link-note profile-link-off">
+        Your profile page is off. Individual certificate links still work for
+        anyone you send them to.
+      </p>
     </div>
 
     <h2 class="section-heading">My Certificates</h2>
@@ -133,6 +196,46 @@ const summaryLine = computed(() => {
 
 .profile-visibility {
   margin-top: 16px;
+}
+
+.profile-link {
+  margin-top: 16px;
+  width: 100%;
+  max-width: 440px;
+}
+
+.copy-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 8px 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-hover);
+}
+
+.copy-value {
+  flex: 1;
+  min-width: 0;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 11.5px;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.profile-link-note {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 8px;
+  line-height: 1.5;
+}
+
+.profile-link-off {
+  margin-top: 16px;
+  max-width: 440px;
 }
 
 .section-heading {

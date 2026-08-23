@@ -127,7 +127,7 @@ async function confirmDeactivate() {
       <template #cell-email="{ value }">
         <span class="email-cell">{{ value }}</span>
       </template>
-      <template #cell__actions="{ row }">
+      <template #cell-_actions="{ row }">
         <div class="row-actions">
           <button class="action-btn" @click.stop="openEdit(row)">
             Edit
