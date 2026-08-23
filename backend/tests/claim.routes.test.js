@@ -322,7 +322,7 @@ describe('POST /api/claim/:token/confirm', () => {
   });
 
   it('links the cert without inserting a duplicate profile when a holder profile already exists', async () => {
-    const db = liveTokenDb({ profiles: { id: USER_ID, role: 'holder' } });
+    const db = liveTokenDb({ profiles: { id: USER_ID, role: 'holder', status: 'active' } });
     const res = await request(makeApp({ adminClient: db })).post(
       '/api/claim/some-token/confirm'
     );
@@ -336,8 +336,31 @@ describe('POST /api/claim/:token/confirm', () => {
     ).toBeDefined();
   });
 
+  /*
+   * This route authenticates with verifyBearerToken, which skips the status
+   * gate requireAuth applies everywhere else — it has to, because the claiming
+   * account may have no profile row yet. So the gate is asserted here.
+   */
+  it('403s ACCOUNT_DEACTIVATED when the holder account is deactivated', async () => {
+    const db = liveTokenDb({
+      profiles: { id: USER_ID, role: 'holder', status: 'deactivated' },
+    });
+    const res = await request(makeApp({ adminClient: db })).post(
+      '/api/claim/some-token/confirm'
+    );
+
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe('ACCOUNT_DEACTIVATED');
+    expect(
+      db.calls.find((c) => c.table === 'certificates' && c.op === 'update')
+    ).toBeUndefined();
+    expect(
+      db.calls.find((c) => c.table === 'claim_tokens' && c.op === 'update')
+    ).toBeUndefined();
+  });
+
   it('403s when the account already exists with a non-holder role', async () => {
-    const db = liveTokenDb({ profiles: { id: USER_ID, role: 'issuer' } });
+    const db = liveTokenDb({ profiles: { id: USER_ID, role: 'issuer', status: 'active' } });
     const res = await request(makeApp({ adminClient: db })).post(
       '/api/claim/some-token/confirm'
     );

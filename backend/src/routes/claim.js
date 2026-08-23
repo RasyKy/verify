@@ -24,7 +24,12 @@ import {
   adminClient as defaultAdminClient,
   unwrap,
 } from '../config/supabase.js';
-import { conflict, forbidden, notFound } from '../lib/errors.js';
+import {
+  accountDeactivated,
+  conflict,
+  forbidden,
+  notFound,
+} from '../lib/errors.js';
 import { verifyBearerToken as defaultVerifyBearerToken } from '../middleware/auth.js';
 import { claimLimiter, claimPreviewLimiter } from '../middleware/rateLimit.js';
 import { validate } from '../middleware/validate.js';
@@ -245,7 +250,7 @@ export function createClaimRouter({
         const profile = unwrap(
           await adminClient
             .from('profiles')
-            .select('id, role')
+            .select('id, role, status')
             .eq('id', userId)
             .maybeSingle(),
           'load profile for claim'
@@ -265,6 +270,15 @@ export function createClaimRouter({
           );
         } else if (profile.role !== 'holder') {
           throw forbidden('This account cannot claim certificates.');
+        } else if (profile.status !== 'active') {
+          /*
+           * This route authenticates with verifyBearerToken, which checks the
+           * signature only — it has to, because the account claiming may not
+           * have a profile row yet. That skips the status gate every other
+           * route gets from requireAuth, so a deactivated holder could
+           * otherwise claim a certificate onto a dead account.
+           */
+          throw accountDeactivated();
         }
 
         unwrap(

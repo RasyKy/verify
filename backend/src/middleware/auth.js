@@ -29,7 +29,12 @@ import { createRemoteJWKSet, jwtVerify } from 'jose';
 
 import { env } from '../config/env.js';
 import { adminClient, unwrap } from '../config/supabase.js';
-import { forbidden, unauthorized, upstreamUnavailable } from '../lib/errors.js';
+import {
+  accountDeactivated,
+  forbidden,
+  unauthorized,
+  upstreamUnavailable,
+} from '../lib/errors.js';
 import { logger } from '../lib/logger.js';
 import { TtlCache } from '../lib/cache.js';
 
@@ -171,7 +176,7 @@ export async function requireAuth(req, _res, next) {
     }
 
     if (profile.status !== 'active') {
-      throw forbidden('This account has been deactivated.');
+      throw accountDeactivated();
     }
 
     req.user = {

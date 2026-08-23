@@ -57,7 +57,7 @@ export type MeResult =
   /** No Supabase session — genuinely signed out. */
   | { state: 'signed-out' }
   /** Session is valid but the API rejected it: expired token, or deactivated. */
-  | { state: 'refused'; status: number }
+  | { state: 'refused'; status: number; code: string | null; message: string }
   /** The API could not be reached at all. Not an auth problem. */
   | { state: 'unreachable'; message: string }
 
@@ -99,7 +99,13 @@ export async function resolveMe(): Promise<MeResult> {
     // never got an answer — wrong NUXT_PUBLIC_API_BASE, or the backend is down.
     if (status === 401 || status === 403) {
       unreachable.value = null
-      return { state: 'refused', status }
+      const body = (err as { data?: { code?: string; message?: string } })?.data
+      return {
+        state: 'refused',
+        status,
+        code: body?.code ?? null,
+        message: body?.message ?? 'Your account cannot access this application.',
+      }
     }
 
     const message = (err as Error)?.message ?? 'Unknown error'
@@ -118,4 +124,35 @@ export async function fetchMe(): Promise<Me | null> {
 export function clearMe() {
   useMe().value = null
   useApiUnreachable().value = null
+}
+
+/**
+ * A one-off message for /login to render — "this account has been deactivated"
+ * and the like.
+ *
+ * Kept in shared state rather than a query parameter so the reason cannot be
+ * spoofed by typing a URL, and cleared once shown.
+ */
+export function useAuthNotice() {
+  return useState<string | null>('auth:notice', () => null)
+}
+
+/**
+ * Ends a session the API refuses.
+ *
+ * A deactivated account still signs into Supabase perfectly well — Supabase
+ * Auth knows nothing about `profiles.status` — so without this the browser
+ * keeps a live session that every guard rejects, and the visitor is bounced
+ * between /login and a portal with nothing explaining why. Signing out is what
+ * makes the refusal stick, and the notice is what makes it legible.
+ */
+export async function endRefusedSession(
+  result: Extract<MeResult, { state: 'refused' }>,
+) {
+  clearMe()
+  useAuthNotice().value =
+    result.status === 403
+      ? result.message
+      : 'Your session has expired. Please sign in again.'
+  await useSupabaseClient().auth.signOut()
 }

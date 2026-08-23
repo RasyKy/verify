@@ -39,6 +39,19 @@ export const forbidden = (
   message = 'You do not have access to this resource.'
 ) => new AppError(403, 'FORBIDDEN', message);
 
+/**
+ * 403 with its own code, not a plain `forbidden`.
+ *
+ * "Your role does not permit this" and "your account is switched off" call for
+ * different handling in the browser: the second one must end the session, or
+ * the deactivated user keeps a live Supabase session that bounces them between
+ * /login and a portal with nothing said. The client keys off the code, not the
+ * wording (see frontend/app/composables/useApi.ts).
+ */
+export const accountDeactivated = (
+  message = 'This account has been deactivated.'
+) => new AppError(403, 'ACCOUNT_DEACTIVATED', message);
+
 export const notFound = (message = 'Resource not found.') =>
   new AppError(404, 'NOT_FOUND', message);
 

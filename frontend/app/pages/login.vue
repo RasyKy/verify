@@ -55,6 +55,16 @@ async function destinationAfterLogin(): Promise<string | null> {
     apiError.value = result.message
     return null
   }
+  /*
+   * The password was right and Supabase issued a session — it has no idea the
+   * account is switched off, only `profiles.status` does. Sending them onward
+   * would land on a portal that bounces straight back here with nothing said,
+   * so end the session and stay put with the reason on screen.
+   */
+  if (result.state === 'refused') {
+    await endRefusedSession(result)
+    return null
+  }
   if (result.state !== 'ok') return requestedRedirect.value
 
   const permitted = ROLE_PORTALS[result.me.role] ?? []
@@ -66,6 +76,8 @@ async function destinationAfterLogin(): Promise<string | null> {
 const email = ref('')
 const password = ref('')
 const error = ref(false)
+/** Why a previous attempt (or a guard) rejected an otherwise valid session. */
+const notice = useAuthNotice()
 const loading = ref(false)
 /** Set when sign-in succeeded but the backend could not be reached. */
 const apiError = ref('')
@@ -75,6 +87,7 @@ async function onSubmit() {
   if (!email.value || !password.value) return
   loading.value = true
   error.value = false
+  notice.value = null
   try {
     const { error: authError } = await supabase.auth.signInWithPassword({
       email: email.value,
@@ -189,6 +202,18 @@ async function onSubmit() {
             variant="subtle"
             icon="i-heroicons-exclamation-triangle"
             title="Invalid email or password."
+          />
+
+          <!-- The credentials were right and the account is real; it is simply
+               switched off. Saying so beats an unexplained bounce back to this
+               same form. -->
+          <UAlert
+            v-if="notice"
+            color="error"
+            variant="subtle"
+            icon="i-heroicons-lock-closed"
+            title="Cannot sign in"
+            :description="notice"
           />
 
           <!-- Signing in worked; the API did not answer. Distinguishing this from

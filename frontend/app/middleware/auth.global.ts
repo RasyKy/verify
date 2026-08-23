@@ -27,6 +27,9 @@ export default defineNuxtRouteMiddleware(async (to) => {
     if (!user.value) return
     const result = await resolveMe()
     if (result.state === 'ok') return navigateTo(ROLE_HOME[result.me.role] ?? '/')
+    // A session the API refuses is worse than no session: it makes this branch
+    // fire forever. End it, and let /login say why.
+    if (result.state === 'refused') await endRefusedSession(result)
     // Refused or unreachable — stay on /login, which renders the reason.
     return
   }
@@ -54,6 +57,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
     })
   }
 
+  if (result.state === 'refused') await endRefusedSession(result)
   if (result.state !== 'ok') return toLogin()
 
   // Signed in as the wrong role — send them where they do belong, rather than
