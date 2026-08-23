@@ -45,7 +45,8 @@ function fakeDb(tables = {}) {
       const filtered = rows.filter((row) =>
         filters.every(([op, field, value]) => {
           if (op === 'eq') return row[field] === value;
-          if (op === 'is') return value === null ? row[field] == null : row[field] === value;
+          if (op === 'is')
+            return value === null ? row[field] == null : row[field] === value;
           if (op === 'in') return value.includes(row[field]);
           return true;
         })

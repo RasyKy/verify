@@ -40,7 +40,9 @@ describe('sendExpiryReminderEmail()', () => {
       client: { emails: { send } },
     });
 
-    expect(send.mock.calls[0][0].subject).toContain('Royal Phnom Penh University');
+    expect(send.mock.calls[0][0].subject).toContain(
+      'Royal Phnom Penh University'
+    );
   });
 
   it('respects the emailEnabled gate and never calls the client when disabled', async () => {

@@ -90,7 +90,9 @@ describe('GET /api/holder/certificates', () => {
       { ...BASE_ROW, id: 'cert-mine', holder_id: 'holder-1' },
       { ...BASE_ROW, id: 'cert-not-mine', holder_id: 'holder-2' },
     ];
-    const res = await request(makeApp({ rows })).get('/api/holder/certificates');
+    const res = await request(makeApp({ rows })).get(
+      '/api/holder/certificates'
+    );
 
     expect(res.status).toBe(200);
     expect(res.body).toHaveLength(1);
@@ -121,7 +123,9 @@ describe('GET /api/holder/certificates', () => {
         revoked_at: '2026-08-01T00:00:00.000Z',
       },
     ];
-    const res = await request(makeApp({ rows })).get('/api/holder/certificates');
+    const res = await request(makeApp({ rows })).get(
+      '/api/holder/certificates'
+    );
     expect(res.body[0].status).toBe('revoked');
   });
 
@@ -134,13 +138,17 @@ describe('GET /api/holder/certificates', () => {
         expiry_date: '2020-01-01',
       },
     ];
-    const res = await request(makeApp({ rows })).get('/api/holder/certificates');
+    const res = await request(makeApp({ rows })).get(
+      '/api/holder/certificates'
+    );
     expect(res.body[0].status).toBe('expired');
   });
 
   it('reads institution_name from the organizations join', async () => {
     const rows = [{ ...BASE_ROW, id: 'cert-1', holder_id: 'holder-1' }];
-    const res = await request(makeApp({ rows })).get('/api/holder/certificates');
+    const res = await request(makeApp({ rows })).get(
+      '/api/holder/certificates'
+    );
     expect(res.body[0].institution_name).toBe('Royal Phnom Penh University');
   });
 
@@ -156,7 +164,9 @@ describe('GET /api/holder/certificates', () => {
         ],
       },
     ];
-    const res = await request(makeApp({ rows })).get('/api/holder/certificates');
+    const res = await request(makeApp({ rows })).get(
+      '/api/holder/certificates'
+    );
     expect(res.body[0].issuedAtBlockchainTimestamp).toBe(
       '2026-02-03T09:15:22.000Z'
     );
@@ -172,9 +182,16 @@ describe('GET /api/holder/certificates', () => {
 
   it('passes is_hidden through as the stored value, unmodified', async () => {
     const rows = [
-      { ...BASE_ROW, id: 'cert-hidden', holder_id: 'holder-1', is_hidden: true },
+      {
+        ...BASE_ROW,
+        id: 'cert-hidden',
+        holder_id: 'holder-1',
+        is_hidden: true,
+      },
     ];
-    const res = await request(makeApp({ rows })).get('/api/holder/certificates');
+    const res = await request(makeApp({ rows })).get(
+      '/api/holder/certificates'
+    );
     expect(res.body[0].is_hidden).toBe(true);
   });
 });

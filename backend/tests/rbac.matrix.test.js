@@ -87,10 +87,14 @@ const adminClientStub = {
       order: async () => ({ data: [], error: null }),
     }),
     insert: () => ({
-      select: () => ({ single: async () => ({ data: { id: ORG }, error: null }) }),
+      select: () => ({
+        single: async () => ({ data: { id: ORG }, error: null }),
+      }),
     }),
   }),
-  auth: { admin: { inviteUserByEmail: async () => ({ data: null, error: null }) } },
+  auth: {
+    admin: { inviteUserByEmail: async () => ({ data: null, error: null }) },
+  },
 };
 
 function makeApp(actor) {

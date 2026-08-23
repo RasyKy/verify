@@ -115,7 +115,8 @@ async function main() {
   console.log(
     `   ${issueOnceSeconds.toFixed(3)}s — status ${issueOnce.response.status}, chain_status=${issueOnce.body?.chain_status}, issue_tx_hash=${issueOnce.body?.issue_tx_hash}`
   );
-  const perf02Pass = issueOnce.response.status === 201 && issueOnceSeconds <= 30;
+  const perf02Pass =
+    issueOnce.response.status === 201 && issueOnceSeconds <= 30;
   console.log(`   ${verdict(perf02Pass)}\n`);
 
   // ── 3. NFR-PERF-03 — 50 concurrent verifications, distinct spoofed IPs ──
@@ -127,7 +128,7 @@ async function main() {
     '   the coalesced/warm-cache burst path (chainVerifyCache), and bypasses'
   );
   console.log(
-    '   verifyLimiter\'s per-IP cap to simulate 50 distinct verifiers, not'
+    "   verifyLimiter's per-IP cap to simulate 50 distinct verifiers, not"
   );
   console.log('   50 requests from one client hitting its own rate limit.\n');
 
@@ -135,7 +136,9 @@ async function main() {
     Array.from({ length: 50 }, (_, i) =>
       timed(() =>
         fetch(`${BASE}/api/certificates/verify/${VALID_CERT_ID}`, {
-          headers: { 'X-Forwarded-For': `10.${Math.floor(i / 255)}.${i % 255}.1` },
+          headers: {
+            'X-Forwarded-For': `10.${Math.floor(i / 255)}.${i % 255}.1`,
+          },
         })
       )
     )
@@ -148,7 +151,9 @@ async function main() {
     return acc;
   }, {});
 
-  console.log(`   requests: 50, succeeded: ${50 - failures.length}, failed: ${failures.length}`);
+  console.log(
+    `   requests: 50, succeeded: ${50 - failures.length}, failed: ${failures.length}`
+  );
   console.log(`   status codes: ${JSON.stringify(statusCounts)}`);
   console.log(`   p50: ${percentile(burstMs, 50).toFixed(1)}ms`);
   console.log(`   p95: ${percentile(burstMs, 95).toFixed(1)}ms`);
@@ -158,7 +163,9 @@ async function main() {
   console.log(`   ${verdict(perf03Pass)}\n`);
 
   // ── 4. NFR-USE-02 — out of scope for this method ────────────────────────
-  console.log('4. NFR-USE-02 (first-time verifier confirms within 30s of QR scan)');
+  console.log(
+    '4. NFR-USE-02 (first-time verifier confirms within 30s of QR scan)'
+  );
   console.log(
     '   NOT VERIFIABLE by a load test — this is human task-completion time,'
   );
@@ -173,9 +180,15 @@ async function main() {
   );
 
   console.log('Summary');
-  console.log(`  NFR-PERF-01  ${verdict(perf01Pass)}  (${verifyOnceSeconds.toFixed(3)}s / 5s target)`);
-  console.log(`  NFR-PERF-02  ${verdict(perf02Pass)}  (${issueOnceSeconds.toFixed(3)}s / 30s target)`);
-  console.log(`  NFR-PERF-03  ${verdict(perf03Pass)}  (${failures.length}/50 failed, p99 ${percentile(burstMs, 99).toFixed(1)}ms)`);
+  console.log(
+    `  NFR-PERF-01  ${verdict(perf01Pass)}  (${verifyOnceSeconds.toFixed(3)}s / 5s target)`
+  );
+  console.log(
+    `  NFR-PERF-02  ${verdict(perf02Pass)}  (${issueOnceSeconds.toFixed(3)}s / 30s target)`
+  );
+  console.log(
+    `  NFR-PERF-03  ${verdict(perf03Pass)}  (${failures.length}/50 failed, p99 ${percentile(burstMs, 99).toFixed(1)}ms)`
+  );
   console.log('  NFR-USE-02   NOT VERIFIABLE by this method');
 }
 
