@@ -76,10 +76,7 @@ function makeApp({
 } = {}) {
   const app = express();
   app.use(express.json());
-  app.use(
-    '/api',
-    createClaimRouter({ adminClient, verifyBearerToken, audit })
-  );
+  app.use('/api', createClaimRouter({ adminClient, verifyBearerToken, audit }));
   app.use(errorHandler);
   return app;
 }
@@ -260,9 +257,9 @@ describe('POST /api/claim/:token/confirm', () => {
   it('provisions a holder profile, links the cert, marks the token used, and audits — no existing profile', async () => {
     const db = liveTokenDb();
     const audit = jest.fn(async () => {});
-    const res = await request(
-      makeApp({ adminClient: db, audit })
-    ).post('/api/claim/some-token/confirm');
+    const res = await request(makeApp({ adminClient: db, audit })).post(
+      '/api/claim/some-token/confirm'
+    );
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ success: true });

@@ -3,14 +3,10 @@
     <div class="trust-inner">
       <p class="trust-label">Trusted by institutions worldwide</p>
       <div class="trust-logos">
-        <span
-          v-for="org in institutions"
-          :key="org.id"
-          :title="org.name"
-          class="trust-logo"
-        >
-          {{ acronymOf(org.name) }}
-        </span>
+        <div v-for="org in institutions" :key="org.id" :title="org.name" class="trust-item">
+          <span class="trust-logo">{{ acronymOf(org.name) }}</span>
+          <span class="trust-meta">{{ typeLabel(org.type) }} · {{ joinedLabel(org.joinedAt) }}</span>
+        </div>
       </div>
     </div>
   </section>
@@ -34,6 +30,21 @@ function acronymOf(name: string) {
 
   if (initials.length >= 2) return initials.slice(0, 6)
   return name.replace(/[^a-zA-Z]/g, '').slice(0, 4).toUpperCase() || name.slice(0, 4)
+}
+
+const TYPE_LABELS: Record<string, string> = {
+  university: 'University',
+  bootcamp: 'Bootcamp',
+  'professional-body': 'Professional body',
+  event: 'Event',
+}
+
+function typeLabel(type: string) {
+  return TYPE_LABELS[type] ?? type
+}
+
+function joinedLabel(joinedAt: string) {
+  return new Date(joinedAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
 }
 </script>
 
@@ -69,21 +80,34 @@ function acronymOf(name: string) {
   justify-content: center;
 }
 
+.trust-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  transition: border-color 0.1s ease;
+}
+
+.trust-item:hover {
+  border-color: var(--text-tertiary);
+}
+
 .trust-logo {
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.06em;
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   font-family: ui-monospace, 'Cascadia Code', monospace;
-  padding: 6px 14px;
-  border: 1px solid var(--border-strong);
-  border-radius: 6px;
-  background: var(--surface);
-  transition: color 0.1s ease;
 }
 
-.trust-logo:hover {
-  color: var(--text-secondary);
+.trust-meta {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
 }
 
 @media (max-width: 640px) {

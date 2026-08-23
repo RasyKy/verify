@@ -76,6 +76,29 @@ function escapeHtml(value) {
   );
 }
 
+function expiryReminderEmailHtml({
+  studentName,
+  courseName,
+  institutionName,
+  expiryDate,
+}) {
+  return `
+    <div style="font-family:system-ui,-apple-system,'Segoe UI',sans-serif;max-width:480px;margin:0 auto;color:#111827">
+      <h1 style="font-size:18px;font-weight:600">Your certificate expires in 60 days</h1>
+      <p style="font-size:14px;line-height:1.6;color:#374151">
+        Hi ${escapeHtml(studentName)},<br /><br />
+        Your certificate from ${escapeHtml(institutionName)} for
+        <strong>${escapeHtml(courseName)}</strong> will expire on
+        <strong>${escapeHtml(expiryDate)}</strong>.
+      </p>
+      <p style="font-size:12px;color:#6b7280;line-height:1.6">
+        No action is needed if this expiry is expected. If you believe this is
+        a mistake, contact the issuing institution directly.
+      </p>
+    </div>
+  `;
+}
+
 /**
  * @param {object} args
  * @param {string} args.to
@@ -116,6 +139,59 @@ export async function sendClaimEmail({
     return { sent: true };
   } catch (err) {
     logger.error('claim email failed to send', { err, to });
+    return { sent: false };
+  }
+}
+
+/**
+ * FR-EXP-03. Mirrors sendClaimEmail's shape and guarantees: gated on
+ * emailEnabled, never rejects, logs + swallows any send failure.
+ *
+ * `client`/`emailEnabled` are optional overrides purely for tests — there is
+ * no other seam into the module-level Resend singleton, and unlike
+ * sendClaimEmail this function has dedicated unit tests that exercise the
+ * gate and the error path deterministically, without a live network call.
+ *
+ * @param {object} args
+ * @param {string} args.to
+ * @param {string} args.studentName
+ * @param {string} args.courseName
+ * @param {string} args.institutionName
+ * @param {string} args.expiryDate     YYYY-MM-DD
+ * @returns {Promise<{ sent: boolean }>} never rejects
+ */
+export async function sendExpiryReminderEmail({
+  to,
+  studentName,
+  courseName,
+  institutionName,
+  expiryDate,
+  emailEnabled = env.emailEnabled,
+  client = getClient(),
+}) {
+  if (!emailEnabled) {
+    logger.info('email disabled — expiry reminder not sent', {
+      to,
+      expiryDate,
+    });
+    return { sent: false };
+  }
+
+  try {
+    await client.emails.send({
+      from: env.RESEND_FROM_EMAIL,
+      to,
+      subject: `Your certificate from ${institutionName} expires soon`,
+      html: expiryReminderEmailHtml({
+        studentName,
+        courseName,
+        institutionName,
+        expiryDate,
+      }),
+    });
+    return { sent: true };
+  } catch (err) {
+    logger.error('expiry reminder email failed to send', { err, to });
     return { sent: false };
   }
 }

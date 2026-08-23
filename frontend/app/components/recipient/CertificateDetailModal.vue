@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import QrcodeVue from 'qrcode.vue'
-import type { RecipientCert } from '~/composables/useRecipientMockData'
+import type { HolderCertificate } from '~/composables/useHolderCertificates'
 
-const props = defineProps<{ open: boolean; cert: RecipientCert | null }>()
+const props = defineProps<{ open: boolean; cert: HolderCertificate | null }>()
 const emit = defineEmits<{ 'update:open': [value: boolean] }>()
 
 const statusConfig: Record<'valid' | 'revoked' | 'expired', { label: string; style: string }> = {
@@ -12,9 +12,25 @@ const statusConfig: Record<'valid' | 'revoked' | 'expired', { label: string; sty
 }
 
 const certUrl = computed(() => (props.cert ? `${useRequestURL().origin}/cert/${props.cert.id}` : ''))
-const linkedInShareUrl = computed(
-  () => `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(certUrl.value)}`,
-)
+
+// LinkedIn's certification "Add to Profile" flow, not the generic link-share
+// flow — this pre-fills a Licenses & Certifications entry with the cert's own
+// details rather than just posting a link.
+// https://www.linkedin.com/help/linkedin/answer/a566056
+const linkedInShareUrl = computed(() => {
+  if (!props.cert) return ''
+  const issued = new Date(props.cert.issued_at)
+  const params = new URLSearchParams({
+    startTask: 'CERTIFICATION_NAME',
+    name: props.cert.course_name,
+    organizationName: props.cert.institution_name,
+    issueYear: String(issued.getFullYear()),
+    issueMonth: String(issued.getMonth() + 1),
+    certUrl: certUrl.value,
+    certId: props.cert.id,
+  })
+  return `https://www.linkedin.com/profile/add?${params.toString()}`
+})
 
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })

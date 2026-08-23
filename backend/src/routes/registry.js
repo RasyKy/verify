@@ -9,9 +9,14 @@
  */
 import { Router } from 'express';
 
-import { adminClient as defaultAdminClient, unwrap } from '../config/supabase.js';
+import {
+  adminClient as defaultAdminClient,
+  unwrap,
+} from '../config/supabase.js';
 
-export function createRegistryRouter({ adminClient = defaultAdminClient } = {}) {
+export function createRegistryRouter({
+  adminClient = defaultAdminClient,
+} = {}) {
   const router = Router();
 
   /**
