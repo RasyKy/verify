@@ -22,13 +22,26 @@ withDefaults(
     label?: string
     /** `brand` = mark as-is; `mono` = light chip + inherited text, for dark surfaces. */
     tone?: 'brand' | 'mono'
+    /**
+     * Center the mark as a block-level element, for the auth cards that stack
+     * it above a heading.
+     *
+     * This lives here rather than at the call site because the root of this
+     * component is `inline-flex`, and a parent overriding that from its own
+     * scoped stylesheet is a coin toss: `.brand` and the parent's class carry
+     * equal specificity, so which `display` wins comes down to which
+     * component's CSS the bundler emits last. When `inline-flex` wins, the
+     * span shrinks to its content and the parent's `justify-content` has
+     * nothing left to center — the mark quietly sits at the card's left edge.
+     */
+    center?: boolean
   }>(),
-  { size: 32, wordmark: false, label: '', tone: 'brand' },
+  { size: 32, wordmark: false, label: '', tone: 'brand', center: false },
 )
 </script>
 
 <template>
-  <span class="brand" :class="`brand--${tone}`">
+  <span class="brand" :class="[`brand--${tone}`, { 'brand--center': center }]">
     <span class="mark-frame" :style="{ '--mark': `${size}px` }">
       <img
         :src="tone === 'mono' ? '/verify_icon_inverted_for_green.svg' : '/logo.png'"
@@ -51,6 +64,14 @@ withDefaults(
   align-items: center;
   gap: 10px;
   text-decoration: none;
+}
+
+/* Declared after `.brand` in the same scoped sheet, so it always wins the
+   `display` it needs — the whole point of centering from inside. */
+.brand--center {
+  display: flex;
+  width: 100%;
+  justify-content: center;
 }
 
 .mark-frame {

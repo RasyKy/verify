@@ -26,7 +26,7 @@ import {
 } from '../config/supabase.js';
 import { conflict, forbidden, notFound } from '../lib/errors.js';
 import { verifyBearerToken as defaultVerifyBearerToken } from '../middleware/auth.js';
-import { claimLimiter } from '../middleware/rateLimit.js';
+import { claimLimiter, claimPreviewLimiter } from '../middleware/rateLimit.js';
 import { validate } from '../middleware/validate.js';
 import { claimTokenParamSchema } from '../schemas/claim.js';
 import {
@@ -113,7 +113,7 @@ export function createClaimRouter({
    */
   router.get(
     '/claim/:token',
-    claimLimiter,
+    claimPreviewLimiter,
     validate(claimTokenParamSchema, 'params'),
     async (req, res, next) => {
       try {

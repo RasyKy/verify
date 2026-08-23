@@ -21,23 +21,22 @@
           </li>
         </ol>
 
-        <div class="holders-actions">
-          <a href="/login?redirect=/recipient" class="solid-btn">
-            Sign in to your certificates
-            <UIcon name="i-heroicons-arrow-right" class="btn-icon" />
-          </a>
-          <!--
-            No "create an account" button, deliberately: there is no holder
-            sign-up. An account without a certificate attached to it would mean
-            nothing, so the claim link is the only door in — and pretending
-            otherwise sends people hunting for a form that does not exist.
-          -->
-          <p class="actions-note">
-            <UIcon name="i-heroicons-envelope" class="note-icon" />
-            No account yet? It's created when you open the claim link your
-            institution emailed you.
-          </p>
-        </div>
+        <!--
+          No buttons here. Sign-in lives in the sticky header, which stays on
+          screen for the whole scroll and routes every role, so a second one
+          would compete with it rather than add a way in.
+
+          The note stays: it is not a call to action but the answer to the
+          question this section provokes. There is no holder sign-up — an
+          account with no certificate attached would mean nothing — so the
+          claim link is the only door, and leaving that unsaid sends people
+          hunting for a form that does not exist.
+        -->
+        <p class="actions-note">
+          <UIcon name="i-heroicons-envelope" class="note-icon" />
+          No account yet? It's created when you open the claim link your
+          institution emailed you.
+        </p>
       </div>
 
       <!-- ── The portal, abbreviated. Decorative: every fact it shows is
@@ -149,7 +148,7 @@ const steps = [
 
 .steps {
   list-style: none;
-  margin: 0 0 32px;
+  margin: 0 0 24px;
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -190,48 +189,6 @@ const steps = [
   color: var(--text-secondary);
   margin: 0;
   max-width: 44ch;
-}
-
-.holders-actions {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 14px;
-}
-
-.solid-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 11px 20px;
-  border-radius: 10px;
-  background: var(--grad-brand);
-  box-shadow: var(--shadow-tile);
-  color: #fff;
-  font-size: 14.5px;
-  font-weight: 600;
-  text-decoration: none;
-  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
-}
-
-.solid-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 14px 26px -12px rgba(10, 92, 82, 0.7);
-}
-
-.solid-btn:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
-}
-
-.btn-icon {
-  width: 15px;
-  height: 15px;
-  transition: transform var(--transition-fast);
-}
-
-.solid-btn:hover .btn-icon {
-  transform: translateX(3px);
 }
 
 .actions-note {
@@ -392,13 +349,6 @@ const steps = [
   height: 13px;
   flex-shrink: 0;
   margin-top: 2px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .solid-btn:hover,
-  .solid-btn:hover .btn-icon {
-    transform: none;
-  }
 }
 
 @media (max-width: 900px) {

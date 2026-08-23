@@ -172,7 +172,7 @@ function backToEmail() {
       </NuxtLink>
 
       <div class="card">
-        <BrandLogo :size="44" class="card-mark" />
+        <BrandLogo :size="44" center class="card-mark" />
 
         <!-- ── Step 1: who are you ── -->
         <template v-if="step === 'email'">
@@ -388,9 +388,8 @@ function backToEmail() {
   text-align: center;
 }
 
+/* Centering is the component's own `center` prop — see BrandLogo.vue. */
 .card-mark {
-  display: flex;
-  justify-content: center;
   margin-bottom: 20px;
 }
 

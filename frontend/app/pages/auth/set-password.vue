@@ -77,9 +77,7 @@ async function onSubmit() {
 <template>
   <div class="min-h-screen page-ground flex items-center justify-center px-4">
     <div class="max-w-sm w-full surface-panel p-8">
-      <div class="flex justify-center mb-5">
-        <BrandLogo :size="40" />
-      </div>
+      <BrandLogo :size="40" center class="mb-5" />
 
       <template v-if="!ready">
         <p class="text-sm text-gray-500 text-center py-6">Checking your invitation…</p>

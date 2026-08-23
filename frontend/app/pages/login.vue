@@ -142,7 +142,7 @@ async function onSubmit() {
       </NuxtLink>
 
       <div class="auth-card">
-        <BrandLogo :size="44" class="auth-card-mark" />
+        <BrandLogo :size="44" center class="auth-card-mark" />
 
         <h1 class="auth-headline">Sign in to Verify</h1>
         <p class="auth-portal">{{ portalLabel }}</p>
@@ -382,9 +382,9 @@ async function onSubmit() {
   padding: 36px 34px 30px;
 }
 
+/* Centering is the component's own `center` prop — see BrandLogo.vue for why
+   it cannot be done from out here. Spacing only. */
 .auth-card-mark {
-  display: flex;
-  justify-content: center;
   margin-bottom: 20px;
 }
 
