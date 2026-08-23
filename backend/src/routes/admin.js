@@ -640,7 +640,27 @@ export function createAdminRouter({
        */
       if (!row.revoked_at) {
         const current = await certificateService.currentHashRow(row.id);
-        if (current) await chain.revoke(current.hash);
+        if (current) {
+          /*
+           * Only revoke a hash the registry actually holds.
+           *
+           * An issue whose transaction never mined — dropped from the mempool
+           * after issue() timed out and returned `pending` — leaves
+           * certificate_hashes pointing at a hash the contract never saw, and
+           * Verifier.revoke reverts on it (`require(certificates[hash].exists)`).
+           * That revert used to fail the whole delete, which made exactly the
+           * certificates most in need of cleaning up the ones that could not be
+           * deleted. Nothing needs revoking in that case: verify() already
+           * answers `exists: false`, so the public path reads `invalid` with or
+           * without the row.
+           *
+           * verify() is a read against the same RPC, so a genuine outage still
+           * throws here and the delete still refuses — the guard against
+           * orphaning a live ISSUED hash is intact.
+           */
+          const onChain = await chain.verify(current.hash);
+          if (onChain.exists && !onChain.revoked) await chain.revoke(current.hash);
+        }
       }
 
       // certificate_hashes, claim_tokens and expiry_notifications are ON

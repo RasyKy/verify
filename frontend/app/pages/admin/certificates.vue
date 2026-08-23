@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { apiErrorMessage } from '~/composables/useCertificates'
 import {
   formatDate,
   revokeCertificateAsAdmin,
@@ -85,10 +86,13 @@ async function confirmDelete() {
   try {
     await deleteCertificate(id)
     toast.add({ title: 'Certificate deleted', color: 'success' })
-  } catch {
+  } catch (err) {
+    // Surface what the API said: "nothing was removed, try again" sent people
+    // retrying a click that could never work, when the real answer was a chain
+    // error they needed to read.
     toast.add({
       title: 'Could not delete certificate',
-      description: 'Nothing was removed. Please try again.',
+      description: apiErrorMessage(err, 'Nothing was removed. Please try again.'),
       color: 'error',
     })
   }
@@ -105,10 +109,10 @@ async function confirmRevoke() {
     // looking revoked when it is not.
     await revokeCertificateAsAdmin(id)
     toast.add({ title: 'Certificate revoked', color: 'success' })
-  } catch {
+  } catch (err) {
     toast.add({
       title: 'Could not revoke certificate',
-      description: 'The revocation was not recorded. Please try again.',
+      description: apiErrorMessage(err, 'The revocation was not recorded. Please try again.'),
       color: 'error',
     })
   }
