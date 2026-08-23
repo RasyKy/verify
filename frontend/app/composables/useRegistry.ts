@@ -6,6 +6,8 @@
  * against `apiBase` rather than `useApi()`, same as the verify page.
  */
 export interface RegistryInstitution {
+  /** Path under /public or an absolute URL. Null when the org has none. */
+  logoUrl: string | null
   id: string
   name: string
   type: string

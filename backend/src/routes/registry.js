@@ -35,7 +35,7 @@ export function createRegistryRouter({
       const orgs = unwrap(
         await adminClient
           .from('organizations')
-          .select('id, name, type, joined_at')
+          .select('id, name, type, logo_url, joined_at')
           // `accredited` alone isn't enough — a suspended organization drops
           // off the public "trusted institutions" list even if it was
           // accredited while active, so the landing page never vouches for an
@@ -53,6 +53,7 @@ export function createRegistryRouter({
           id: org.id,
           name: org.name,
           type: org.type,
+          logoUrl: org.logo_url ?? null,
           joinedAt: org.joined_at,
         }))
       );

@@ -1,27 +1,62 @@
 <script setup lang="ts">
-import { formatDate } from '~/composables/useAdminMockData'
+import { formatDate, setOrganizationStatus, deleteOrganization } from '~/composables/useAdmin'
 import type { Column } from '~/components/admin/Table.vue'
 
 definePageMeta({ layout: 'admin' })
 
 const route = useRoute()
-const { orgs, users, certs, suspendOrg, reactivateOrg } = useAdminMockData()
+// Three shared lists, filtered here rather than fetched per-organization —
+// they are already loaded for the sibling pages, so this page costs no
+// extra round trip.
+const { orgs, refresh: refreshOrgs } = useAdminOrgs()
+const { users, refresh: refreshUsers } = useAdminUsers()
+const { certs } = useAdminCerts()
 
 const org = computed(() => orgs.value.find(o => o.id === route.params.id))
 const orgUsers = computed(() => users.value.filter(u => u.organizationId === org.value?.id))
 const orgCerts = computed(() => certs.value.filter(c => c.organizationId === org.value?.id))
 
+const toast = useToast()
+const inviteOpen = ref(false)
+const deleteDialog = ref(false)
+
+async function confirmDelete() {
+  const id = org.value?.id
+  deleteDialog.value = false
+  if (!id) return
+  try {
+    await deleteOrganization(id)
+    toast.add({ title: 'Institution deleted', color: 'success' })
+    await refreshOrgs()
+    await navigateTo('/admin/organizations')
+  } catch (err: unknown) {
+    // The backend refuses while issuers or certificates remain, and says which.
+    toast.add({
+      title: 'Could not delete this institution',
+      description:
+        (err as { data?: { message?: string } })?.data?.message ??
+        'Please try again.',
+      color: 'error',
+    })
+  }
+}
 const suspendDialog = ref(false)
 const reactivateDialog = ref(false)
 
-function confirmSuspend() {
-  if (org.value) suspendOrg(org.value.id)
+async function confirmSuspend() {
+  const id = org.value?.id
   suspendDialog.value = false
+  if (!id) return
+  await setOrganizationStatus(id, 'suspended')
+  await refreshOrgs()
 }
 
-function confirmReactivate() {
-  if (org.value) reactivateOrg(org.value.id)
+async function confirmReactivate() {
+  const id = org.value?.id
   reactivateDialog.value = false
+  if (!id) return
+  await setOrganizationStatus(id, 'active')
+  await refreshOrgs()
 }
 
 const userColumns: Column[] = [
@@ -48,6 +83,12 @@ const typeLabels: Record<string, string> = {
 
 <template>
   <div>
+    <AdminInviteIssuerModal
+      v-model:open="inviteOpen"
+      :organization-id="org?.id"
+      @invited="refreshUsers()"
+    />
+
     <NuxtLink to="/admin/organizations" class="back-link">
       <UIcon name="i-heroicons-arrow-left" class="size-4" />
       Organizations
@@ -62,7 +103,15 @@ const typeLabels: Record<string, string> = {
     <template v-else>
       <!-- Header -->
       <div class="org-header">
-        <div class="org-logo-placeholder">
+        <!-- Real mark where the institution has one; the initial is the
+             fallback, not the design. -->
+        <img
+          v-if="org.logoUrl"
+          :src="org.logoUrl"
+          :alt="org.name"
+          class="org-logo"
+        />
+        <div v-else class="org-logo org-logo--placeholder">
           {{ org.name.charAt(0) }}
         </div>
         <div class="org-meta">
@@ -93,6 +142,15 @@ const typeLabels: Record<string, string> = {
           >
             Reactivate
           </button>
+          <!-- Only offered once nothing depends on it; the backend refuses
+               otherwise and names what is in the way. -->
+          <button
+            v-if="!orgUsers.length && !orgCerts.length"
+            class="btn-danger-outline"
+            @click="deleteDialog = true"
+          >
+            Delete
+          </button>
         </div>
       </div>
 
@@ -116,7 +174,7 @@ const typeLabels: Record<string, string> = {
       <div class="section">
         <div class="section-header">
           <h2 class="section-title">Issuers</h2>
-          <button class="btn-secondary" @click="useToast().add({ title: 'Coming soon', description: 'Issuer invitations will be available once backend is wired.' })">
+          <button class="btn-secondary" @click="inviteOpen = true">
             Invite issuer
           </button>
         </div>
@@ -139,6 +197,24 @@ const typeLabels: Record<string, string> = {
     </template>
 
     <!-- Dialogs -->
+    <AdminConfirmDialog
+
+      :open="deleteDialog"
+
+      title="Delete institution"
+
+      :message="`Permanently remove ${org?.name}. This is only possible because it has no issuers and no certificates — suspending is the reversible option.`"
+
+      confirm-label="Delete permanently"
+
+      variant="danger"
+
+      @confirm="confirmDelete"
+
+      @cancel="deleteDialog = false"
+
+    />
+
     <AdminConfirmDialog
       :open="suspendDialog"
       title="Suspend organization"
@@ -211,18 +287,29 @@ const typeLabels: Record<string, string> = {
   flex-wrap: wrap;
 }
 
-.org-logo-placeholder {
+.org-logo {
   width: 56px;
   height: 56px;
   border-radius: 10px;
+  flex-shrink: 0;
+  /* contain, not cover: institution marks are wordmarks and crests of very
+     different proportions, and cropping one to fill a square mangles it. */
+  object-fit: contain;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 4px;
+}
+
+.org-logo--placeholder {
   background: var(--accent-light);
+  border-color: transparent;
   color: var(--accent-text);
   font-size: 22px;
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
+  padding: 0;
 }
 
 .org-meta {

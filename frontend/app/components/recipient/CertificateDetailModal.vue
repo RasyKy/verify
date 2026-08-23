@@ -11,6 +11,23 @@ const statusConfig: Record<'valid' | 'revoked' | 'expired', { label: string; sty
   expired: { label: 'Expired', style: 'background: var(--status-expired-bg); color: var(--status-expired-text)' },
 }
 
+const copied = ref<'id' | 'url' | null>(null)
+let copyTimer: ReturnType<typeof setTimeout> | undefined
+
+async function copy(which: 'id' | 'url', value: string) {
+  try {
+    await navigator.clipboard.writeText(value)
+    copied.value = which
+    clearTimeout(copyTimer)
+    copyTimer = setTimeout(() => (copied.value = null), 1600)
+  } catch {
+    // Clipboard is permission-gated and blocked outside a secure context;
+    // the value is on screen and selectable either way.
+  }
+}
+
+onBeforeUnmount(() => clearTimeout(copyTimer))
+
 const certUrl = computed(() => (props.cert ? `${useRequestURL().origin}/cert/${props.cert.id}` : ''))
 
 // LinkedIn's certification "Add to Profile" flow, not the generic link-share
@@ -75,9 +92,44 @@ function formatTimestamp(dateStr: string) {
           </div>
         </div>
 
-        <div class="pt-4 detail-divider">
-          <p class="text-xs mb-0.5 detail-label">Certificate ID</p>
-          <p class="text-xs font-mono break-all detail-value">{{ cert.id }}</p>
+        <!--
+          The ID and the link are the two things a holder is asked for, so both
+          copy in one click. Reading a UUID off the screen to type elsewhere is
+          where verification actually falls down.
+        -->
+        <div class="pt-4 detail-divider space-y-3">
+          <div>
+            <p class="text-xs mb-1 detail-label">Certificate ID</p>
+            <div class="copy-row">
+              <code class="copy-value">{{ cert.id }}</code>
+              <UButton
+                size="xs"
+                variant="ghost"
+                color="neutral"
+                :icon="copied === 'id' ? 'i-heroicons-check' : 'i-heroicons-square-2-stack'"
+                :aria-label="copied === 'id' ? 'Certificate ID copied' : 'Copy certificate ID'"
+                @click="copy('id', cert.id)"
+              />
+            </div>
+          </div>
+
+          <div>
+            <p class="text-xs mb-1 detail-label">Verification link</p>
+            <div class="copy-row">
+              <code class="copy-value">{{ certUrl }}</code>
+              <UButton
+                size="xs"
+                variant="ghost"
+                color="neutral"
+                :icon="copied === 'url' ? 'i-heroicons-check' : 'i-heroicons-square-2-stack'"
+                :aria-label="copied === 'url' ? 'Link copied' : 'Copy verification link'"
+                @click="copy('url', certUrl)"
+              />
+            </div>
+            <p class="text-xs mt-1 detail-label">
+              Anyone can open this — no account needed.
+            </p>
+          </div>
         </div>
 
         <div class="flex items-center gap-4 pt-4 detail-divider">
@@ -124,6 +176,27 @@ function formatTimestamp(dateStr: string) {
 </template>
 
 <style scoped>
+.copy-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 8px 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-hover);
+}
+
+.copy-value {
+  flex: 1;
+  min-width: 0;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 11.5px;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .detail-label { color: var(--text-tertiary); }
 .detail-value { color: var(--text-primary); }
 .detail-divider { border-top: 1px solid var(--border); }

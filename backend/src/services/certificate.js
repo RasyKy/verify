@@ -387,11 +387,24 @@ export function createCertificateService({
     });
     const expiresAtUnix = expiryToUnix(expiryDate);
 
-    // Both chain writes before any database write, for the same reason issuance
-    // orders them that way.
+    /*
+     * Both chain writes happen before any database write, for the same reason
+     * issuance orders them that way — but ISSUE GOES FIRST, and the order is
+     * load-bearing.
+     *
+     * Revoking first meant a failure between the two calls stranded the
+     * certificate: the old hash revoked on chain, no new hash issued, and a
+     * database row still saying `issued`. The holder's genuine credential then
+     * read as `revoked` to the public while the issuer saw nothing wrong.
+     *
+     * Issuing first inverts that. If the revoke then fails, both hashes are
+     * live on chain, the row points at the new one, and verification succeeds —
+     * an orphaned hash nothing references, rather than a working certificate
+     * reported as withdrawn.
+     */
+    const issueResult = await chain.issue(newHash, expiresAtUnix);
     let revokeResult = { txHash: null };
     if (previous) revokeResult = await chain.revoke(previous.hash);
-    const issueResult = await chain.issue(newHash, expiresAtUnix);
 
     const course = await ensureCourse(user.organizationId, courseName, user.id);
 

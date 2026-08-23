@@ -24,10 +24,24 @@ export default defineNuxtConfig({
     head: {
       htmlAttrs: { lang: 'en' },
       link: [
-        // SVG first: browsers that support it take it and ignore the .ico,
-        // which stays as the fallback for the ones that don't.
-        { rel: 'icon', type: 'image/svg+xml', href: '/logo.svg' },
+        // PNG first: it is the real brand mark. The .ico stays as the fallback
+        // for browsers that ignore the others.
+        { rel: 'icon', type: 'image/png', href: '/logo.png' },
+        { rel: 'apple-touch-icon', href: '/logo.png' },
         { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' },
+
+        // Bricolage Grotesque carries the headings; the body stays on the
+        // system stack, which needs no network round trip.
+        { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+        {
+          rel: 'preconnect',
+          href: 'https://fonts.gstatic.com',
+          crossorigin: '',
+        },
+        {
+          rel: 'stylesheet',
+          href: 'https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap',
+        },
       ],
     },
   },

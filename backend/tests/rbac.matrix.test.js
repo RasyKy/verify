@@ -83,9 +83,18 @@ const certificateService = {
 const adminClientStub = {
   from: () => ({
     select: () => ({
-      eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }),
-      order: async () => ({ data: [], error: null }),
+      eq: () => ({
+        eq: async () => ({ data: [], error: null, count: 0 }),
+        maybeSingle: async () => ({ data: null, error: null }),
+      }),
+      gte: async () => ({ data: [], error: null, count: 0 }),
+      order: () => ({ limit: async () => ({ data: [], error: null }) }),
+      then: (resolve) => resolve({ data: [], error: null, count: 0 }),
     }),
+    update: () => ({
+      eq: () => ({ select: async () => ({ data: [], error: null }) }),
+    }),
+    delete: () => ({ eq: async () => ({ data: [], error: null }) }),
     insert: () => ({
       select: () => ({
         single: async () => ({ data: { id: ORG }, error: null }),
@@ -93,7 +102,10 @@ const adminClientStub = {
     }),
   }),
   auth: {
-    admin: { inviteUserByEmail: async () => ({ data: null, error: null }) },
+    admin: {
+      inviteUserByEmail: async () => ({ data: null, error: null }),
+      deleteUser: async () => ({ data: null, error: null }),
+    },
   },
 };
 
@@ -119,6 +131,10 @@ function makeApp(actor) {
       adminClient: adminClientStub,
       audit: async () => {},
       requireAuth,
+      // Without these two the admin certificate routes reach the real service
+      // and open a JSON-RPC connection to Polygon, which never returns here.
+      certificateService,
+      chain: { issue: async () => ({}), revoke: async () => ({}) },
     })
   );
   app.use(
@@ -236,6 +252,88 @@ const ROUTES = [
 
   // ── Admin only ──────────────────────────────────────────────────────────
   {
+    name: 'GET /api/admin/stats',
+    method: 'get',
+    path: '/api/admin/stats',
+    allow: ['admin'],
+  },
+  {
+    name: 'GET /api/admin/certificates',
+    method: 'get',
+    path: '/api/admin/certificates',
+    allow: ['admin'],
+  },
+  {
+    name: 'POST /api/admin/certificates/:id/revoke',
+    method: 'post',
+    path: `/api/admin/certificates/${ID}/revoke`,
+    body: {},
+    allow: ['admin'],
+  },
+  {
+    name: 'DELETE /api/admin/certificates/:id',
+    method: 'delete',
+    path: `/api/admin/certificates/${ID}`,
+    allow: ['admin'],
+  },
+  {
+    name: 'POST /api/admin/certificates',
+    method: 'post',
+    path: '/api/admin/certificates',
+    body: {
+      organizationId: ORG,
+      studentName: 'A Student',
+      studentEmail: 'student@example.com',
+      courseName: 'A Course',
+      completionDate: '2025-01-01',
+    },
+    allow: ['admin'],
+  },
+  {
+    name: 'PUT /api/admin/certificates/:id',
+    method: 'put',
+    path: `/api/admin/certificates/${ID}`,
+    body: {
+      studentName: 'A Student',
+      studentEmail: 'student@example.com',
+      courseName: 'A Course',
+      completionDate: '2025-01-01',
+    },
+    allow: ['admin'],
+  },
+  {
+    name: 'DELETE /api/admin/users/:id',
+    method: 'delete',
+    path: `/api/admin/users/${ID}`,
+    allow: ['admin'],
+  },
+  {
+    name: 'DELETE /api/admin/organizations/:id',
+    method: 'delete',
+    path: `/api/admin/organizations/${ORG}`,
+    allow: ['admin'],
+  },
+  {
+    name: 'GET /api/admin/audit',
+    method: 'get',
+    path: '/api/admin/audit',
+    allow: ['admin'],
+  },
+  {
+    name: 'PATCH /api/admin/organizations/:id',
+    method: 'patch',
+    path: `/api/admin/organizations/${ORG}`,
+    body: { status: 'suspended' },
+    allow: ['admin'],
+  },
+  {
+    name: 'PATCH /api/admin/users/:id',
+    method: 'patch',
+    path: `/api/admin/users/${ID}`,
+    body: { status: 'deactivated' },
+    allow: ['admin'],
+  },
+  {
     name: 'POST /api/admin/users',
     method: 'post',
     path: '/api/admin/users',
@@ -266,8 +364,6 @@ const ROUTES = [
     path: '/api/admin/organizations',
     allow: ['admin'],
   },
-  // TODO: user/organization status changes had PATCH routes and matrix rows
-  // here. They are gone from routes/admin.js; restore both together.
 ];
 
 describe('RBAC matrix', () => {

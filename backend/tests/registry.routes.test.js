@@ -48,9 +48,12 @@ describe('GET /api/registry — public', () => {
           id: 'org-1',
           name: 'Royal University of Phnom Penh',
           type: 'university',
+          logo_url: '/rupp-logo.png',
           joined_at: '2024-01-15',
         },
         {
+          // No logo set: the column is nullable, and the registry must answer
+          // null rather than omit the key, so the frontend can branch on it.
           id: 'org-2',
           name: 'Delta Polytechnic',
           type: 'bootcamp',
@@ -67,12 +70,14 @@ describe('GET /api/registry — public', () => {
         id: 'org-1',
         name: 'Royal University of Phnom Penh',
         type: 'university',
+        logoUrl: '/rupp-logo.png',
         joinedAt: '2024-01-15',
       },
       {
         id: 'org-2',
         name: 'Delta Polytechnic',
         type: 'bootcamp',
+        logoUrl: null,
         joinedAt: '2024-03-02',
       },
     ]);

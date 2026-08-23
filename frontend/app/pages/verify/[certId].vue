@@ -40,7 +40,11 @@ function onNewSearch() {
 
 <template>
   <div class="min-h-screen page-ground">
-    <div class="max-w-xl mx-auto px-4 pt-16 pb-16">
+    <div class="max-w-xl mx-auto px-4 pt-7 pb-16">
+      <!-- Same exit as /verify: a shared result link has no history to go back
+           through either. -->
+      <VerifyBackHomeLink class="mb-9" />
+
       <!-- Logo + wordmark -->
       <div class="flex items-center justify-center gap-2.5 mb-8">
         <NuxtLink to="/verify" aria-label="Verify — home">

@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { formatDate } from '~/composables/useAdminMockData'
+import { formatDate } from '~/composables/useAdmin'
 import type { Column } from '~/components/admin/Table.vue'
 
 definePageMeta({ layout: 'admin' })
 
-const { orgs } = useAdminMockData()
+const { orgs, refresh } = useAdminOrgs()
+
+const createOpen = ref(false)
 
 const search = ref('')
 const typeFilter = ref('')
@@ -44,7 +46,19 @@ const columns: Column[] = [
 
 <template>
   <div>
-    <AdminPageHeader title="Organizations" description="All institutions and organizations registered on the platform." />
+    <AdminOrgFormModal v-model:open="createOpen" @created="refresh()" />
+
+    <AdminPageHeader
+      eyebrow="Admin portal"
+      title="Organizations"
+      description="All institutions and organizations registered on the platform."
+    >
+      <template #actions>
+        <UButton color="primary" icon="i-heroicons-plus" @click="createOpen = true">
+          Add institution
+        </UButton>
+      </template>
+    </AdminPageHeader>
 
     <div class="toolbar">
       <AdminSearchInput v-model="search" placeholder="Search organizations…" />
@@ -64,6 +78,14 @@ const columns: Column[] = [
       <template #cell-type="{ value }">
         <AdminStatusChip :status="value" />
       </template>
+      <template #cell-name="{ row }">
+        <div class="org-cell">
+          <img v-if="row.logoUrl" :src="row.logoUrl" :alt="''" class="org-mark" loading="lazy" />
+          <span v-else class="org-mark org-mark--empty">{{ (row.name?.[0] ?? '?').toUpperCase() }}</span>
+          <span class="org-name">{{ row.name }}</span>
+        </div>
+      </template>
+
       <template #cell-status="{ value }">
         <AdminStatusChip :status="value" />
       </template>
@@ -75,6 +97,37 @@ const columns: Column[] = [
 </template>
 
 <style scoped>
+.org-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.org-mark {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  flex-shrink: 0;
+  border-radius: 6px;
+}
+
+.org-mark--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-light);
+  color: var(--accent-text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.org-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .toolbar {
   display: flex;
   align-items: center;

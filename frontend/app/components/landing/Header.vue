@@ -5,15 +5,15 @@
         <BrandLogo :size="30" wordmark />
       </a>
 
+      <!--
+        Only one action here. Verification is what the hero's search bar does,
+        so a "Verify a certificate" link in the header pointed at the page the
+        visitor is already on. Institutions are the only group that needs sending
+        somewhere else.
+      -->
       <nav class="header-actions">
-        <!-- The public action: anyone with a certificate ID can use this, no
-             account involved. It replaces the old sign-up CTA. -->
-        <a href="/verify" class="ghost-btn">
-          <UIcon name="i-heroicons-magnifying-glass" class="btn-icon" />
-          Verify a certificate
-        </a>
         <a href="/login" class="solid-btn">
-          Sign in
+          Institution sign in
           <UIcon name="i-heroicons-arrow-right" class="btn-icon btn-icon--trail" />
         </a>
       </nav>
@@ -57,7 +57,6 @@
   flex-shrink: 0;
 }
 
-.ghost-btn,
 .solid-btn {
   display: inline-flex;
   align-items: center;
@@ -69,17 +68,6 @@
   text-decoration: none;
   transition: background-color var(--transition-fast), color var(--transition-fast),
               border-color var(--transition-fast), transform var(--transition-fast);
-}
-
-.ghost-btn {
-  color: var(--text-secondary);
-  border: 1px solid transparent;
-}
-
-.ghost-btn:hover {
-  color: var(--accent-text);
-  border-color: var(--border);
-  background: var(--surface-hover);
 }
 
 .solid-btn {
@@ -100,7 +88,6 @@
   transform: translateX(3px);
 }
 
-.ghost-btn:focus-visible,
 .solid-btn:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
@@ -116,11 +103,6 @@
 @media (max-width: 640px) {
   .header-inner {
     padding: 0 20px;
-  }
-
-  /* Sign in is the one that must survive the squeeze */
-  .ghost-btn {
-    display: none;
   }
 }
 </style>

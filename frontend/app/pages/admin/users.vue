@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { formatDate } from '~/composables/useAdminMockData'
+import { formatDate, setUserStatus, deleteUser } from '~/composables/useAdmin'
 import type { Column } from '~/components/admin/Table.vue'
 
 definePageMeta({ layout: 'admin' })
 
-const { users, deactivateUser } = useAdminMockData()
+const { users, refresh } = useAdminUsers()
+
+const inviteOpen = ref(false)
 
 const search = ref('')
 const roleFilter = ref('')
@@ -39,15 +41,64 @@ function openDeactivate(userId: string) {
   deactivateTarget.value = userId
 }
 
-function confirmDeactivate() {
-  if (deactivateTarget.value) deactivateUser(deactivateTarget.value)
+const toast = useToast()
+
+const deleteTarget = ref<string | null>(null)
+const deleteTargetName = computed(
+  () => users.value.find(u => u.id === deleteTarget.value)?.name ?? 'this user',
+)
+
+async function confirmDelete() {
+  const id = deleteTarget.value
+  deleteTarget.value = null
+  if (!id) return
+  try {
+    await deleteUser(id)
+    toast.add({ title: 'Account deleted', color: 'success' })
+  } catch (err: unknown) {
+    toast.add({
+      title: 'Could not delete this account',
+      description:
+        (err as { data?: { message?: string } })?.data?.message ??
+        'Nothing was removed. Please try again.',
+      color: 'error',
+    })
+  }
+  await refresh()
+}
+
+async function reactivate(id: string) {
+  await setUserStatus(id, 'active')
+  await refresh()
+}
+
+async function confirmDeactivate() {
+  const id = deactivateTarget.value
   deactivateTarget.value = null
+  if (!id) return
+  await setUserStatus(id, 'deactivated')
+  // Refetch rather than patching the row locally: the write may have been
+  // refused, and a list that disagrees with the server is worse than a
+  // half-second wait.
+  await refresh()
 }
 </script>
 
 <template>
   <div>
-    <AdminPageHeader title="Users" description="All issuers and recipients across every organization." />
+    <AdminInviteIssuerModal v-model:open="inviteOpen" @invited="refresh()" />
+
+    <AdminPageHeader
+      eyebrow="Admin portal"
+      title="Users"
+      description="All issuers and recipients across every organization."
+    >
+      <template #actions>
+        <UButton color="primary" icon="i-heroicons-user-plus" @click="inviteOpen = true">
+          Invite issuer
+        </UButton>
+      </template>
+    </AdminPageHeader>
 
     <div class="toolbar">
       <AdminSearchInput v-model="search" placeholder="Search by name or email…" />
@@ -64,15 +115,66 @@ function confirmDeactivate() {
         <span class="email-cell">{{ value }}</span>
       </template>
       <template #cell__actions="{ row }">
-        <button
-          v-if="row.status === 'active'"
-          class="action-btn"
-          @click.stop="openDeactivate(row.id)"
-        >
-          Deactivate
-        </button>
+        <div class="row-actions">
+          <button
+            v-if="row.status === 'active'"
+            class="action-btn"
+            @click.stop="openDeactivate(row.id)"
+          >
+            Deactivate
+          </button>
+          <button
+            v-else
+            class="action-btn"
+            @click.stop="reactivate(row.id)"
+          >
+            Reactivate
+          </button>
+          <button class="action-btn action-btn--danger" @click.stop="deleteTarget = row.id">
+            Delete
+          </button>
+        </div>
       </template>
     </AdminTable>
+
+    <!--
+
+
+      Deactivation is reversible and keeps the account attributable. Deletion
+
+
+      is neither, so the copy names what survives and what does not.
+
+
+    -->
+
+
+    <AdminConfirmDialog
+
+
+      :open="!!deleteTarget"
+
+
+      title="Delete account permanently"
+
+
+      :message="`Remove ${deleteTargetName} and their sign-in entirely. Certificates they issued stay valid, and the audit log keeps their name — but the account cannot be restored. Deactivate instead if you may want them back.`"
+
+
+      confirm-label="Delete permanently"
+
+
+      variant="danger"
+
+
+      @confirm="confirmDelete"
+
+
+      @cancel="deleteTarget = null"
+
+
+    />
+
 
     <AdminConfirmDialog
       :open="!!deactivateTarget"
@@ -87,6 +189,17 @@ function confirmDeactivate() {
 </template>
 
 <style scoped>
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+.action-btn--danger {
+  color: var(--status-revoked-text);
+}
+
 .toolbar {
   display: flex;
   align-items: center;

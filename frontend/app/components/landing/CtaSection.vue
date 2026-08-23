@@ -1,17 +1,19 @@
 <template>
   <section class="cta-section reveal" id="get-started">
     <div class="cta-inner">
-      <h2 class="cta-headline">Holding a certificate? Check it now.</h2>
+      <!--
+        Speaks to institutions only. Anyone here to CHECK a certificate was
+        served by the hero's search bar before they ever scrolled this far, so
+        repeating that action at the foot of the page just split the one CTA
+        this section can afford.
+      -->
+      <h2 class="cta-headline">Issue credentials that verify themselves.</h2>
       <p class="cta-sub">
-        Paste a certificate ID or scan its QR code — the result comes straight
-        from the chain, and no sign-in stands in the way.
+        Your graduates stop emailing you for confirmation, and employers stop
+        waiting on it. Accounts are created by your platform administrator.
       </p>
       <div class="cta-row">
-        <a href="/verify" class="cta-btn">
-          <UIcon name="i-heroicons-magnifying-glass" class="cta-icon" />
-          Verify a certificate
-        </a>
-        <a href="/login" class="cta-btn-alt">
+        <a href="/login" class="cta-btn">
           Institution sign in
           <UIcon name="i-heroicons-arrow-right" class="cta-icon" />
         </a>
@@ -61,8 +63,7 @@
   gap: 10px;
 }
 
-.cta-btn,
-.cta-btn-alt {
+.cta-btn {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -86,18 +87,7 @@
   box-shadow: 0 14px 26px -12px rgba(10, 92, 82, 0.7);
 }
 
-.cta-btn-alt {
-  background: var(--surface);
-  border: 1px solid var(--border-strong);
-  color: var(--text-primary);
-}
-
-.cta-btn-alt:hover {
-  border-color: var(--accent);
-  color: var(--accent-text);
-}
-
-.cta-btn-alt:hover .cta-icon {
+.cta-btn:hover .cta-icon {
   transform: translateX(3px);
 }
 
@@ -108,15 +98,13 @@
   transition: transform var(--transition-fast);
 }
 
-.cta-btn:focus-visible,
-.cta-btn-alt:focus-visible {
+.cta-btn:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cta-btn:hover,
-  .cta-btn-alt:hover .cta-icon {
+  .cta-btn:hover {
     transform: none;
   }
 }

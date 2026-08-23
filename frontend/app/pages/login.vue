@@ -153,7 +153,12 @@ async function onSubmit() {
           </div>
 
           <div class="field">
-            <label class="field-label" for="password">Password</label>
+            <div class="field-head">
+              <label class="field-label" for="password">Password</label>
+              <NuxtLink to="/auth/forgot-password" class="forgot-link">
+                Forgot password?
+              </NuxtLink>
+            </div>
             <UInput
               id="password"
               v-model="password"
@@ -381,6 +386,29 @@ async function onSubmit() {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.field-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.forgot-link {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--accent);
+  text-decoration: none;
+  margin-bottom: 6px;
+}
+
+.forgot-link:hover { text-decoration: underline; }
+
+.forgot-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 3px;
 }
 
 .field-label {
