@@ -115,7 +115,10 @@ export function smtpAdapter(transporter = createTransporter()) {
 function parseFrom(from) {
   const match = from.match(/^(.*)<(.+)>$/);
   if (!match) return { email: from.trim() };
-  return { name: match[1].trim().replace(/^"|"$/g, ''), email: match[2].trim() };
+  return {
+    name: match[1].trim().replace(/^"|"$/g, ''),
+    email: match[2].trim(),
+  };
 }
 
 /**
