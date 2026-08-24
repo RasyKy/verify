@@ -53,7 +53,7 @@ them; nothing secret is committed):
 | `SUPABASE_JWT_SECRET` | legacy HS256 projects only — leave empty for asymmetric keys |
 | `ALCHEMY_RPC_URL` / `PRIVATE_KEY` / `CONTRACT_ADDRESS` | Amoy RPC + relayer wallet + `0x46Cc4B537fd6B74650A21B6f5f82FE8146Fb0F66` |
 | `CHAIN_ID` | `80002` (Amoy). Checked against the RPC's reported chain ID at boot |
-| email | `SMTP_USER` + `SMTP_PASSWORD`, **or** `RESEND_API_KEY` + `RESEND_FROM_EMAIL` |
+| email | `SMTP_HOST`/`SMTP_PORT` (pinned to Brevo's relay), `SMTP_USER` + `SMTP_PASSWORD` (Brevo login/key), `SMTP_FROM_EMAIL` (verified Brevo sender) — **or** `RESEND_API_KEY` + `RESEND_FROM_EMAIL` |
 | `SENTRY_DSN`, `LOG_LEVEL` | optional; `LOG_LEVEL=info` |
 
 `PORT` is injected by Render — do not pin it. `trust proxy` is already `1` in

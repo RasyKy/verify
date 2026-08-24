@@ -51,26 +51,36 @@ const schema = z.object({
   RESEND_API_KEY: z.string().min(1).optional(),
   RESEND_FROM_EMAIL: z.string().min(1).default('Verify <noreply@verify.app>'),
 
-  // ── SMTP (Gmail app password) — the no-domain alternative to Resend ──
+  // ── SMTP (Brevo, or any other relay) — the no-domain-hassle alternative to
+  // Resend's default sender ──
   // Resend's shared sender only delivers to the Resend account owner's own
   // address until a domain is verified, which makes it useless for testing the
-  // claim flow against real recipients. Authenticating as a Gmail account sends
-  // as that account, so SPF/DKIM align and any recipient receives the mail.
+  // claim flow against real recipients. An SMTP relay authenticated with its own
+  // credentials sends as its own verified sender instead, so any recipient gets
+  // the mail. Defaults below are Gmail's for backward compatibility; point
+  // SMTP_HOST/SMTP_PORT at a different relay (e.g. smtp-relay.brevo.com:587) to
+  // use it instead.
   SMTP_HOST: z.string().min(1).default('smtp.gmail.com'),
   SMTP_PORT: z.coerce.number().int().positive().default(587),
   SMTP_USER: z.email().optional(),
-  // Google app password. Shown with spaces ("abcd efgh ijkl mnop"); they are
-  // presentational and rejected by the SMTP AUTH exchange, so strip them here
-  // rather than leaving a login failure to be debugged at send time.
+  // Some providers (Gmail app passwords) show this with spaces
+  // ("abcd efgh ijkl mnop"); they are presentational and rejected by the SMTP
+  // AUTH exchange, so strip them here rather than leaving a login failure to be
+  // debugged at send time. Harmless no-op for providers whose credentials never
+  // contain spaces (e.g. Brevo's SMTP key).
   SMTP_PASSWORD: z
     .string()
     .transform((v) => v.replace(/\s+/g, ''))
     .pipe(z.string().min(1))
     .optional(),
-  // Display name only. Gmail rewrites the From address to the authenticated
-  // account unless it is a verified "send mail as" alias, so the address half
-  // is always SMTP_USER and is not configurable.
+  // Display name for the From header under SMTP.
   MAIL_FROM_NAME: z.string().min(1).default('Verify'),
+  // Real "From" address under SMTP. Gmail forces From to equal SMTP_USER unless
+  // it's a verified "send mail as" alias, so that used to be the only option;
+  // Brevo and most other relays send from whatever verified sender you give
+  // them, independent of the login. Falls back to SMTP_USER when unset, which
+  // preserves the old Gmail-only behavior.
+  SMTP_FROM_EMAIL: z.email().optional(),
 
   SENTRY_DSN: z.string().default(''),
   LOG_LEVEL: z.enum(['error', 'warn', 'info', 'http', 'debug']).default('info'),
@@ -253,14 +263,14 @@ function load(source = process.env) {
     /** 'smtp' | 'resend' | null — see resolveEmailTransport. */
     emailTransport,
     /**
-     * The From header every outbound message uses. Under SMTP the address half
-     * must be the authenticated account: Gmail rewrites anything else, so a
-     * configured RESEND_FROM_EMAIL left over from before would be silently
-     * ignored rather than honoured.
+     * The From header every outbound message uses. Under SMTP this is
+     * SMTP_FROM_EMAIL when set, falling back to SMTP_USER — the old
+     * Gmail-only behavior, kept as the default since Gmail rewrites any From
+     * address that isn't a verified "send mail as" alias back to the login.
      */
     mailFrom:
       emailTransport === 'smtp'
-        ? `${parsed.MAIL_FROM_NAME} <${parsed.SMTP_USER}>`
+        ? `${parsed.MAIL_FROM_NAME} <${parsed.SMTP_FROM_EMAIL || parsed.SMTP_USER}>`
         : parsed.RESEND_FROM_EMAIL,
     warnings,
     /** Origins allowed by CORS. */
