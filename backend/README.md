@@ -152,15 +152,23 @@ provider errors by design, this looks like silence rather than failure: the
 certificate issues, `claim_email_sent` is `false`, and the rejection appears
 only in the log line `claim email rejected by provider`.
 
-**SMTP is the way around that with no domain.** `SMTP_USER` plus a Google [app
-password](https://myaccount.google.com/apppasswords) (2-Step Verification must
-be on) authenticates as a Gmail account and sends as it, so SPF and DKIM align
-and any recipient receives the mail — roughly 500/day. `smtpAdapter` wraps
-nodemailer in the Resend SDK's `{ emails: { send } } → { data, error }` shape,
-so both senders stay provider-agnostic and one set of error handling covers
-both. Note that Gmail rewrites the From address to the authenticated account
-unless it is a verified "send mail as" alias, which is why only the display
-name (`MAIL_FROM_NAME`) is configurable under SMTP.
+**SMTP is the way around that with no domain.** Authenticating against an SMTP
+relay with its own credentials sends as that relay's verified sender, so any
+recipient receives the mail. Currently configured against
+[Brevo](https://app.brevo.com) (`smtp-relay.brevo.com:587`) — `SMTP_USER` +
+`SMTP_PASSWORD` are the Brevo SMTP login/key, and `SMTP_FROM_EMAIL` is a sender
+verified in Brevo's dashboard (**Senders, Domains & Dedicated IPs → Senders**).
+`smtpAdapter` wraps nodemailer in the Resend SDK's
+`{ emails: { send } } → { data, error }` shape, so both senders stay
+provider-agnostic and one set of error handling covers both.
+
+A Gmail app password also still works as a fallback (`SMTP_HOST` defaults to
+`smtp.gmail.com`): [enable 2-Step
+Verification](https://myaccount.google.com/security), then [create an app
+password](https://myaccount.google.com/apppasswords). Limit is roughly
+500 recipients/day, and Gmail rewrites the From address to the authenticated
+account unless it is a verified "send mail as" alias — leave `SMTP_FROM_EMAIL`
+unset under Gmail so it falls back to `SMTP_USER`.
 
 **The Resend SDK never throws.** `emails.send()` reports a refused message
 through `{ data, error }`, so a bare `await` in a try/catch sees only the happy
