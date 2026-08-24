@@ -4,6 +4,7 @@ import type { Role } from '~/composables/useMe'
 definePageMeta({ layout: false })
 
 const supabase = useSupabaseClient()
+const supaUser = useSupabaseUser()
 const route = useRoute()
 
 // Remembers which guarded portal sent the visitor here, so the heading names it
@@ -83,6 +84,16 @@ const loading = ref(false)
 const apiError = ref('')
 const { public: { apiBase } } = useRuntimeConfig()
 
+// Shared by password sign-in and Google OAuth: a stale profile from a
+// previous session would send this one to the wrong portal, so always clear
+// it before resolving where a freshly-authenticated session lands.
+async function proceedAfterSignIn() {
+  clearMe()
+  const destination = await destinationAfterLogin()
+  // null means the API is unreachable — apiError is showing why, so stay put.
+  if (destination) await navigateTo(destination)
+}
+
 async function onSubmit() {
   if (!email.value || !password.value) return
   loading.value = true
@@ -97,17 +108,42 @@ async function onSubmit() {
       error.value = true
       password.value = ''
     } else {
-      // A stale profile from a previous session would send this one to the
-      // wrong portal.
-      clearMe()
-      const destination = await destinationAfterLogin()
-      // null means the API is unreachable — apiError is showing why, so stay put.
-      if (destination) await navigateTo(destination)
+      await proceedAfterSignIn()
     }
   } finally {
     loading.value = false
   }
 }
+
+// ---- Google OAuth ----
+// Recipients who claimed their certificate via "Continue with Google" (see
+// claim/[token].vue) have no password — they need the same option here.
+const oauthLoading = ref(false)
+const oauthFlagKey = 'login-oauth-pending'
+let oauthHandled = false
+
+async function onGoogleClick() {
+  oauthLoading.value = true
+  sessionStorage.setItem(oauthFlagKey, '1')
+  // The full URL, not just the origin, so a `?redirect=` portal hint survives
+  // the round trip to Google and back.
+  await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: window.location.href },
+  })
+}
+
+// signInWithOAuth redirects the whole tab away and back, so "did our OAuth
+// attempt just come back" has to be persisted (sessionStorage), not held in a
+// ref — an unrelated pre-existing session must never be mistaken for one.
+watch(supaUser, async (user) => {
+  if (!user || oauthHandled) return
+  const armed = sessionStorage.getItem(oauthFlagKey)
+  if (!armed) return
+  sessionStorage.removeItem(oauthFlagKey)
+  oauthHandled = true
+  await proceedAfterSignIn()
+}, { immediate: true })
 </script>
 
 <template>
@@ -159,6 +195,30 @@ async function onSubmit() {
 
         <h1 class="auth-headline">Sign in to Verify</h1>
         <p class="auth-portal">{{ portalLabel }}</p>
+
+        <button
+          type="button"
+          class="google-btn"
+          :disabled="oauthLoading"
+          @click="onGoogleClick"
+        >
+          <UIcon
+            v-if="oauthLoading"
+            name="i-heroicons-arrow-path"
+            class="size-4 spin"
+          />
+          <svg v-else class="size-4" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+            <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z" />
+            <path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z" />
+            <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z" />
+            <path fill="#1976D2" d="M43.611 20.083H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l6.19 5.238C40.945 35.826 44 30.5 44 24c0-1.341-.138-2.65-.389-3.917z" />
+          </svg>
+          <span>{{ oauthLoading ? 'Connecting…' : 'Continue with Google' }}</span>
+        </button>
+
+        <div class="auth-divider">
+          <span>or sign in with email</span>
+        </div>
 
         <form class="auth-form" @submit.prevent="onSubmit">
           <div class="field">
@@ -454,8 +514,63 @@ async function onSubmit() {
   margin: 6px 0 0;
 }
 
-.auth-form {
+.google-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
   margin-top: 26px;
+  padding: 10px 18px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.google-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-light);
+}
+
+.google-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.google-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.auth-divider span {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.auth-form {
+  margin-top: 20px;
   display: flex;
   flex-direction: column;
   gap: 16px;

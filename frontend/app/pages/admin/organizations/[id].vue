@@ -365,6 +365,8 @@ const typeLabels: Record<string, string> = {
 
 .org-actions {
   flex-shrink: 0;
+  display: flex;
+  gap: 8px;
 }
 
 .btn-danger-outline {
