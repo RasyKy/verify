@@ -25,7 +25,6 @@ const gradient = computed(() => tintMap[props.tint])
 <template>
   <div class="stat-card" :style="{ '--tile-bg': gradient }">
     <div class="stat-wash" aria-hidden="true" />
-    <UIcon :name="icon" class="stat-watermark" aria-hidden="true" />
 
     <div class="stat-icon-wrap">
       <UIcon :name="icon" class="stat-icon" />
@@ -64,34 +63,26 @@ const gradient = computed(() => tintMap[props.tint])
   );
 }
 
-.stat-watermark {
-  position: absolute;
-  right: -14px;
-  bottom: -18px;
-  width: 92px;
-  height: 92px;
-  z-index: -1;
-  opacity: 0.14;
-  pointer-events: none;
-}
-
+/* A hairline glass chip rather than a filled tile — at 15px the outline glyph
+   keeps a ~1px stroke, which is the whole point of the smaller mark. */
 .stat-icon-wrap {
   position: absolute;
   top: 16px;
   right: 16px;
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.18);
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.26);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .stat-icon {
-  width: 16px;
-  height: 16px;
-  color: #fff;
+  width: 15px;
+  height: 15px;
+  color: rgba(255, 255, 255, 0.95);
 }
 
 .stat-label {
@@ -101,7 +92,7 @@ const gradient = computed(() => tintMap[props.tint])
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.82);
   margin: 0 0 10px;
-  padding-right: 42px;
+  padding-right: 38px;
 }
 
 .stat-value {

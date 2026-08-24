@@ -55,6 +55,16 @@ async function destinationAfterLogin(): Promise<string | null> {
     apiError.value = result.message
     return null
   }
+  /*
+   * The password was right and Supabase issued a session — it has no idea the
+   * account is switched off, only `profiles.status` does. Sending them onward
+   * would land on a portal that bounces straight back here with nothing said,
+   * so end the session and stay put with the reason on screen.
+   */
+  if (result.state === 'refused') {
+    await endRefusedSession(result)
+    return null
+  }
   if (result.state !== 'ok') return requestedRedirect.value
 
   const permitted = ROLE_PORTALS[result.me.role] ?? []
@@ -66,6 +76,8 @@ async function destinationAfterLogin(): Promise<string | null> {
 const email = ref('')
 const password = ref('')
 const error = ref(false)
+/** Why a previous attempt (or a guard) rejected an otherwise valid session. */
+const notice = useAuthNotice()
 const loading = ref(false)
 /** Set when sign-in succeeded but the backend could not be reached. */
 const apiError = ref('')
@@ -75,6 +87,7 @@ async function onSubmit() {
   if (!email.value || !password.value) return
   loading.value = true
   error.value = false
+  notice.value = null
   try {
     const { error: authError } = await supabase.auth.signInWithPassword({
       email: email.value,
@@ -142,7 +155,7 @@ async function onSubmit() {
       </NuxtLink>
 
       <div class="auth-card">
-        <BrandLogo :size="44" class="auth-card-mark" />
+        <BrandLogo :size="44" center class="auth-card-mark" />
 
         <h1 class="auth-headline">Sign in to Verify</h1>
         <p class="auth-portal">{{ portalLabel }}</p>
@@ -189,6 +202,18 @@ async function onSubmit() {
             variant="subtle"
             icon="i-heroicons-exclamation-triangle"
             title="Invalid email or password."
+          />
+
+          <!-- The credentials were right and the account is real; it is simply
+               switched off. Saying so beats an unexplained bounce back to this
+               same form. -->
+          <UAlert
+            v-if="notice"
+            color="error"
+            variant="subtle"
+            icon="i-heroicons-lock-closed"
+            title="Cannot sign in"
+            :description="notice"
           />
 
           <!-- Signing in worked; the API did not answer. Distinguishing this from
@@ -382,9 +407,9 @@ async function onSubmit() {
   padding: 36px 34px 30px;
 }
 
+/* Centering is the component's own `center` prop — see BrandLogo.vue for why
+   it cannot be done from out here. Spacing only. */
 .auth-card-mark {
-  display: flex;
-  justify-content: center;
   margin-bottom: 20px;
 }
 

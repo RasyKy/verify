@@ -38,11 +38,33 @@ export function useApi(options: UseApiOptions = {}) {
     },
 
     onResponseError({ response }) {
-      // Session expired or revoked, or the account was deactivated. Bounce to
-      // login rather than showing an empty table with no explanation.
-      if (redirectOn401 && response.status === 401) {
+      if (!redirectOn401) return
+
+      // Session expired or revoked. Bounce to login rather than showing an
+      // empty table with no explanation.
+      if (response.status === 401) {
         clearMe()
         return navigateTo('/login')
+      }
+
+      /*
+       * Deactivated mid-session. Keyed off the code, not the wording, and
+       * distinct from a plain 403 (`FORBIDDEN`) — that one means "not your
+       * resource" and must leave the session alone. Here the account itself is
+       * switched off, so the session has to end: the route guard only re-checks
+       * on navigation, and `me` is already cached, so otherwise the portal
+       * stays open until a reload.
+       */
+      if (
+        response.status === 403 &&
+        response._data?.code === 'ACCOUNT_DEACTIVATED'
+      ) {
+        clearMe()
+        useAuthNotice().value =
+          response._data?.message ?? 'This account has been deactivated.'
+        return useSupabaseClient()
+          .auth.signOut()
+          .then(() => navigateTo('/login'))
       }
     },
   })

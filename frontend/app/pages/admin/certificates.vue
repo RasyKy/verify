@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { apiErrorMessage } from '~/composables/useCertificates'
 import {
   formatDate,
   revokeCertificateAsAdmin,
@@ -85,10 +86,13 @@ async function confirmDelete() {
   try {
     await deleteCertificate(id)
     toast.add({ title: 'Certificate deleted', color: 'success' })
-  } catch {
+  } catch (err) {
+    // Surface what the API said: "nothing was removed, try again" sent people
+    // retrying a click that could never work, when the real answer was a chain
+    // error they needed to read.
     toast.add({
       title: 'Could not delete certificate',
-      description: 'Nothing was removed. Please try again.',
+      description: apiErrorMessage(err, 'Nothing was removed. Please try again.'),
       color: 'error',
     })
   }
@@ -105,10 +109,10 @@ async function confirmRevoke() {
     // looking revoked when it is not.
     await revokeCertificateAsAdmin(id)
     toast.add({ title: 'Certificate revoked', color: 'success' })
-  } catch {
+  } catch (err) {
     toast.add({
       title: 'Could not revoke certificate',
-      description: 'The revocation was not recorded. Please try again.',
+      description: apiErrorMessage(err, 'The revocation was not recorded. Please try again.'),
       color: 'error',
     })
   }
@@ -145,29 +149,30 @@ async function confirmRevoke() {
         <span class="date-cell">{{ formatDate(value) }}</span>
       </template>
       <template #cell-status="{ value }"><AdminStatusChip :status="value" /></template>
-      <template #cell__actions="{ row }">
+      <template #cell-_actions="{ row }">
         <div class="row-actions">
-          <button class="action-btn" @click.stop="openEdit(row)">
-            Edit
-          </button>
-          <button
+          <AdminRowAction icon="i-heroicons-pencil-square" label="Edit" @click="openEdit(row)" />
+          <AdminRowAction
             v-if="row.status === 'issued' && row.claimState === 'unclaimed'"
-            class="action-btn"
+            icon="i-heroicons-paper-airplane"
+            :label="resendingId === row.id ? 'Sending…' : 'Resend claim link'"
+            :loading="resendingId === row.id"
             :disabled="!!resendingId"
-            @click.stop="resendClaim(row.id)"
-          >
-            {{ resendingId === row.id ? 'Sending…' : 'Resend link' }}
-          </button>
-          <button
+            @click="resendClaim(row.id)"
+          />
+          <AdminRowAction
             v-if="row.status === 'issued'"
-            class="action-btn action-btn--danger"
-            @click.stop="revokeTarget = row.id"
-          >
-            Revoke
-          </button>
-          <button class="action-btn action-btn--danger" @click.stop="deleteTarget = row.id">
-            Delete
-          </button>
+            icon="i-heroicons-x-circle"
+            label="Revoke"
+            danger
+            @click="revokeTarget = row.id"
+          />
+          <AdminRowAction
+            icon="i-heroicons-trash"
+            label="Delete"
+            danger
+            @click="deleteTarget = row.id"
+          />
         </div>
       </template>
     </AdminTable>
@@ -226,34 +231,4 @@ async function confirmRevoke() {
   font-size: 13px;
 }
 
-/* Neutral by default — the row carries non-destructive actions (Edit, Resend)
-   alongside the destructive ones, and painting them all red made every action
-   read as a warning. Danger is opt-in via --danger. */
-.action-btn {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--accent);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  padding: 4px 0;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.action-btn:hover {
-  opacity: 0.7;
-}
-
-.action-btn:disabled {
-  color: var(--text-tertiary);
-  cursor: default;
-  text-decoration: none;
-}
-
-/* Must follow .action-btn — same specificity, so source order decides which
-   colour wins. */
-.action-btn--danger {
-  color: var(--status-revoked-text);
-}
 </style>

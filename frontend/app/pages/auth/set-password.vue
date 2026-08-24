@@ -77,9 +77,7 @@ async function onSubmit() {
 <template>
   <div class="min-h-screen page-ground flex items-center justify-center px-4">
     <div class="max-w-sm w-full surface-panel p-8">
-      <div class="flex justify-center mb-5">
-        <BrandLogo :size="40" />
-      </div>
+      <BrandLogo :size="40" center class="mb-5" />
 
       <template v-if="!ready">
         <p class="text-sm text-gray-500 text-center py-6">Checking your invitation…</p>
@@ -89,8 +87,8 @@ async function onSubmit() {
         Reaching this state is common, not exceptional: a recovery link opened
         on a different device than the one that requested it cannot carry a
         session, and mail scanners routinely burn one-time links before a human
-        clicks. So this offers the code-based reset rather than dead-ending on
-        "ask your administrator".
+        clicks. So this offers a fresh link rather than dead-ending on "ask your
+        administrator".
       -->
       <template v-else-if="!hasSession">
         <h1 class="text-lg font-medium text-gray-900 text-center">
@@ -99,15 +97,15 @@ async function onSubmit() {
         <p class="text-sm text-gray-500 text-center mt-2">
           These links work only once, and only in the browser that requested
           them — opening one on a different device, or after a mail scanner has
-          followed it, lands here. Resetting with an emailed code works from
-          anywhere.
+          followed it, lands here. Request a new one from this browser and open
+          it here.
         </p>
         <UButton
           to="/auth/forgot-password"
           class="w-full justify-center mt-6"
           color="primary"
         >
-          Reset with a code instead
+          Send me a new link
         </UButton>
         <UButton to="/login" class="w-full justify-center mt-2" color="neutral" variant="ghost">
           Back to sign in

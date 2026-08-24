@@ -9,10 +9,6 @@ const rangeOptions = [
   { label: 'Last 90 days', value: '90d' },
 ]
 
-// Same useState key the issuer layout owns, so the header button and the rail
-// button open the one modal instance the layout renders.
-const issueModalOpen = useState<boolean>('issue-modal', () => false)
-
 // Refetches on range change — the chart series is zero-filled server-side for
 // exactly the requested window, so it cannot be derived by slicing a cache.
 const { data: dashboard, pending } = useDashboard(range)
@@ -33,10 +29,6 @@ const recentActivity = computed(() => dashboard.value.recentActivity)
           Everything your institution has issued, at a glance.
         </p>
       </div>
-      <button class="dash-action" @click="issueModalOpen = true">
-        <UIcon name="i-heroicons-plus" class="dash-action-icon" />
-        Issue certificate
-      </button>
     </header>
 
     <!-- Stat tiles -->
@@ -118,7 +110,6 @@ const recentActivity = computed(() => dashboard.value.recentActivity)
 .dash-header {
   display: flex;
   align-items: flex-end;
-  justify-content: space-between;
   gap: 20px;
   flex-wrap: wrap;
 }
@@ -144,39 +135,6 @@ const recentActivity = computed(() => dashboard.value.recentActivity)
   font-size: 14px;
   color: var(--text-secondary);
   margin: 5px 0 0;
-}
-
-.dash-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 10px 18px;
-  border: none;
-  border-radius: 10px;
-  background: var(--grad-brand);
-  box-shadow: var(--shadow-tile);
-  color: #fff;
-  font-family: inherit;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
-}
-
-.dash-action:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 14px 26px -12px rgba(10, 92, 82, 0.7);
-}
-
-.dash-action:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
-}
-
-.dash-action-icon {
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
 }
 
 /* ── Grids ── */
@@ -224,10 +182,6 @@ const recentActivity = computed(() => dashboard.value.recentActivity)
   margin: 3px 0 0;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .dash-action:hover { transform: none; }
-}
-
 @media (max-width: 1180px) {
   .panel-grid {
     grid-template-columns: minmax(0, 1fr);
@@ -237,11 +191,6 @@ const recentActivity = computed(() => dashboard.value.recentActivity)
 @media (max-width: 760px) {
   .tile-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .dash-action {
-    width: 100%;
-    justify-content: center;
   }
 }
 </style>

@@ -91,6 +91,9 @@ const tintStyle = (tint: string) => {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
+  /* Each card keeps its own height: stretching the chart to match the activity
+     list left a tall band of empty card under the bars. */
+  align-items: start;
 }
 
 .card {

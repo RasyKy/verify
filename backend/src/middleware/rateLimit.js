@@ -45,9 +45,10 @@ function make({ windowMs, limit, name, keyGenerator }) {
 }
 
 /**
- * Public verification — the only endpoint an anonymous flood can reach at
- * scale (T-04). Generous enough for an employer checking a batch of
- * applicants, tight enough that scraping is impractical.
+ * Public verification — one of the two endpoints an anonymous flood can reach
+ * at scale (T-04; see publicProfileLimiter for the other). Generous enough for
+ * an employer checking a batch of applicants, tight enough that scraping is
+ * impractical.
  */
 export const verifyLimiter = make({
   name: 'verify',
@@ -56,14 +57,52 @@ export const verifyLimiter = make({
 });
 
 /**
+ * Public holder profiles (FR-HOLD-04). Anonymous like verification, and the
+ * more attractive scraping target of the two: one request returns a person's
+ * whole visible credential history rather than a single certificate. Same
+ * budget as verify — enough for a recruiter opening a handful of profiles,
+ * far too little to harvest them.
+ */
+export const publicProfileLimiter = make({
+  name: 'public-profile',
+  windowMs: 60_000,
+  limit: 30,
+});
+
+/**
  * Claim acceptance — the tightest limit in the app. A claim token is the sole
  * credential for taking ownership of a certificate (T-02), so brute-forcing it
  * must be hopeless even though the token itself is 256 bits.
+ *
+ * REDEMPTION ONLY. This must not be applied to the preview GET — see
+ * claimPreviewLimiter for why.
  */
 export const claimLimiter = make({
   name: 'claim',
   windowMs: 15 * 60_000,
   limit: 5,
+});
+
+/**
+ * Claim preview — the read-only GET the claim page issues on every load.
+ *
+ * It shared claimLimiter's budget of 5 per 15 minutes, which is a redemption
+ * budget applied to page views: opening the link, reloading, coming back after
+ * a login redirect and trying a second sign-in method spends it in ordinary
+ * use, and the 6th load is refused for the rest of the window. The claim page
+ * cannot tell that 429 from an unusable link, so a rate-limited holder is told
+ * their link is invalid and sent to their institution over nothing.
+ *
+ * Loosening it costs no security worth the name. The token is 256 bits, so
+ * guessing is hopeless at 5/15min and equally hopeless at 30/15min — the
+ * difference between them is a rounding error against 2^256, while the
+ * difference to a real holder is whether the page works. The tight budget
+ * stays where it means something: on the POST that actually redeems.
+ */
+export const claimPreviewLimiter = make({
+  name: 'claim-preview',
+  windowMs: 15 * 60_000,
+  limit: 30,
 });
 
 /**

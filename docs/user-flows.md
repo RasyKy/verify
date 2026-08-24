@@ -210,9 +210,15 @@ The distinction that matters, and the one worth a test of its own:
 
 | Surface | Respects `is_hidden` / `profile_is_public`? |
 | --- | --- |
-| Holder's public profile page | **Yes** — hidden certificates are absent |
+| `GET /api/profiles/:holderId` → `/p/:holderId` | **Yes** — hidden certificates are absent; a private profile 404s |
 | `GET /api/certificates/verify/:certId` | **No** — always verifiable |
 | QR code / direct link | **No** — always resolves |
+
+The profile row is the only reader of either flag. Both columns predate the
+endpoint, and for as long as nothing consulted them the toggles on `/recipient`
+stored a preference with no effect anywhere — "hidden" hid a certificate from
+nobody. Anything added here that respects the flags belongs in that first row;
+if the row is ever empty again, the feature is decorative.
 
 Privacy here means "not listed", not "not verifiable". A holder can keep a
 credential off their public profile while still handing a specific employer a

@@ -23,12 +23,28 @@ let redirectTimer: ReturnType<typeof setTimeout> | null = null
 // testing `!valid` before the specific cases would swallow both of them and
 // every dead link — used, superseded, expired — would read "invalid", which is
 // the one message that tells the holder nothing about what to do next.
-// `!preview` here means the fetch itself produced nothing; an unknown token
-// still returns a blank preview and falls through to the final `!valid`.
+//
+// A failed request is not a verdict on the link either. The preview is rate
+// limited, and reading a 429 (or a backend that is simply down) as "invalid"
+// tells someone holding a perfectly good link to go contact their institution
+// when all they need to do is wait. An unknown token is different: it answers
+// 200 with a blank preview, and falls through to the final `!valid`.
 const viewState = computed(() => {
   if (claimed.value) return 'success'
   if (pending.value) return 'loading'
-  if (error.value || !preview.value) return 'invalid'
+  if (error.value) {
+    // useAsyncData wraps ofetch's FetchError, and which of these carries the
+    // status has moved between versions, so read both rather than pin one.
+    const err = error.value as {
+      statusCode?: number
+      status?: number
+      data?: { error?: { code?: string } }
+    }
+    const status = err.statusCode ?? err.status
+    const rateLimited = status === 429 || err.data?.error?.code === 'RATE_LIMITED'
+    return rateLimited ? 'rateLimited' : 'unavailable'
+  }
+  if (!preview.value) return 'unavailable'
   if (preview.value.superseded) return 'superseded'
   if (preview.value.used) return 'used'
   if (preview.value.expired) return 'expired'
@@ -41,6 +57,30 @@ async function finalizeClaim() {
   claiming.value = true
   claimError.value = ''
   try {
+    // Every path into this function must be claiming AS the recipient, and
+    // useApi() sends whichever session the browser happens to hold. An
+    // unrelated one is easy to be carrying — an issuer testing their own
+    // claim link is the obvious case — and the backend then answers "must be
+    // claimed with the email it was issued to", which reads as a complaint
+    // about the address on screen rather than about who is signed in. Only
+    // the Google path checked this; checking here covers all three.
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+    const signedInAs = session?.user?.email?.toLowerCase().trim()
+    const expected = preview.value?.email?.toLowerCase().trim()
+
+    if (!signedInAs) {
+      claimError.value =
+        'Your sign-in did not complete, so there is nothing to claim with yet. Please use the login code above.'
+      return
+    }
+    if (signedInAs !== expected) {
+      await supabase.auth.signOut()
+      claimError.value = `You are signed in as ${signedInAs}, but this certificate belongs to ${expected}. You have been signed out — please continue with that address.`
+      return
+    }
+
     await confirmClaim(token)
     claimed.value = true
     redirectTimer = setTimeout(() => navigateTo('/recipient'), 1500)
@@ -113,7 +153,7 @@ async function sendOtp() {
       options: { shouldCreateUser: true },
     })
     if (sendError) {
-      otpError.value = sendError.message
+      otpError.value = authErrorMessage(sendError, 'Could not send your login code.')
       return
     }
     otpStep.value = 'sent'
@@ -181,12 +221,24 @@ async function onCreateAccount() {
   }
   passwordSubmitting.value = true
   try {
-    const { error: signUpError } = await supabase.auth.signUp({
+    const { data, error: signUpError } = await supabase.auth.signUp({
       email: p.email,
       password: password.value,
     })
     if (signUpError) {
-      passwordError.value = signUpError.message
+      passwordError.value = authErrorMessage(signUpError, 'Could not create your account.')
+      return
+    }
+    // No error and no session means the sign-up did not sign anyone in, and
+    // Supabase deliberately does not say which of the two reasons applies: it
+    // will not confirm to an anonymous caller that an address is already
+    // registered, so a taken email is returned looking exactly like a fresh
+    // sign-up awaiting email confirmation. Proceeding to claim on that would
+    // send whatever stale session the browser holds. The login code resolves
+    // either case, so point there rather than guess.
+    if (!data.session) {
+      passwordError.value =
+        'Could not sign you in with that password — this address may already have an account. Use the login code above instead; it works either way.'
       return
     }
     await finalizeClaim()
@@ -251,6 +303,29 @@ onUnmounted(() => {
         <p class="text-sm text-gray-500 mt-2">Please check the email again or contact your institution.</p>
       </div>
 
+      <!-- Rate limited — the link is fine, the API is refusing to answer -->
+      <div v-else-if="viewState === 'rateLimited'" class="text-center py-4">
+        <div class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
+          <UIcon name="i-heroicons-clock" class="w-6 h-6 text-gray-400" />
+        </div>
+        <h1 class="text-lg font-medium text-gray-900">Too many attempts.</h1>
+        <p class="text-sm text-gray-500 mt-2">
+          Your link is still valid — please wait a few minutes and reload this page.
+        </p>
+      </div>
+
+      <!-- Request failed for some other reason -->
+      <div v-else-if="viewState === 'unavailable'" class="text-center py-4">
+        <div class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
+          <UIcon name="i-heroicons-exclamation-triangle" class="w-6 h-6 text-gray-400" />
+        </div>
+        <h1 class="text-lg font-medium text-gray-900">We could not check this link.</h1>
+        <p class="text-sm text-gray-500 mt-2">
+          Something went wrong on our side, not with your link. Please reload the page, or try
+          again shortly.
+        </p>
+      </div>
+
       <!-- Superseded — a newer claim email retired this link -->
       <div v-else-if="viewState === 'superseded'" class="text-center py-4">
         <div class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
@@ -294,9 +369,7 @@ onUnmounted(() => {
 
       <!-- Valid token: claim form -->
       <div v-else>
-        <div class="flex justify-center mb-5">
-          <BrandLogo :size="40" />
-        </div>
+        <BrandLogo :size="40" center class="mb-5" />
 
         <h1 class="text-lg font-medium text-gray-900 text-center">Claim your certificate</h1>
         <p class="text-sm text-gray-500 text-center mt-1">

@@ -327,3 +327,188 @@ describe('PATCH /api/holder/profile', () => {
     expect(res.status).toBe(401);
   });
 });
+
+/**
+ * The public profile — the surface `is_hidden` and `profile_is_public` exist to
+ * control. Before this endpoint both flags were write-only, so these are the
+ * tests that make the toggles mean something.
+ *
+ * Note `user: null` throughout: makeApp's requireAuth stub answers 401 when
+ * there is no user, so every 200 below also proves the route never touched it.
+ */
+describe('GET /api/profiles/:holderId', () => {
+  const HOLDER_ID = '33333333-3333-4333-8333-333333333333';
+  const MISSING_ID = '44444444-4444-4444-8444-444444444444';
+
+  const PUBLIC_HOLDER = {
+    id: HOLDER_ID,
+    full_name: 'Sophat Chan',
+    role: 'holder',
+    status: 'active',
+    profile_is_public: true,
+  };
+
+  /** Anonymous request — no bearer token anywhere in the chain. */
+  const getProfile = (app, id = HOLDER_ID) =>
+    request(app).get(`/api/profiles/${id}`);
+
+  const publicApp = (certificates, profileOverrides = {}) =>
+    makeApp({
+      certificates,
+      profiles: [{ ...PUBLIC_HOLDER, ...profileOverrides }],
+      user: null,
+    });
+
+  it('serves an anonymous caller with no token at all', async () => {
+    const res = await getProfile(publicApp([]));
+    expect(res.status).toBe(200);
+  });
+
+  it('omits hidden certificates and returns the visible ones', async () => {
+    const rows = [
+      {
+        ...BASE_ROW,
+        id: 'cert-visible',
+        holder_id: HOLDER_ID,
+        student_name: 'Sophat Chan',
+        is_hidden: false,
+      },
+      {
+        ...BASE_ROW,
+        id: 'cert-hidden',
+        holder_id: HOLDER_ID,
+        student_name: 'Sophat Chan',
+        is_hidden: true,
+      },
+    ];
+    const res = await getProfile(publicApp(rows));
+
+    expect(res.status).toBe(200);
+    expect(res.body.certificates).toHaveLength(1);
+    expect(res.body.certificates[0].id).toBe('cert-visible');
+  });
+
+  it("omits another holder's certificates", async () => {
+    const rows = [
+      { ...BASE_ROW, id: 'mine', holder_id: HOLDER_ID, is_hidden: false },
+      { ...BASE_ROW, id: 'theirs', holder_id: 'holder-2', is_hidden: false },
+    ];
+    const res = await getProfile(publicApp(rows));
+    expect(res.body.certificates.map((c) => c.id)).toEqual(['mine']);
+  });
+
+  it('never leaks is_hidden or student_name on a certificate', async () => {
+    const rows = [
+      {
+        ...BASE_ROW,
+        id: 'cert-1',
+        holder_id: HOLDER_ID,
+        student_name: 'Sophat Chan',
+        is_hidden: false,
+      },
+    ];
+    const res = await getProfile(publicApp(rows));
+
+    expect(res.body.certificates[0]).not.toHaveProperty('is_hidden');
+    expect(res.body.certificates[0]).not.toHaveProperty('student_name');
+    expect(res.body.certificates[0]).not.toHaveProperty('student_email');
+  });
+
+  it('404s when the profile is private', async () => {
+    const rows = [
+      { ...BASE_ROW, id: 'cert-1', holder_id: HOLDER_ID, is_hidden: false },
+    ];
+    const res = await getProfile(
+      publicApp(rows, { profile_is_public: false })
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it('404s for a deactivated holder', async () => {
+    const res = await getProfile(publicApp([], { status: 'suspended' }));
+    expect(res.status).toBe(404);
+  });
+
+  it('404s for a non-holder account', async () => {
+    const res = await getProfile(publicApp([], { role: 'issuer' }));
+    expect(res.status).toBe(404);
+  });
+
+  it('404s for a nonexistent profile', async () => {
+    const res = await getProfile(publicApp([]), MISSING_ID);
+    expect(res.status).toBe(404);
+  });
+
+  /**
+   * The anti-enumeration property, asserted as one test because it is the
+   * whole point: a private profile must be byte-identical to a missing one, or
+   * the response confirms the account exists and has chosen to hide.
+   */
+  it('makes a private profile indistinguishable from a missing one', async () => {
+    const privateRes = await getProfile(
+      publicApp([], { profile_is_public: false })
+    );
+    const missingRes = await getProfile(publicApp([]), MISSING_ID);
+
+    expect(privateRes.status).toBe(missingRes.status);
+    expect(privateRes.body).toEqual(missingRes.body);
+  });
+
+  it('rejects a holderId that is not a UUID', async () => {
+    const res = await getProfile(publicApp([]), 'not-a-uuid');
+    expect(res.status).toBe(422);
+  });
+
+  it('returns 200 with an empty list when every certificate is hidden', async () => {
+    const rows = [
+      { ...BASE_ROW, id: 'cert-1', holder_id: HOLDER_ID, is_hidden: true },
+    ];
+    const res = await getProfile(publicApp(rows));
+
+    expect(res.status).toBe(200);
+    expect(res.body.certificates).toEqual([]);
+  });
+
+  it('shows revoked certificates with their status rather than dropping them', async () => {
+    const rows = [
+      {
+        ...BASE_ROW,
+        id: 'cert-revoked',
+        holder_id: HOLDER_ID,
+        is_hidden: false,
+        revoked_at: '2026-08-01T00:00:00.000Z',
+      },
+    ];
+    const res = await getProfile(publicApp(rows));
+
+    expect(res.body.certificates).toHaveLength(1);
+    expect(res.body.certificates[0].status).toBe('revoked');
+  });
+
+  it('uses full_name as the display name when set', async () => {
+    const res = await getProfile(publicApp([]));
+    expect(res.body.holder.display_name).toBe('Sophat Chan');
+  });
+
+  it('falls back to student_name, never the email local part', async () => {
+    const rows = [
+      {
+        ...BASE_ROW,
+        id: 'cert-1',
+        holder_id: HOLDER_ID,
+        student_name: 'Sophat Chan',
+        student_email: 'sophat.private@example.com',
+        is_hidden: false,
+      },
+    ];
+    const res = await getProfile(publicApp(rows, { full_name: null }));
+
+    expect(res.body.holder.display_name).toBe('Sophat Chan');
+    expect(JSON.stringify(res.body)).not.toContain('sophat.private');
+  });
+
+  it('falls back to a neutral label when there is no name to show', async () => {
+    const res = await getProfile(publicApp([], { full_name: null }));
+    expect(res.body.holder.display_name).toBe('Certificate holder');
+  });
+});
