@@ -112,6 +112,7 @@ async function onGoogleClick() {
 // in a ref — and it must be scoped to this token so an unrelated pre-existing
 // session (e.g. already logged in elsewhere) can never be mistaken for one.
 watch(supaUser, async (user) => {
+  if (import.meta.server) return
   if (!user || oauthHandled) return
   const armed = sessionStorage.getItem(oauthFlagKey)
   if (!armed) return
