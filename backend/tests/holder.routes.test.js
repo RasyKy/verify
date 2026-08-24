@@ -418,9 +418,7 @@ describe('GET /api/profiles/:holderId', () => {
     const rows = [
       { ...BASE_ROW, id: 'cert-1', holder_id: HOLDER_ID, is_hidden: false },
     ];
-    const res = await getProfile(
-      publicApp(rows, { profile_is_public: false })
-    );
+    const res = await getProfile(publicApp(rows, { profile_is_public: false }));
     expect(res.status).toBe(404);
   });
 

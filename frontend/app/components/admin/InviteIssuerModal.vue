@@ -44,16 +44,28 @@ async function submit() {
   saving.value = true
   errorMessage.value = ''
   try {
-    await inviteIssuer({
+    const email = form.email.trim()
+    const { inviteEmailSent } = await inviteIssuer({
       fullName: form.fullName.trim(),
-      email: form.email.trim(),
+      email,
       organizationId: form.organizationId,
     })
-    toast.add({
-      title: 'Issuer invited',
-      description: `${form.email.trim()} can set a password from the emailed link.`,
-      color: 'success',
-    })
+    // The account exists either way. Saying "invited" when the backend has no
+    // mail transport would leave an admin waiting on an email that was never
+    // sent, so the two outcomes read differently.
+    toast.add(
+      inviteEmailSent
+        ? {
+            title: 'Issuer invited',
+            description: `${email} can set a password from the emailed link.`,
+            color: 'success' as const,
+          }
+        : {
+            title: 'Account created — no email sent',
+            description: `Email is not configured on the server. Ask ${email} to use "Forgot password" on the sign-in page.`,
+            color: 'warning' as const,
+          },
+    )
     emit('invited')
     open.value = false
     form.fullName = ''
@@ -73,8 +85,9 @@ async function submit() {
     <template #body>
       <form class="form" @submit.prevent="submit">
         <p class="lede">
-          They receive an email with a one-time link and choose their own
-          password. No password is set here, and none is sent by mail.
+          They receive an email inviting them to choose their own password,
+          confirmed with a one-time code. No password is set here, and none is
+          ever sent by mail.
         </p>
 
         <div class="field">

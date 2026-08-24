@@ -30,6 +30,7 @@ import { validate } from '../middleware/validate.js';
 import { AUDIT_ACTIONS, writeAuditEvent } from '../services/audit.js';
 import { certificateService as defaultCertificateService } from '../services/certificate.js';
 import { blockchainService as defaultChain } from '../services/blockchain.js';
+import { sendIssuerInviteEmail } from '../services/email.js';
 import {
   adminRevokeSchema,
   createIssuerSchema,
@@ -338,8 +339,9 @@ export function createAdminRouter({
     async (req, res, next) => {
       const { email, fullName, organizationId } = req.validated.body;
       // A generated password is never shown to the admin — the issuer sets their
-      // own through Supabase's reset flow. Handing an admin a colleague's
-      // password makes every later action by that account deniable (T-08).
+      // own through the reset flow, which the invite email below links to.
+      // Handing an admin a colleague's password makes every later action by
+      // that account deniable (T-08).
       const password =
         req.validated.body.password ?? `${crypto.randomUUID()}Aa1!`;
 
@@ -388,12 +390,29 @@ export function createAdminRouter({
           'create profile'
         );
 
+        /*
+         * The account is unusable until its owner sets a password, and nothing
+         * else tells them it exists.
+         *
+         * This sits inside the try, but it cannot trigger the rollback below:
+         * sendIssuerInviteEmail resolves { sent: false } on every failure and
+         * never rejects. That is the point — an account whose invite failed is
+         * recoverable ("Forgot password" on the sign-in page reaches the same
+         * page), whereas deleting a successfully created issuer because a mail
+         * server hiccuped is not.
+         */
+        const { sent: inviteEmailSent } = await sendIssuerInviteEmail({
+          to: email,
+          fullName,
+          organizationName: org.name,
+        });
+
         await audit({
           action: AUDIT_ACTIONS.ISSUER_INVITED,
           targetLabel: fullName,
           actor: req.user,
           organizationId,
-          metadata: { email, userId: createdUserId },
+          metadata: { email, userId: createdUserId, inviteEmailSent },
         });
 
         res.status(201).json({
@@ -405,6 +424,9 @@ export function createAdminRouter({
           organizationName: org.name,
           status: 'active',
           joinedAt: profile.created_at,
+          // Lets the admin UI say "invite sent" vs. "tell them to use Forgot
+          // password" rather than implying mail went out when it did not.
+          inviteEmailSent,
         });
       } catch (err) {
         // An auth user with no profile row can authenticate but is refused
@@ -659,7 +681,8 @@ export function createAdminRouter({
            * orphaning a live ISSUED hash is intact.
            */
           const onChain = await chain.verify(current.hash);
-          if (onChain.exists && !onChain.revoked) await chain.revoke(current.hash);
+          if (onChain.exists && !onChain.revoked)
+            await chain.revoke(current.hash);
         }
       }
 

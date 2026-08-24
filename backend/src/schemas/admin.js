@@ -103,7 +103,10 @@ export const updateUserSchema = z
     // Moving an issuer between institutions. Certificates already issued keep
     // their original organization_id — the row records who issued it at the
     // time, and rewriting that would falsify history.
-    organizationId: z.uuid('organizationId must be a UUID').nullable().optional(),
+    organizationId: z
+      .uuid('organizationId must be a UUID')
+      .nullable()
+      .optional(),
   })
   .strict()
   .refine((body) => Object.keys(body).length > 0, {
@@ -123,7 +126,9 @@ export const adminIssueCertificateSchema = z
     studentName: hashableText('Student name', { min: 2, max: 120 }),
     studentEmail: email,
     courseName: hashableText('Course name', { min: 2, max: 200 }),
-    completionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'must be YYYY-MM-DD'),
+    completionDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, 'must be YYYY-MM-DD'),
     expiryDate: z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/, 'must be YYYY-MM-DD')
@@ -138,7 +143,9 @@ export const adminUpdateCertificateSchema = z
     studentName: hashableText('Student name', { min: 2, max: 120 }),
     studentEmail: email,
     courseName: hashableText('Course name', { min: 2, max: 200 }),
-    completionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'must be YYYY-MM-DD'),
+    completionDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, 'must be YYYY-MM-DD'),
     expiryDate: z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/, 'must be YYYY-MM-DD')

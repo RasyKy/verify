@@ -5,7 +5,7 @@
  * claim endpoint from token brute-forcing, too tight for an institution
  * bulk-issuing a cohort. So limits are scoped to what each endpoint risks.
  *
- * Depends on `app.set('trust proxy', 1)` in app.js. Behind Railway's proxy
+ * Depends on `app.set('trust proxy', 1)` in app.js. Behind Render's proxy
  * every request arrives from the same socket address, so without that setting
  * all clients share one bucket and the first burst locks everyone out.
  */

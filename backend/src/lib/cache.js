@@ -9,7 +9,7 @@
  * and `delete()` on revoke keeps revocations visible well inside the 30s the
  * Success Criteria allow.
  *
- * In-process and per-instance by design — with one Railway instance that is
+ * In-process and per-instance by design — with one Render instance that is
  * sufficient, and it removes Redis from the MVP. If the API is ever scaled
  * horizontally, a stale read can persist for at most `ttlMs`.
  */

@@ -56,7 +56,7 @@ explaining:
 | `SUPABASE_SERVICE_KEY` | Bypasses RLS. Server-side only, never to the browser                                                                              |
 | `SUPABASE_ANON_KEY`    | Public key, for the RLS-bound client                                                                                              |
 | `SUPABASE_JWT_SECRET`  | **Leave empty** unless the project uses legacy HS256 signing. Empty means tokens are verified against the project's JWKS endpoint |
-| `PRIVATE_KEY`          | Platform relayer wallet with `ISSUER_ROLE`. Railway env vars only (NFR-SEC-01, T-03)                                              |
+| `PRIVATE_KEY`          | Platform relayer wallet with `ISSUER_ROLE`. Render env vars only (NFR-SEC-01, T-03)                                               |
 | `CHAIN_ID`             | `80002` Amoy · `137` mainnet. Checked against the RPC's reported chain ID so a testnet key cannot accidentally sign on mainnet    |
 
 ## Database

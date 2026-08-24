@@ -1,14 +1,17 @@
 <script setup lang="ts">
 /**
- * Where an invited issuer lands.
+ * Landing page for any auth link that carries a session in its URL.
  *
- * The admin never chooses a password (see the invite route in
- * backend/src/routes/admin.js) — Supabase emails a one-time link, and clicking
- * it drops a short-lived
- * session in the URL. supabase-js picks that up automatically; this page turns
- * it into a permanent credential the invitee has chosen themselves.
+ * supabase-js picks the session up automatically; this page turns it into a
+ * permanent credential the account owner has chosen themselves.
  *
- * Also serves a password reset, which arrives the same way.
+ * NOT the primary path any more, and deliberately so. Issuer invites
+ * (backend/src/routes/admin.js) and password resets both go through
+ * /auth/forgot-password, which confirms with a typed code instead — a code
+ * survives being opened on a different device and being fetched by a mail
+ * scanner, neither of which a one-time link does. This page remains for links
+ * that do still arrive, and hands anyone whose link came in dead over to the
+ * code flow.
  */
 definePageMeta({ layout: false })
 
@@ -87,8 +90,8 @@ async function onSubmit() {
         Reaching this state is common, not exceptional: a recovery link opened
         on a different device than the one that requested it cannot carry a
         session, and mail scanners routinely burn one-time links before a human
-        clicks. So this offers a fresh link rather than dead-ending on "ask your
-        administrator".
+        clicks. So this offers the code-based reset rather than dead-ending on
+        "ask your administrator".
       -->
       <template v-else-if="!hasSession">
         <h1 class="text-lg font-medium text-gray-900 text-center">
@@ -97,15 +100,15 @@ async function onSubmit() {
         <p class="text-sm text-gray-500 text-center mt-2">
           These links work only once, and only in the browser that requested
           them — opening one on a different device, or after a mail scanner has
-          followed it, lands here. Request a new one from this browser and open
-          it here.
+          followed it, lands here. Resetting with an emailed code works from
+          anywhere.
         </p>
         <UButton
           to="/auth/forgot-password"
           class="w-full justify-center mt-6"
           color="primary"
         >
-          Send me a new link
+          Reset with a code instead
         </UButton>
         <UButton to="/login" class="w-full justify-center mt-2" color="neutral" variant="ghost">
           Back to sign in

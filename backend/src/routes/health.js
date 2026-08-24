@@ -1,5 +1,5 @@
 /**
- * Liveness and readiness. Public and unthrottled — Railway's healthcheck polls
+ * Liveness and readiness. Public and unthrottled — Render's healthcheck polls
  * it continuously, so it must never be rate limited or require auth.
  */
 import { Router } from 'express';

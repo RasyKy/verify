@@ -1,0 +1,67 @@
+# Render blueprint for the Verify API.
+#
+# Only the backend lives here — the Nuxt frontend is deployed on Vercel with
+# Root Directory `frontend` (see docs/deployment.md).
+#
+# Every secret is declared `sync: false`, which means Render prompts for it in
+# the dashboard and never reads it from this file. Nothing in this repo should
+# ever carry a service key or a relayer private key (NFR-SEC-01, T-03).
+services:
+  - type: web
+    name: verify-api
+    runtime: node
+    plan: starter
+    rootDir: backend
+    buildCommand: npm ci
+    startCommand: npm start
+    # Mounted before the rate limiter in src/app.js, so probes are never
+    # throttled into a false unhealthy.
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Render injects PORT; src/config/env.js coerces it. Do not pin it.
+
+      # The deployed Vercel origin. src/config/env.js REFUSES TO BOOT if this
+      # is localhost or non-https in production — that default is what builds
+      # claim links and certificate QR payloads.
+      - key: FRONTEND_URL
+        sync: false
+
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+
+      # Polygon Amoy. blockchain/deployments/amoy.json is the source of truth
+      # for CONTRACT_ADDRESS; mainnet is gated on docs/stride-checklist.md.
+      - key: ALCHEMY_RPC_URL
+        sync: false
+      - key: PRIVATE_KEY
+        sync: false
+      - key: CONTRACT_ADDRESS
+        sync: false
+      - key: CHAIN_ID
+        value: "80002"
+
+      # One transport is required in production: SMTP_USER + SMTP_PASSWORD, or
+      # RESEND_API_KEY. See src/config/env.js resolveEmailTransport().
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: MAIL_FROM_NAME
+        value: Verify
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_EMAIL
+        sync: false
+
+      - key: SENTRY_DSN
+        sync: false
+      - key: LOG_LEVEL
+        value: info
