@@ -1,5 +1,6 @@
 /**
- * Transactional email (Resend, or SMTP — see "Two transports" below).
+ * Transactional email (Brevo's HTTP API, raw SMTP, or Resend — see "Three
+ * transports" below).
  *
  * Only one message matters right now: the claim link that turns an issued
  * certificate into an account the student controls (FR-CLAIM-01).
@@ -17,14 +18,18 @@
  * claim URL, so the claim flow stays testable locally without sending real mail
  * to the seeded @example.com addresses.
  *
- * ── Two transports, one interface ──
+ * ── Three transports, one interface ──
  * Resend needs a verified sending domain; without one its shared sender
  * delivers only to the Resend account owner's own address, so no real recipient
- * can be tested. SMTP against a Gmail app password (SMTP_USER + SMTP_PASSWORD)
- * is the way around that with no domain: the mail is genuinely sent by Gmail,
- * so it aligns and reaches anyone. `env.emailTransport` picks between them and
- * `smtpAdapter` makes the SMTP side speak the Resend SDK's shape, so
- * everything below this line is provider-agnostic.
+ * can be tested. SMTP against Brevo's relay (SMTP_USER + SMTP_PASSWORD) was the
+ * way around that — until we hit a PaaS-specific failure mode: outbound SMTP
+ * ports (25/465/587) are commonly blocked below a paid hosting tier (Render
+ * included), so the connection just times out in production while working fine
+ * locally. Brevo's HTTP API (BREVO_API_KEY) sends the same mail over port 443
+ * like any other web request, so it isn't subject to that class of failure.
+ * `env.emailTransport` picks between the three and `brevoAdapter`/`smtpAdapter`
+ * make their side speak the Resend SDK's shape, so everything below this line
+ * is provider-agnostic.
  *
  * ── The Resend SDK does not throw ──
  *
@@ -106,6 +111,66 @@ export function smtpAdapter(transporter = createTransporter()) {
   };
 }
 
+/** Splits "Display Name <email@x.com>" into Brevo's `{ name, email }` shape. */
+function parseFrom(from) {
+  const match = from.match(/^(.*)<(.+)>$/);
+  if (!match) return { email: from.trim() };
+  return { name: match[1].trim().replace(/^"|"$/g, ''), email: match[2].trim() };
+}
+
+/**
+ * Brevo's transactional-email HTTP API wearing the Resend SDK's interface.
+ *
+ * See the module header for why this exists over Brevo's own SMTP relay:
+ * outbound SMTP ports are blocked on Render below a paid tier, so the relay
+ * connection times out in production. This runs over plain HTTPS instead.
+ */
+export function brevoAdapter() {
+  return {
+    emails: {
+      async send({ from, to, subject, html }) {
+        try {
+          const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+            method: 'POST',
+            headers: {
+              'api-key': env.BREVO_API_KEY,
+              'content-type': 'application/json',
+              accept: 'application/json',
+            },
+            body: JSON.stringify({
+              sender: parseFrom(from),
+              to: [{ email: to }],
+              subject,
+              htmlContent: html,
+            }),
+          });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            return {
+              data: null,
+              error: {
+                name: body.code ?? 'brevo_error',
+                statusCode: res.status,
+                message: body.message ?? res.statusText,
+              },
+            };
+          }
+          return { data: { id: body.messageId }, error: null };
+        } catch (err) {
+          return {
+            data: null,
+            error: {
+              name: err.code ?? 'brevo_network_error',
+              statusCode: 0,
+              message: err.message,
+            },
+          };
+        }
+      },
+    },
+  };
+}
+
 let client;
 function getClient() {
   // `sendExpiryReminderEmail` calls this from a default parameter, which
@@ -116,9 +181,11 @@ function getClient() {
   if (!env.emailTransport)
     return { emails: { send: () => Promise.resolve({}) } };
   client ??=
-    env.emailTransport === 'smtp'
-      ? smtpAdapter()
-      : new Resend(env.RESEND_API_KEY);
+    env.emailTransport === 'brevo'
+      ? brevoAdapter()
+      : env.emailTransport === 'smtp'
+        ? smtpAdapter()
+        : new Resend(env.RESEND_API_KEY);
   return client;
 }
 

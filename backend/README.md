@@ -139,10 +139,11 @@ locally.
 
 ### Choosing a transport
 
-`services/email.js` sends through one of two providers, chosen by which
-variables are set. SMTP wins when `SMTP_USER` and `SMTP_PASSWORD` are both
-present; otherwise Resend, if `RESEND_API_KEY` is set; otherwise email is off
-and claim links are logged. Production refuses to boot without one of them.
+`services/email.js` sends through one of three providers, chosen by which
+variables are set. Brevo's HTTP API wins when `BREVO_API_KEY` is set;
+otherwise SMTP wins when `SMTP_USER` and `SMTP_PASSWORD` are both present;
+otherwise Resend, if `RESEND_API_KEY` is set; otherwise email is off and claim
+links are logged. Production refuses to boot without one of them.
 
 **Resend needs a verified sending domain.** Without one the only usable sender
 is the shared `onboarding@resend.dev`, and that delivers _only_ to the Resend
@@ -152,15 +153,26 @@ provider errors by design, this looks like silence rather than failure: the
 certificate issues, `claim_email_sent` is `false`, and the rejection appears
 only in the log line `claim email rejected by provider`.
 
-**SMTP is the way around that with no domain.** Authenticating against an SMTP
-relay with its own credentials sends as that relay's verified sender, so any
-recipient receives the mail. Currently configured against
+**SMTP is the way around that with no domain — except on Render.** Authenticating
+against an SMTP relay with its own credentials sends as that relay's verified
+sender, so any recipient receives the mail. Configured against
 [Brevo](https://app.brevo.com) (`smtp-relay.brevo.com:587`) — `SMTP_USER` +
 `SMTP_PASSWORD` are the Brevo SMTP login/key, and `SMTP_FROM_EMAIL` is a sender
 verified in Brevo's dashboard (**Senders, Domains & Dedicated IPs → Senders**).
 `smtpAdapter` wraps nodemailer in the Resend SDK's
-`{ emails: { send } } → { data, error }` shape, so both senders stay
-provider-agnostic and one set of error handling covers both.
+`{ emails: { send } } → { data, error }` shape, so all three transports stay
+provider-agnostic and one set of error handling covers them. **This transport
+does not work on Render below a paid tier** — outbound traffic to SMTP ports
+(25/465/587) is blocked platform-side, so every send times out (`ETIMEDOUT`)
+even with correct credentials. Fine for local dev; not for this deployment.
+
+**Brevo's HTTP API (`BREVO_API_KEY`) is what actually works in production.**
+Same Brevo account, same verified sender (`SMTP_FROM_EMAIL`), but the request
+goes out over plain HTTPS to `api.brevo.com` instead of opening a raw SMTP
+socket — not subject to the port block above. Get the key from Brevo's
+dashboard: **SMTP & API → API Keys tab** (a different credential than the SMTP
+password — don't reuse `SMTP_PASSWORD` here). `brevoAdapter` wraps `fetch`
+in the same `{ emails: { send } } → { data, error }` shape as the others.
 
 A Gmail app password also still works as a fallback (`SMTP_HOST` defaults to
 `smtp.gmail.com`): [enable 2-Step
@@ -177,6 +189,8 @@ path and reports success for mail the provider rejected outright.
 do the same. nodemailer has the opposite convention — it throws, and it also
 _resolves_ for a per-recipient refusal — so `smtpAdapter` translates both into
 the same `error` object rather than letting either be read as a delivery.
+`brevoAdapter` does the equivalent for `fetch`: a non-2xx response and a thrown
+network error both become `{ data: null, error }`, never a silent success.
 
 ## Auth email templates
 

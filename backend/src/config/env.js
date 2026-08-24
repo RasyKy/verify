@@ -51,6 +51,14 @@ const schema = z.object({
   RESEND_API_KEY: z.string().min(1).optional(),
   RESEND_FROM_EMAIL: z.string().min(1).default('Verify <noreply@verify.app>'),
 
+  // ── Brevo HTTP API — the transport actually used in production ──
+  // Brevo's SMTP relay times out on Render below a paid tier (outbound SMTP
+  // ports 25/465/587 are blocked platform-side — see services/email.js). The
+  // HTTP API sends the same mail over plain HTTPS, so it isn't affected.
+  // From "SMTP & API" in the Brevo dashboard → API Keys tab — NOT the SMTP
+  // password used below, that's a different credential.
+  BREVO_API_KEY: z.string().min(1).optional(),
+
   // ── SMTP (Brevo, or any other relay) — the no-domain-hassle alternative to
   // Resend's default sender ──
   // Resend's shared sender only delivers to the Resend account owner's own
@@ -110,12 +118,15 @@ const PRODUCTION_REQUIRED = [
 ];
 
 /**
- * Which transport `services/email.js` sends through. SMTP wins when its
- * credentials are present, so switching to it is purely additive to .env —
- * nothing has to be deleted, and reverting to Resend is a matter of removing
- * two lines. Returns null when neither is configured, which disables email.
+ * Which transport `services/email.js` sends through. Brevo's HTTP API wins
+ * when configured — it's the one that actually works in production, since
+ * raw SMTP is blocked outbound on Render below a paid tier. SMTP is next
+ * (works locally, or on hosts that don't block it), then Resend. Purely
+ * additive to .env either way — nothing has to be deleted to switch. Returns
+ * null when none are configured, which disables email.
  */
 function resolveEmailTransport(parsed) {
+  if (parsed.BREVO_API_KEY) return 'brevo';
   if (parsed.SMTP_USER && parsed.SMTP_PASSWORD) return 'smtp';
   if (parsed.RESEND_API_KEY) return 'resend';
   return null;
@@ -260,16 +271,18 @@ function load(source = process.env) {
     isTest: parsed.NODE_ENV === 'test',
     blockchainEnabled,
     emailEnabled,
-    /** 'smtp' | 'resend' | null — see resolveEmailTransport. */
+    /** 'brevo' | 'smtp' | 'resend' | null — see resolveEmailTransport. */
     emailTransport,
     /**
-     * The From header every outbound message uses. Under SMTP this is
+     * The From header every outbound message uses. Under Brevo/SMTP this is
      * SMTP_FROM_EMAIL when set, falling back to SMTP_USER — the old
      * Gmail-only behavior, kept as the default since Gmail rewrites any From
      * address that isn't a verified "send mail as" alias back to the login.
+     * Brevo's HTTP API reuses the same var since it's the same verified
+     * sender identity, just a different delivery mechanism.
      */
     mailFrom:
-      emailTransport === 'smtp'
+      emailTransport === 'brevo' || emailTransport === 'smtp'
         ? `${parsed.MAIL_FROM_NAME} <${parsed.SMTP_FROM_EMAIL || parsed.SMTP_USER}>`
         : parsed.RESEND_FROM_EMAIL,
     warnings,
