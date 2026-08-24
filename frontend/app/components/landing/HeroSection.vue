@@ -64,6 +64,7 @@ onMounted(() => {
   >
     <!-- ── Depth layers. Purely decorative: no text a reader would miss. ── -->
     <div class="depth" aria-hidden="true">
+      <div class="foliage" />
       <div class="glow" />
       <div class="card-float card-float--back">
         <div class="cf-line cf-line--sm" />
@@ -198,6 +199,43 @@ onMounted(() => {
   z-index: 1;
   transform-style: preserve-3d;
   pointer-events: none;
+}
+
+/*
+ * Botanical wash across the top of the hero.
+ *
+ * The art is a portrait frame with foliage in the corners, so only its top
+ * band is used — cropped to 1920x560 and re-encoded from a 2.4MB PNG to a
+ * 30KB WebP (bg-hero.webp). A `cover` fit of the whole portrait would centre
+ * on the misty middle and show no leaves at all on a wide screen.
+ *
+ * The mask is what makes it usable behind centred text: the image is fully
+ * present at the very top and gone by 78%, so the headline sits on plain
+ * canvas and never loses contrast. Everything here is decorative — the layer
+ * is inside `.depth`, which is already aria-hidden.
+ */
+.foliage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 560px;
+  background-image: url('/bg-hero.webp');
+  background-repeat: no-repeat;
+  background-position: top center;
+  background-size: cover;
+  opacity: 0.55;
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, rgba(0, 0, 0, 0.55) 42%, transparent 78%);
+  mask-image: linear-gradient(to bottom, #000 0%, rgba(0, 0, 0, 0.55) 42%, transparent 78%);
+}
+
+/* Half the pixels for the width that will never display the large one. */
+@media (max-width: 960px) {
+  .foliage {
+    height: 380px;
+    background-image: url('/bg-hero-sm.webp');
+    opacity: 0.42;
+  }
 }
 
 .glow {

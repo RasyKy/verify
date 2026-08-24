@@ -104,7 +104,8 @@ throws at *build* time without the first two:
 
 ```
 cd backend
-SUPABASE_ACCESS_TOKEN=sbp_… npm run auth:templates          # report only
+npm run auth:templates:preview                              # look at the design, no network
+SUPABASE_ACCESS_TOKEN=sbp_… npm run auth:templates          # report what the project has
 SUPABASE_ACCESS_TOKEN=sbp_… npm run auth:templates -- --write
 ```
 
@@ -112,6 +113,18 @@ Templates are project settings and do not travel with the repo, so a fresh
 project starts broken. The reset, magic-link and confirmation mails must render
 `{{ .Token }}`; the stock templates carry only a link, which leaves the code
 inputs on `/auth/forgot-password` and `/claim/:token` with nothing to accept.
+
+The templates carry a `<!--verify-email:vN-->` marker and the script compares
+against it, so a design change is a version bump in
+`scripts/set-auth-email-templates.js` plus a re-run — not a one-shot that can
+never be updated once a project has *some* code-bearing template.
+
+Until that has been run, the code exists and is valid but no email carries it,
+so the reset and claim flows cannot be tested at all. For local work,
+`npm run auth:otp -- someone@example.com` prints the code Supabase would have
+sent, using the service key rather than a management token. It mints a fresh
+code and supersedes any outstanding one, and it is a development tool only —
+the fix for a deployed project is the templates.
 
 **Authentication → Sign In / Providers → Email → Email OTP Length** must be
 **8**, matching `OTP_LENGTH` in `frontend/app/composables/useOtp.ts`. A mismatch

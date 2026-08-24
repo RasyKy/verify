@@ -210,9 +210,26 @@ const steps = [
 }
 
 /* ── Portal mock ── */
+/*
+ * The watercolour piece is used whole here rather than cropped, because it was
+ * drawn as a portrait frame with an empty card in the middle — which is
+ * exactly the shape of the mock it sits behind. Cropping it to a band, the way
+ * the hero and CTA art is handled, would throw away the only thing that makes
+ * it fit.
+ *
+ * Padding on the wrapper is what reveals the frame: the card is inset far
+ * enough for the painted border to show around all four edges.
+ */
 .holders-visual {
   display: flex;
   justify-content: center;
+  align-items: center;
+  padding: 34px 30px;
+  border-radius: var(--radius-panel);
+  background-color: #23443F;
+  background-image: url('/bg-holders.webp');
+  background-size: cover;
+  background-position: center;
 }
 
 .portal-card {
@@ -221,7 +238,9 @@ const steps = [
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-panel);
-  box-shadow: var(--shadow-panel);
+  /* Deeper than --shadow-panel: the card now floats on a dark ground, where
+     the flat-on-white shadow reads as nothing at all. */
+  box-shadow: 0 18px 44px -18px rgba(4, 26, 19, 0.55);
   padding: 22px;
 }
 
@@ -364,6 +383,8 @@ const steps = [
   /* Copy first: the mock illustrates the steps, so it should follow them. */
   .holders-visual {
     order: 2;
+    padding: 22px 18px;
+    background-image: url('/bg-holders-sm.webp');
   }
 
   .section-headline {
