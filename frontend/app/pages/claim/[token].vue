@@ -193,8 +193,6 @@ const password = ref('')
 const confirmPassword = ref('')
 const passwordError = ref('')
 const passwordSubmitting = ref(false)
-const forgotPasswordSending = ref(false)
-const forgotPasswordSent = ref(false)
 
 watch(viewState, async (state) => {
   const p = preview.value
@@ -268,16 +266,20 @@ async function onSignIn() {
   }
 }
 
-async function onForgotPassword() {
+/*
+ * Hand off to the code-based reset rather than sending the mail from here.
+ *
+ * The previous version called `resetPasswordForEmail(p.email)` with no
+ * `redirectTo`, so Supabase fell back to the project's Site URL — which is how
+ * a production reset ended up pointing at localhost. It also had nowhere to
+ * type the code the recovery template actually sends (see
+ * backend/scripts/set-auth-email-templates.js), so it dead-ended either way.
+ * /auth/forgot-password prefills from `?email=` and owns the whole flow.
+ */
+function onForgotPassword() {
   const p = preview.value
-  if (!p || forgotPasswordSending.value) return
-  forgotPasswordSending.value = true
-  try {
-    await supabase.auth.resetPasswordForEmail(p.email)
-    forgotPasswordSent.value = true
-  } finally {
-    forgotPasswordSending.value = false
-  }
+  if (!p) return
+  return navigateTo(`/auth/forgot-password?email=${encodeURIComponent(p.email)}`)
 }
 
 // useResendCountdown() clears its own interval on unmount.
@@ -525,12 +527,9 @@ onUnmounted(() => {
               Sign in and claim
             </UButton>
             <p class="text-center text-xs">
-              <span v-if="forgotPasswordSent" class="text-gray-400">Password reset email sent.</span>
               <button
-                v-else
                 type="button"
-                class="text-teal-600 hover:underline disabled:text-gray-300"
-                :disabled="forgotPasswordSending"
+                class="text-teal-600 hover:underline"
                 @click="onForgotPassword"
               >
                 Forgot password?

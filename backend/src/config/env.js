@@ -159,6 +159,46 @@ function load(source = process.env) {
           missing.map((k) => `  • ${k}`).join('\n')
       );
     }
+
+    /*
+     * FRONTEND_URL defaults to http://localhost:3000, and that default is not
+     * inert: it becomes `publicAppUrl`, which builds the claim links we email
+     * to students and the QR payload printed on certificates. A production
+     * deploy that forgets the variable therefore boots perfectly happily and
+     * mails out links to a machine the recipient does not have — while CORS
+     * simultaneously rejects the real frontend. Both failures are silent and
+     * only surface in someone else's inbox, so refuse to start instead.
+     */
+    const badOrigins = parsed.FRONTEND_URL.split(',')
+      .map((o) => o.trim())
+      .filter(Boolean)
+      .map((origin) => {
+        let url;
+        try {
+          url = new URL(origin);
+        } catch {
+          return `${origin} — not a valid absolute URL`;
+        }
+        if (
+          /^(localhost|127\.0\.0\.1|\[::1\]|0\.0\.0\.0)$/.test(url.hostname)
+        ) {
+          return `${origin} — points at this machine, not the deployed frontend`;
+        }
+        if (url.protocol !== 'https:') {
+          return `${origin} — must be https in production`;
+        }
+        return null;
+      })
+      .filter(Boolean);
+
+    if (badOrigins.length) {
+      throw new Error(
+        `FRONTEND_URL is not usable in production:\n` +
+          badOrigins.map((m) => `  • ${m}`).join('\n') +
+          `\n\nSet it to the deployed frontend origin (comma-separate to allow ` +
+          `more than one), e.g. FRONTEND_URL=https://verify.example.com`
+      );
+    }
   }
 
   const blockchainEnabled = Boolean(

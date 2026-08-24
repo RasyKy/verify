@@ -235,11 +235,21 @@ export interface NewIssuer {
 }
 
 /**
- * Creates the account and sends a Supabase invite. There is no self-signup for
+ * Creates the account and emails an invitation. There is no self-signup for
  * issuers by design, so this is the only way one comes into being.
+ *
+ * The invite is sent by our own mailer (backend/src/services/email.js), not by
+ * Supabase, and it links to the ordinary code-based reset page rather than
+ * carrying a one-time token — so a mail scanner following it burns nothing.
+ * `inviteEmailSent` is false when the backend has no email transport
+ * configured; the account still exists and "Forgot password" reaches the same
+ * page, so the UI has to say so rather than claim mail went out.
  */
 export function inviteIssuer(body: NewIssuer) {
-  return useApi()<AdminUser>('/api/admin/users', { method: 'POST', body })
+  return useApi()<AdminUser & { inviteEmailSent: boolean }>(
+    '/api/admin/users',
+    { method: 'POST', body },
+  )
 }
 
 /** Partial update — only the keys passed are written. */

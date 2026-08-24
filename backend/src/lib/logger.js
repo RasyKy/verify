@@ -111,7 +111,7 @@ const devFormat = winston.format.combine(
   })
 );
 
-// Structured JSON in production so Railway/Sentry can parse it.
+// Structured JSON in production so Render/Sentry can parse it.
 const prodFormat = winston.format.combine(
   redactFormat(),
   winston.format.timestamp(),

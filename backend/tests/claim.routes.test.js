@@ -322,7 +322,9 @@ describe('POST /api/claim/:token/confirm', () => {
   });
 
   it('links the cert without inserting a duplicate profile when a holder profile already exists', async () => {
-    const db = liveTokenDb({ profiles: { id: USER_ID, role: 'holder', status: 'active' } });
+    const db = liveTokenDb({
+      profiles: { id: USER_ID, role: 'holder', status: 'active' },
+    });
     const res = await request(makeApp({ adminClient: db })).post(
       '/api/claim/some-token/confirm'
     );
@@ -360,7 +362,9 @@ describe('POST /api/claim/:token/confirm', () => {
   });
 
   it('403s when the account already exists with a non-holder role', async () => {
-    const db = liveTokenDb({ profiles: { id: USER_ID, role: 'issuer', status: 'active' } });
+    const db = liveTokenDb({
+      profiles: { id: USER_ID, role: 'issuer', status: 'active' },
+    });
     const res = await request(makeApp({ adminClient: db })).post(
       '/api/claim/some-token/confirm'
     );

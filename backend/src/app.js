@@ -28,7 +28,7 @@ export function createApp() {
   const app = express();
 
   /**
-   * Railway terminates TLS at its edge, so the client IP arrives in
+   * Render terminates TLS at its edge, so the client IP arrives in
    * X-Forwarded-For. The hop COUNT is required here — `true` would trust the
    * whole chain, letting a client spoof the header and defeat rate limiting,
    * and express-rate-limit v8 rejects it outright with
@@ -73,7 +73,7 @@ export function createApp() {
 
   app.use(requestLogger);
 
-  // Health is mounted before the limiter so Railway's probe is never throttled.
+  // Health is mounted before the limiter so Render's probe is never throttled.
   app.use('/api', healthRouter);
 
   app.use('/api', apiLimiter);

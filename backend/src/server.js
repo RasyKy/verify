@@ -47,7 +47,7 @@ const expiryTask = cron.schedule(
 );
 
 /**
- * Railway sends SIGTERM on redeploy. Draining in-flight requests matters here:
+ * Render sends SIGTERM on redeploy. Draining in-flight requests matters here:
  * an issuance that has submitted a transaction but not yet written the receipt
  * would otherwise leave a row stranded as `pending`.
  */

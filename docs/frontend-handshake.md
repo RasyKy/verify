@@ -85,7 +85,7 @@ export default defineNuxtConfig({
 })
 ```
 
-Add `NUXT_PUBLIC_API_BASE` to `frontend/.env` (pointing at the Railway URL in
+Add `NUXT_PUBLIC_API_BASE` to `frontend/.env` (pointing at the Render backend URL in
 production). Note `frontend/.env` does not exist yet and `@nuxtjs/supabase`
 will not boot without it:
 

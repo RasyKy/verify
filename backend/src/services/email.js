@@ -127,6 +127,22 @@ export function buildClaimUrl(token) {
   return `${env.publicAppUrl}/claim/${token}`;
 }
 
+/**
+ * Where a newly invited issuer goes to set their first password.
+ *
+ * Deliberately carries no secret. `POST /admin/users` creates the account with
+ * a throwaway random password that is never shown to anyone, so the invitee's
+ * way in is the ordinary reset flow — and that flow is code-based, which means
+ * this link is safe for a corporate mail scanner to follow. A Supabase invite
+ * link would be a one-time token instead, and the scanner would burn it before
+ * the human ever clicked.
+ *
+ * `?email=` is read by the reset page's onMounted, so the address is prefilled.
+ */
+export function buildIssuerInviteUrl(email) {
+  return `${env.publicAppUrl}/auth/forgot-password?email=${encodeURIComponent(email)}`;
+}
+
 function claimEmailHtml({
   studentName,
   courseName,
@@ -188,6 +204,32 @@ function expiryReminderEmailHtml({
       <p style="font-size:12px;color:#6b7280;line-height:1.6">
         No action is needed if this expiry is expected. If you believe this is
         a mistake, contact the issuing institution directly.
+      </p>
+    </div>
+  `;
+}
+
+function issuerInviteEmailHtml({ fullName, organizationName, inviteUrl }) {
+  return `
+    <div style="font-family:system-ui,-apple-system,'Segoe UI',sans-serif;max-width:480px;margin:0 auto;color:#111827">
+      <h1 style="font-size:18px;font-weight:600">You've been added to Verify</h1>
+      <p style="font-size:14px;line-height:1.6;color:#374151">
+        Hi ${escapeHtml(fullName)},<br /><br />
+        ${escapeHtml(organizationName)} has given you an issuer account on Verify,
+        so you can issue and revoke certificates on their behalf.
+      </p>
+      <p style="font-size:14px;line-height:1.6;color:#374151">
+        Set your password to get started — we'll email you a code to confirm it's you.
+      </p>
+      <p style="margin:24px 0">
+        <a href="${inviteUrl}"
+           style="background:#0d9488;color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-size:14px;display:inline-block">
+          Set your password
+        </a>
+      </p>
+      <p style="font-size:12px;color:#6b7280;line-height:1.6">
+        If you were not expecting this, you can ignore this email — the account
+        cannot be used until a password is set.
       </p>
     </div>
   `;
@@ -304,6 +346,61 @@ export async function sendExpiryReminderEmail({
     return { sent: true };
   } catch (err) {
     logger.error('expiry reminder email failed to send', { err, to });
+    return { sent: false };
+  }
+}
+
+/**
+ * Invitation for an issuer created by `POST /admin/users`.
+ *
+ * Mirrors sendExpiryReminderEmail's shape and guarantees: gated on
+ * emailEnabled, never rejects, logs and swallows any send failure. The caller
+ * must not roll back a created account because mail failed — the invitee can
+ * always reach the same page through "Forgot password" on the login screen.
+ *
+ * `client`/`emailEnabled` are optional overrides purely for tests.
+ *
+ * @param {object} args
+ * @param {string} args.to
+ * @param {string} args.fullName
+ * @param {string} args.organizationName
+ * @returns {Promise<{ sent: boolean }>} never rejects
+ */
+export async function sendIssuerInviteEmail({
+  to,
+  fullName,
+  organizationName,
+  emailEnabled = env.emailEnabled,
+  client = getClient(),
+}) {
+  const inviteUrl = buildIssuerInviteUrl(to);
+
+  if (!emailEnabled) {
+    // Unlike the claim link this URL carries no token, so logging it is safe
+    // and it is the only way to complete an invite with email switched off.
+    logger.info('email disabled — issuer invite not sent', { to, inviteUrl });
+    return { sent: false };
+  }
+
+  try {
+    const { error } = await client.emails.send({
+      from: env.mailFrom,
+      to,
+      subject: `Set up your Verify issuer account for ${organizationName}`,
+      html: issuerInviteEmailHtml({ fullName, organizationName, inviteUrl }),
+    });
+    if (error) {
+      logger.error('issuer invite rejected by provider', {
+        to,
+        name: error.name,
+        statusCode: error.statusCode,
+        reason: error.message,
+      });
+      return { sent: false };
+    }
+    return { sent: true };
+  } catch (err) {
+    logger.error('issuer invite failed to send', { err, to });
     return { sent: false };
   }
 }

@@ -273,10 +273,35 @@ async function onSubmit() {
 }
 
 /* ── Brand panel ── */
+/*
+ * The watercolour art sits UNDER the brand gradient rather than replacing it.
+ *
+ * Layer order in the shorthand is front-to-back, so the gradient is listed
+ * first and the texture second. The gradient uses the same two greens it
+ * always did, just with alpha, which is what keeps the white headline at full
+ * contrast — the art only shows through as tone and the leaf shapes at the
+ * edges, and never lands raw behind text.
+ *
+ * `background-color` underneath is the fallback: if the WebP never arrives the
+ * panel is the flat deep green it was before, not a bare white column.
+ *
+ * The veil is thinner than it looks like it should be because the art is
+ * DARKER than the gradient exactly where the copy sits — sampled behind
+ * .brand-copy it is rgb(10,55,58), against the gradient's #0A5C52. Letting
+ * more of it through therefore raises contrast rather than lowering it:
+ * headline 8.4:1 and sub 5.3:1 here, versus 7.9:1 and 5.0:1 on the flat
+ * gradient this replaced. The pale leaf tips that would be a problem sit out
+ * at the panel edges, clear of any text.
+ */
 .auth-brand {
   position: relative;
   overflow: hidden;
-  background: var(--grad-deep);
+  background-color: #0A5C52;
+  background-image:
+    linear-gradient(135deg, rgba(10, 92, 82, 0.74) 0%, rgba(5, 53, 48, 0.84) 100%),
+    url('/bg-auth.webp');
+  background-size: cover, cover;
+  background-position: center, center;
   color: var(--rail-text);
   padding: 44px 56px;
   display: flex;

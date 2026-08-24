@@ -27,6 +27,10 @@ contracts/cache/
 # plus the dev password. Run the seed to get your own.
 backend/db/postman_environment.json
 
+# Rendered by `npm run auth:templates:preview` so an email design change can be
+# eyeballed without pushing it to a live Supabase project. Regenerated on demand.
+backend/.auth-email-preview.html
+
 # Local ledger for the in-memory blockchain stub (services/blockchain.js), used
 # until Verifier.sol is deployed. Machine-local dev state, like a database file.
 backend/.stub-chain.json
