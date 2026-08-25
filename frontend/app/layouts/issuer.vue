@@ -14,6 +14,7 @@ const certsRefreshKey = useState<number>('certs-refresh', () => 0)
 const nav = [
   { label: 'Dashboard', icon: 'i-heroicons-squares-2x2', to: '/issuer' },
   { label: 'Certificates', icon: 'i-heroicons-document-text', to: '/issuer/certificates' },
+  { label: 'Courses', icon: 'i-heroicons-academic-cap', to: '/issuer/courses' },
 ]
 
 async function logout() {

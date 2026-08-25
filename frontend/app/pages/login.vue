@@ -137,6 +137,7 @@ async function onGoogleClick() {
 // attempt just come back" has to be persisted (sessionStorage), not held in a
 // ref — an unrelated pre-existing session must never be mistaken for one.
 watch(supaUser, async (user) => {
+  if (import.meta.server) return
   if (!user || oauthHandled) return
   const armed = sessionStorage.getItem(oauthFlagKey)
   if (!armed) return

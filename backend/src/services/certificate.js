@@ -65,7 +65,8 @@ const CERT_SELECT = `
   claim_state, claimed_at,
   revoked_at, revoke_reason, is_hidden,
   created_at,
-  organizations ( name )
+  organizations ( name ),
+  courses ( badge_url )
 `;
 
 /**
@@ -708,6 +709,7 @@ export function createCertificateService({
         studentName: row.student_name,
         courseName: row.course_name,
         institutionName: row.organizations?.name ?? null,
+        badgeUrl: row.courses?.badge_url ?? null,
         completionDate: row.completion_date,
         expiryDate: row.expiry_date,
         certId: row.id,

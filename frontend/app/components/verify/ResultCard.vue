@@ -3,6 +3,7 @@ interface Certificate {
   studentName: string
   courseName: string
   institutionName: string
+  badgeUrl: string | null
   completionDate: string
   expiryDate: string | null
   certId: string
@@ -94,6 +95,14 @@ function formatTimestamp(ts: string) {
   <div v-else-if="result" class="bg-white border border-gray-200 rounded-lg p-8">
     <!-- Status icon + heading -->
     <div class="flex flex-col items-center text-center mb-6">
+      <img
+        v-if="result.certificate?.badgeUrl"
+        :src="result.certificate.badgeUrl"
+        alt=""
+        class="badge-image mb-3"
+        loading="lazy"
+        decoding="async"
+      />
       <div :class="['w-16 h-16 rounded-full flex items-center justify-center mb-4', statusConfig[result.status].iconClass]">
         <UIcon :name="statusConfig[result.status].icon" class="size-8" />
       </div>
@@ -148,3 +157,20 @@ function formatTimestamp(ts: string) {
     </p>
   </div>
 </template>
+
+<style scoped>
+.badge-image {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.16));
+  animation: badge-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes badge-pop {
+  from { opacity: 0; transform: scale(0.85) translateY(4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .badge-image { animation: none; }
+}
+</style>

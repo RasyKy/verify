@@ -1,130 +1,217 @@
+/* ============================================================
+   Verify - Design Tokens
+   Tailwind v4 CSS-first config.
+
+   Anything defined in @theme generates real utility classes.
+   That is the point: tokens must be reachable as `text-sm`,
+   `text-ink-500`, `gap-4`, `max-w-content` so that writing
+   scoped CSS is never the easier option.
+
+   Rule: if you are about to write a raw px value in a
+   <style> block, the value belongs here instead.
+   ============================================================ */
+
+@theme {
+  /* ---------- TYPE SCALE ----------
+     7 steps. Overrides Tailwind's defaults, so every existing
+     text-xs / text-sm / text-lg / text-2xl in the codebase
+     snaps onto this scale automatically.
+
+     Replaces the 26 raw font-size values currently in use.
+     Migration map for raw CSS being deleted:
+       9, 10, 11, 11.5, 12, 12.5px  -> text-xs
+       13, 13.5, 14px               -> text-sm
+       14.5, 15, 15.5, 16, 16.5px   -> text-base
+       17, 18px                     -> text-lg
+       20, 22, 23px                 -> text-xl
+       26, 27, 28, 30, 32px         -> text-2xl
+       36px+                        -> text-3xl / text-4xl
+  */
+  --text-xs: 0.75rem;      /* 12px - meta, table labels, chips */
+  --text-xs--line-height: 1.45;
+  --text-sm: 0.8125rem;    /* 13px - secondary body, table cells */
+  --text-sm--line-height: 1.5;
+  --text-base: 0.9375rem;  /* 15px - body text */
+  --text-base--line-height: 1.6;
+  --text-lg: 1.125rem;     /* 18px - card titles, lead paragraphs */
+  --text-lg--line-height: 1.45;
+  --text-xl: 1.375rem;     /* 22px - section headings */
+  --text-xl--line-height: 1.3;
+  --text-2xl: 1.75rem;     /* 28px - page titles, stat numerals */
+  --text-2xl--line-height: 1.2;
+  --text-3xl: 2.5rem;      /* 40px - hero / display only */
+  --text-3xl--line-height: 1.1;
+
+  /* ---------- WEIGHT ----------
+     3 weights only. Matches what the codebase already uses
+     (500 / 600 / 700). Do not introduce 400 for UI text or
+     800 for headings.
+  */
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* ---------- FAMILIES ---------- */
+  --font-display: "Bricolage Grotesque", ui-sans-serif, system-ui,
+    -apple-system, "Segoe UI", sans-serif;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, sans-serif;
+
+  /* ---------- BRAND ----------
+     Named `brand` rather than remapping Tailwind's teal.
+     The old --color-teal-* override is kept below for
+     backwards compatibility during migration only.
+  */
+  --color-brand-50: #eaf5f3;
+  --color-brand-100: #d5eae6;
+  --color-brand-200: #bddDd8;
+  --color-brand-300: #8fc7bf;
+  --color-brand-400: #5caaa0;
+  --color-brand-500: #328e81;
+  --color-brand-600: #0f7b6c;  /* primary action */
+  --color-brand-700: #0a5c52;  /* hover / pressed */
+  --color-brand-800: #084840;
+  --color-brand-900: #053530;
+  --color-brand-950: #02221e;
+
+  /* ---------- NEUTRALS ----------
+     Warm gray tuned to the existing #37352F ink color.
+     Overriding --color-gray-* means the 119 existing
+     text-gray-* / bg-gray-* usages immediately match the
+     var(--text-*) system instead of clashing with it.
+  */
+  --color-gray-50: #fafaf9;
+  --color-gray-100: #f5f4f2;
+  --color-gray-200: #e9e7e3;
+  --color-gray-300: #d6d3ce;
+  --color-gray-400: #a8a29b;
+  --color-gray-500: #78746d;
+  --color-gray-600: #57534e;
+  --color-gray-700: #44403b;
+  --color-gray-800: #37352f;
+  --color-gray-900: #292724;
+  --color-gray-950: #1a1917;
+
+  /* ---------- STATUS ----------
+     One source of truth for certificate state. Consumed by a
+     single StatusChip component - never re-declared inline.
+  */
+  --color-status-valid-bg: #e7f5ee;
+  --color-status-valid-fg: #12674a;
+  --color-status-revoked-bg: #fdeceb;
+  --color-status-revoked-fg: #a12a22;
+  --color-status-expired-bg: #f3f2f0;
+  --color-status-expired-fg: #57534e;
+  --color-status-unclaimed-bg: #fdf3e2;
+  --color-status-unclaimed-fg: #8a5a11;
+
+  /* ---------- SURFACES ---------- */
+  --color-canvas: #ffffff;
+  --color-canvas-app: #f6f7f6;
+  --color-surface: #ffffff;
+  --color-surface-hover: #fafaf9;
+
+  /* ---------- RADII ---------- */
+  --radius-card: 0.75rem;   /* 12px - cards, inputs, chips */
+  --radius-panel: 1rem;     /* 16px - dashboard panels, modals */
+  --radius-pill: 999px;     /* status chips only */
+
+  /* ---------- ELEVATION ----------
+     3 levels. Shadows are for lift, not decoration.
+  */
+  --shadow-card: 0 1px 2px rgb(41 39 36 / 0.04),
+    0 1px 3px rgb(41 39 36 / 0.06);
+  --shadow-card-hover: 0 2px 4px rgb(41 39 36 / 0.05),
+    0 6px 16px rgb(41 39 36 / 0.08);
+  --shadow-overlay: 0 12px 32px rgb(41 39 36 / 0.16);
+
+  /* ---------- CONTAINERS ----------
+     3 widths, replacing the 37 distinct max-width values.
+     Use as max-w-prose / max-w-content / max-w-wide.
+  */
+  --container-prose: 44rem;    /* 704px - legal, auth, single forms */
+  --container-content: 60rem;  /* 960px - portal pages, cert pages */
+  --container-wide: 70rem;     /* 1120px - landing, public profile */
+
+  /* ---------- MOTION ---------- */
+  --transition-fast: 150ms;
+  --transition-base: 220ms;
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* ============================================================
+   SEMANTIC ALIASES
+   Plain custom properties (not @theme) for the handful of
+   places that still need var() rather than a utility class.
+   These now resolve to the same values as the utilities,
+   so the two systems can no longer diverge.
+   ============================================================ */
+
 :root {
-  /* Canvas & surfaces */
-  --canvas:        #FFFFFF;
-  --surface:       #FFFFFF;
-  --surface-hover: #F7F7F5;
+  --text-primary: var(--color-gray-800);
+  --text-secondary: var(--color-gray-500);
+  --text-tertiary: var(--color-gray-400);
 
-  /* Borders */
-  --border:        #E9E9E7;
-  --border-strong: #D3D1CE;
+  --border: var(--color-gray-200);
+  --border-strong: var(--color-gray-300);
 
-  /* Text */
-  --text-primary:   #37352F;
-  --text-secondary: #787774;
-  --text-tertiary:  #AEACAA;
+  --accent: var(--color-brand-600);
+  --accent-hover: var(--color-brand-700);
+  --accent-light: var(--color-brand-50);
+  --accent-text: #ffffff;
 
-  /* Accent — sophisticated dark forest green */
-  --accent:       #0F7B6C;
-  --accent-light: #EAF5F3;
-  --accent-text:  #0A5C52;
+  --surface: var(--color-surface);
+  --surface-hover: var(--color-surface-hover);
+  --canvas: var(--color-canvas);
+  --canvas-app: var(--color-canvas-app);
 
-  /* Pastel tints — chip backgrounds + narrow card washes only, never text/borders/buttons */
-  --tint-green:        #EAF5F3;
-  --tint-green-icon:   #0F7B6C;
-  --tint-blue:         #E8EEF9;
-  --tint-blue-icon:    #4A72BF;
-  --tint-amber:        #FDF3DC;
-  --tint-amber-icon:   #B58A2E;
-  --tint-violet:       #EDE8F9;
-  --tint-violet-icon:  #7C5CB8;
-
-  /*
-   * Remap Tailwind's teal scale to our dark green.
-   * UButton color="primary" (teal), bg-teal-* classes, and text-teal-*
-   * all automatically pick up these overrides — no per-component work needed.
-   */
-  --color-teal-50:  #EAF5F3;
-  --color-teal-100: #D5EAE6;
-  --color-teal-200: #BDDDD8;
-  --color-teal-300: #8FC7BF;
-  --color-teal-400: #5CAAA0;
-  --color-teal-500: #328E81;
-  --color-teal-600: #0F7B6C;
-  --color-teal-700: #0A5C52;
-  --color-teal-800: #084840;
-  --color-teal-900: #053530;
-  --color-teal-950: #02221E;
-
-  /* Status pill colors */
-  --status-valid-bg:        #ECFDF5;
-  --status-valid-text:      #065F46;
-  --status-revoked-bg:      #FEF2F2;
-  --status-revoked-text:    #991B1B;
-  --status-expired-bg:      #F3F4F6;
-  --status-expired-text:    #6B7280;
-  --status-unclaimed-bg:    #FFFBEB;
-  --status-unclaimed-text:  #92400E;
-
-  /* Elevation — warm-tinted (from --text-primary) rather than pure black */
-  --shadow-card:       0 1px 2px rgba(55, 53, 47, 0.06);
-  --shadow-card-hover: 0 8px 20px rgba(55, 53, 47, 0.10), 0 2px 6px rgba(55, 53, 47, 0.06);
-
-  /*
-   * Type. Bricolage Grotesque is a variable display face with real character
-   * in its heavier weights — it carries headings, wordmarks and the big
-   * numbers on the stat tiles. Body copy stays on the system stack, which
-   * costs no network round trip and reads better at small sizes.
-   */
-  --font-display: "Bricolage Grotesque", ui-sans-serif, system-ui, -apple-system,
-                  "Segoe UI", sans-serif;
-
-  /* Motion */
-  --transition-fast: 150ms ease-out;
-  --transition-base: 220ms ease-out;
-
-  /*
-   * ── Dashboard surface language ──
-   * Softer, larger radii and a tinted page ground, so panels read as cards
-   * floating on a canvas rather than boxes drawn on white.
-   */
-  --radius-card:  16px;
-  --radius-panel: 18px;
-  --canvas-app:   #F6F7F6;
-
-  --shadow-panel:       0 1px 2px rgba(55, 53, 47, 0.04), 0 8px 24px -12px rgba(55, 53, 47, 0.14);
-  --shadow-panel-hover: 0 2px 4px rgba(55, 53, 47, 0.05), 0 16px 34px -14px rgba(55, 53, 47, 0.20);
-  --shadow-tile:        0 10px 22px -12px rgba(10, 92, 82, 0.55);
-
-  /*
-   * Stat-tile gradients. Every one is a walk along the single brand green —
-   * value tiles differ by depth, not by hue — with red/amber reserved for the
-   * two states that genuinely need to read as "not fine".
-   */
-  --grad-brand:  linear-gradient(135deg, #0F7B6C 0%, #0A5C52 100%);
-  --grad-deep:   linear-gradient(135deg, #0A5C52 0%, #053530 100%);
-  --grad-fresh:  linear-gradient(135deg, #328E81 0%, #0F7B6C 100%);
-  --grad-mist:   linear-gradient(135deg, #5CAAA0 0%, #328E81 100%);
-  --grad-alert:  linear-gradient(135deg, #C2564C 0%, #91352D 100%);
-  --grad-amber:  linear-gradient(135deg, #C79A3F 0%, #966922 100%);
-  --grad-slate:  linear-gradient(135deg, #6E7B78 0%, #4A5654 100%);
-
-  /* Sidebar — a deep-green rail, the screenshot's anchor moved onto our green */
-  --rail-bg:          #08403A;
-  --rail-bg-soft:     #0A5C52;
-  --rail-text:        #D8E8E4;
-  --rail-text-strong: #FFFFFF;
-  --rail-text-dim:    #8FB5AE;
-  --rail-active-bg:   rgba(255, 255, 255, 0.12);
-  --rail-border:      rgba(255, 255, 255, 0.10);
+  /* DEPRECATED - migration shim only.
+     The old code remapped Tailwind's teal scale to the brand
+     green. Keep until every text-teal-* / bg-teal-* usage is
+     renamed to text-brand-* / bg-brand-*, then delete this
+     whole block. Current usage: 4 occurrences. */
+  --color-teal-50: var(--color-brand-50);
+  --color-teal-500: var(--color-brand-500);
+  --color-teal-600: var(--color-brand-600);
+  --color-teal-700: var(--color-brand-700);
 }
 
-@keyframes card-in {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: none; }
+/* ============================================================
+   BASE
+   ============================================================ */
+
+body {
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: 1.6;
+  color: var(--text-primary);
+  background: var(--canvas);
+  -webkit-font-smoothing: antialiased;
 }
 
-.card-in {
-  /* backwards (not both/forwards): holds the "from" state during the
-     staggered delay, but releases the element back to normal cascaded
-     styles once the animation ends — otherwise a held `transform: none`
-     from the animation's end state permanently outranks the :hover
-     translateY lift on the same element. */
-  animation: card-in var(--transition-base) backwards;
-  animation-delay: calc(var(--i, 0) * 40ms);
+/* Display face is opt-in via `font-display`, not applied by a
+   selector list of 15 class names. The old approach silently
+   restyled anything that happened to be an h3, which is why
+   headings drifted. */
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.022em;
+  font-optical-sizing: auto;
+}
+
+/* Focus is a system-level concern, defined once. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .card-in {
-    animation: none;
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

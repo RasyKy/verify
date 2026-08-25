@@ -85,6 +85,42 @@ export function useCourses() {
   return { courses: data, refresh }
 }
 
+/** A course with its badge, for the /issuer/courses management page. */
+export interface CourseWithBadge {
+  id: string
+  name: string
+  badgeUrl: string | null
+}
+
+/** The organization's courses, with badge info. Separate from useCourses()
+ *  so the typeahead's bare-string-array contract never has to change. */
+export function useCoursesFull() {
+  const api = useApi()
+  const { data, pending, refresh, error } = useAsyncData<CourseWithBadge[]>(
+    'issuer:courses:full',
+    () => api<CourseWithBadge[]>('/api/courses/full'),
+    { default: () => [] },
+  )
+  return { courses: data, pending, refresh, error }
+}
+
+/** Uploads (or replaces) a course's badge image. PNG/JPG only, 2MB max. */
+export function uploadCourseBadge(id: string, file: File) {
+  const body = new FormData()
+  body.append('badge', file)
+  return useApi()<CourseWithBadge>(`/api/courses/${id}/badge`, {
+    method: 'POST',
+    body,
+  })
+}
+
+/** Removes a course's badge image. */
+export function removeCourseBadge(id: string) {
+  return useApi()<CourseWithBadge>(`/api/courses/${id}/badge`, {
+    method: 'DELETE',
+  })
+}
+
 /**
  * Dashboard figures for a range. Refetches when `range` changes rather than
  * slicing a cached list client-side, because the chart series is zero-filled
