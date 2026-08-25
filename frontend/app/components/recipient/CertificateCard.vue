@@ -18,8 +18,9 @@ function formatDate(dateStr: string) {
 <template>
   <div class="cert-card p-5 rounded-xl flex flex-col gap-3">
     <div class="flex items-start justify-between gap-2">
-      <div class="badge-icon shrink-0">
-        <UIcon name="i-heroicons-academic-cap" class="size-5" />
+      <div class="badge-icon shrink-0" :class="{ 'badge-icon--image': cert.badge_url }">
+        <img v-if="cert.badge_url" :src="cert.badge_url" alt="" class="badge-image" loading="lazy" decoding="async" />
+        <UIcon v-else name="i-heroicons-academic-cap" class="size-5" />
       </div>
       <span class="text-xs font-medium px-2 py-0.5 rounded-full shrink-0" :style="statusConfig[cert.status].style">
         {{ statusConfig[cert.status].label }}
@@ -77,6 +78,22 @@ function formatDate(dateStr: string) {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+.badge-icon--image {
+  background: radial-gradient(circle, var(--accent-light) 0%, transparent 72%);
+  transition: transform var(--transition-base);
+}
+.cert-card:hover .badge-icon--image {
+  transform: scale(1.08);
+}
+.badge-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 999px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cert-card:hover .badge-icon--image { transform: none; }
 }
 .card-title { color: var(--text-primary); }
 .card-subtitle { color: var(--text-secondary); }

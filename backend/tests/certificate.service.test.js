@@ -235,6 +235,7 @@ describe('verify()', () => {
       expiry_date: null,
       revoked_at: null,
       organizations: { name: 'Royal Phnom Penh University' },
+      courses: { badge_url: null },
       ...overrides,
     };
     const hash = computeCertificateHash({
@@ -259,6 +260,22 @@ describe('verify()', () => {
     expect(result.certificate.studentName).toBe('Chea Sophat');
     expect(result.certificate.institutionName).toBe(
       'Royal Phnom Penh University'
+    );
+    expect(result.certificate.badgeUrl).toBeNull();
+  });
+
+  it('includes the course badge URL when the course has one', async () => {
+    const { row, hash, chain } = await genuine({
+      courses: {
+        badge_url: 'https://storage.example/course-badges/org-1/c1.png',
+      },
+    });
+    const db = fakeDb({ certificates: row, certificate_hashes: { hash } });
+
+    const result = await makeService({ db, chain }).verify({ certId: CERT_ID });
+
+    expect(result.certificate.badgeUrl).toBe(
+      'https://storage.example/course-badges/org-1/c1.png'
     );
   });
 

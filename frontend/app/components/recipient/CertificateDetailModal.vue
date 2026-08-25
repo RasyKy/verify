@@ -63,6 +63,10 @@ function formatTimestamp(dateStr: string) {
   <UModal :open="open" title="Certificate details" @update:open="emit('update:open', $event)">
     <template #body>
       <div v-if="cert" class="space-y-4">
+        <div v-if="cert.badge_url" class="badge-hero">
+          <img :src="cert.badge_url" alt="" class="badge-hero-image" loading="lazy" decoding="async" />
+        </div>
+
         <div class="grid grid-cols-2 gap-4">
           <div>
             <p class="text-xs mb-0.5 detail-label">Course</p>
@@ -197,6 +201,25 @@ function formatTimestamp(dateStr: string) {
   white-space: nowrap;
 }
 
+.badge-hero {
+  display: flex;
+  justify-content: center;
+  padding: 4px 0 2px;
+}
+.badge-hero-image {
+  width: 88px;
+  height: 88px;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.16));
+  animation: badge-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes badge-pop {
+  from { opacity: 0; transform: scale(0.85) translateY(4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .badge-hero-image { animation: none; }
+}
 .detail-label { color: var(--text-tertiary); }
 .detail-value { color: var(--text-primary); }
 .detail-divider { border-top: 1px solid var(--border); }
