@@ -5,12 +5,6 @@ import type { HolderCertificate } from '~/composables/useHolderCertificates'
 const props = defineProps<{ open: boolean; cert: HolderCertificate | null }>()
 const emit = defineEmits<{ 'update:open': [value: boolean] }>()
 
-const statusConfig: Record<'valid' | 'revoked' | 'expired', { label: string; style: string }> = {
-  valid: { label: 'Valid', style: 'background: var(--status-valid-bg); color: var(--status-valid-text)' },
-  revoked: { label: 'Revoked', style: 'background: var(--status-revoked-bg); color: var(--status-revoked-text)' },
-  expired: { label: 'Expired', style: 'background: var(--status-expired-bg); color: var(--status-expired-text)' },
-}
-
 const copied = ref<'id' | 'url' | null>(null)
 let copyTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -78,9 +72,7 @@ function formatTimestamp(dateStr: string) {
           </div>
           <div>
             <p class="text-xs mb-0.5 detail-label">Status</p>
-            <span :style="statusConfig[cert.status].style" class="text-xs font-medium px-2 py-0.5 rounded-full">
-              {{ statusConfig[cert.status].label }}
-            </span>
+            <UiStatusChip :status="cert.status" />
           </div>
           <div>
             <p class="text-xs mb-0.5 detail-label">Completed</p>

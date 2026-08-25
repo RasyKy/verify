@@ -86,25 +86,49 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
 
 <template>
   <div>
-    <!-- Profile header -->
-    <div class="profile-header">
-      <div class="avatar">{{ initials }}</div>
-      <h1 class="profile-name">{{ displayName(me) }}</h1>
-      <p class="profile-summary">{{ summaryLine }}</p>
-      <USwitch
-        v-if="profile"
-        class="profile-visibility"
-        :model-value="profile.profile_is_public"
-        :label="profile.profile_is_public ? 'Public profile' : 'Private profile'"
-        size="sm"
-        @update:model-value="toggleProfilePublic"
-      />
+  <div class="grid grid-cols-1 lg:grid-cols-[1fr_272px] gap-8">
+    <!-- Main: certificates is the one loud element on the page -->
+    <div class="min-w-0">
+      <h1 class="page-title text-2xl font-semibold mb-6">Certificates</h1>
 
-      <!-- What the toggles above actually control. -->
-      <div v-if="profile?.profile_is_public && profileUrl" class="profile-link">
-        <div class="copy-row">
-          <code class="copy-value">{{ profileUrl }}</code>
+      <div v-if="certificates.length" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <RecipientCertificateCard
+          v-for="(cert, index) in certificates"
+          :key="cert.id"
+          class="card-in"
+          :style="{ '--i': index }"
+          :cert="cert"
+          @view="openDetail"
+          @toggle-hidden="toggleHidden"
+        />
+      </div>
+      <div v-else class="empty-state">
+        <UIcon name="i-heroicons-document-text" class="size-8" />
+        <p>No certificates yet. Certificates you claim will appear here.</p>
+      </div>
+    </div>
+
+    <!-- Sidebar: identity and sharing, demoted out of the way -->
+    <aside class="sidebar-card p-5 h-fit lg:sticky lg:top-20">
+      <div class="flex items-center gap-3">
+        <UAvatar :text="initials" class="size-11 shrink-0" style="background: var(--surface); color: var(--text-primary); border: 1px solid var(--border)" />
+        <div class="min-w-0">
+          <p class="text-sm font-semibold truncate identity-name">{{ displayName(me) }}</p>
+          <p class="text-xs identity-summary">{{ summaryLine }}</p>
+        </div>
+      </div>
+
+      <div class="mt-4 pt-4 sidebar-divider">
+        <div class="flex items-center justify-between gap-2">
+          <USwitch
+            v-if="profile"
+            :model-value="profile.profile_is_public"
+            :label="profile.profile_is_public ? 'Public profile' : 'Private profile'"
+            size="sm"
+            @update:model-value="toggleProfilePublic"
+          />
           <UButton
+            v-if="profile?.profile_is_public && profileUrl"
             size="xs"
             variant="ghost"
             color="neutral"
@@ -112,137 +136,53 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
             :aria-label="copiedProfileUrl ? 'Profile link copied' : 'Copy profile link'"
             @click="copyProfileUrl"
           />
-          <UButton
-            size="xs"
-            variant="ghost"
-            color="neutral"
-            icon="i-heroicons-arrow-top-right-on-square"
-            :to="`/p/${me?.id}`"
-            target="_blank"
-            aria-label="Open my public profile"
-          />
         </div>
-        <p class="profile-link-note">
-          Anyone with this link sees your
-          {{ totalCerts - hiddenCount }} public
-          certificate{{ totalCerts - hiddenCount === 1 ? '' : 's' }}. Hidden ones
-          stay off it — but keep working as direct verification links.
+        <p v-if="profile?.profile_is_public && profileUrl" class="text-xs mt-2 identity-summary">
+          Anyone with this link sees your {{ totalCerts - hiddenCount }} public certificate{{ totalCerts - hiddenCount === 1 ? '' : 's' }}.
+        </p>
+        <p v-else-if="profile" class="text-xs mt-2 identity-summary">
+          Your profile page is off. Direct certificate links still work.
         </p>
       </div>
-      <p v-else-if="profile" class="profile-link-note profile-link-off">
-        Your profile page is off. Individual certificate links still work for
-        anyone you send them to.
-      </p>
-    </div>
 
-    <h2 class="section-heading">My Certificates</h2>
+      <UButton
+        block
+        class="mt-4"
+        trailing-icon="i-heroicons-arrow-top-right-on-square"
+        :to="`/p/${me?.id}`"
+        target="_blank"
+      >
+        View public profile
+      </UButton>
+    </aside>
+  </div>
 
-    <div v-if="certificates.length" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      <RecipientCertificateCard
-        v-for="(cert, index) in certificates"
-        :key="cert.id"
-        class="card-in"
-        :style="{ '--i': index }"
-        :cert="cert"
-        @view="openDetail"
-        @toggle-hidden="toggleHidden"
-      />
-    </div>
-    <div v-else class="empty-state">
-      <UIcon name="i-heroicons-document-text" class="size-8" />
-      <p>No certificates yet. Certificates you claim will appear here.</p>
-    </div>
-
-    <RecipientCertificateDetailModal v-model:open="modalOpen" :cert="selectedCert" />
+  <RecipientCertificateDetailModal v-model:open="modalOpen" :cert="selectedCert" />
   </div>
 </template>
 
 <style scoped>
-.profile-header {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  padding-bottom: 40px;
-  margin-bottom: 32px;
-  border-bottom: 1px solid var(--border);
-}
-
-.avatar {
-  width: 72px;
-  height: 72px;
-  border-radius: 999px;
-  background: var(--accent);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 22px;
-  font-weight: 600;
-  margin-bottom: 16px;
-}
-
-.profile-name {
-  font-size: 22px;
-  font-weight: 600;
+.page-title {
+  font-family: var(--font-display);
   color: var(--text-primary);
 }
 
-.profile-summary {
-  font-size: 13px;
-  color: var(--text-tertiary);
-  margin-top: 4px;
-}
-
-.profile-visibility {
-  margin-top: 16px;
-}
-
-.profile-link {
-  margin-top: 16px;
-  width: 100%;
-  max-width: 440px;
-}
-
-.copy-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 8px 7px 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
+.sidebar-card {
   background: var(--surface-hover);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
 }
 
-.copy-value {
-  flex: 1;
-  min-width: 0;
-  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
-  font-size: 11.5px;
+.sidebar-divider {
+  border-top: 1px solid var(--border);
+}
+
+.identity-name {
   color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  text-align: left;
 }
 
-.profile-link-note {
-  font-size: 12px;
+.identity-summary {
   color: var(--text-tertiary);
-  margin-top: 8px;
-  line-height: 1.5;
-}
-
-.profile-link-off {
-  margin-top: 16px;
-  max-width: 440px;
-}
-
-.section-heading {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 16px;
 }
 
 .empty-state {

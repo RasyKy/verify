@@ -4,27 +4,26 @@ import type { HolderCertificate } from '~/composables/useHolderCertificates'
 const props = defineProps<{ cert: HolderCertificate }>()
 const emit = defineEmits<{ view: [id: string]; 'toggle-hidden': [id: string, isHidden: boolean] }>()
 
-const statusConfig: Record<'valid' | 'revoked' | 'expired', { label: string; style: string }> = {
-  valid: { label: 'Valid', style: 'background: var(--status-valid-bg); color: var(--status-valid-text)' },
-  revoked: { label: 'Revoked', style: 'background: var(--status-revoked-bg); color: var(--status-revoked-text)' },
-  expired: { label: 'Expired', style: 'background: var(--status-expired-bg); color: var(--status-expired-text)' },
-}
-
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
+
+const dateLine = computed(() => {
+  const issued = `Issued ${formatDate(props.cert.issued_at)}`
+  return props.cert.expiry_date ? `${issued} · Expires ${formatDate(props.cert.expiry_date)}` : issued
+})
 </script>
 
 <template>
   <div class="cert-card p-5 rounded-xl flex flex-col gap-3">
     <div class="flex items-start justify-between gap-2">
-      <div class="badge-icon shrink-0" :class="{ 'badge-icon--image': cert.badge_url }">
-        <img v-if="cert.badge_url" :src="cert.badge_url" alt="" class="badge-image" loading="lazy" decoding="async" />
-        <UIcon v-else name="i-heroicons-academic-cap" class="size-5" />
-      </div>
-      <span class="text-xs font-medium px-2 py-0.5 rounded-full shrink-0" :style="statusConfig[cert.status].style">
-        {{ statusConfig[cert.status].label }}
-      </span>
+      <UAvatar
+        :src="cert.badge_url ?? undefined"
+        icon="i-heroicons-academic-cap"
+        class="size-9 shrink-0"
+        :style="cert.badge_url ? undefined : 'background: var(--accent-light); color: var(--accent)'"
+      />
+      <UiStatusChip :status="cert.status" class="shrink-0" />
     </div>
 
     <div class="min-w-0">
@@ -32,10 +31,7 @@ function formatDate(dateStr: string) {
       <p class="text-xs truncate card-subtitle">{{ cert.institution_name }}</p>
     </div>
 
-    <div class="text-xs card-meta space-y-0.5">
-      <p>Issued {{ formatDate(cert.issued_at) }}</p>
-      <p v-if="cert.expiry_date">Expires {{ formatDate(cert.expiry_date) }}</p>
-    </div>
+    <p class="text-xs card-meta">{{ dateLine }}</p>
 
     <div class="flex items-center justify-between pt-3 card-footer">
       <USwitch
@@ -68,32 +64,6 @@ function formatDate(dateStr: string) {
 .cert-card:hover {
   box-shadow: var(--shadow-panel-hover);
   transform: translateY(-2px);
-}
-.badge-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 999px;
-  background: var(--accent-light);
-  color: var(--accent);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.badge-icon--image {
-  background: radial-gradient(circle, var(--accent-light) 0%, transparent 72%);
-  transition: transform var(--transition-base);
-}
-.cert-card:hover .badge-icon--image {
-  transform: scale(1.08);
-}
-.badge-image {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  border-radius: 999px;
-}
-@media (prefers-reduced-motion: reduce) {
-  .cert-card:hover .badge-icon--image { transform: none; }
 }
 .card-title { color: var(--text-primary); }
 .card-subtitle { color: var(--text-secondary); }
