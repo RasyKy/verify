@@ -15,6 +15,7 @@ const nav = [
   { label: 'Dashboard', icon: 'i-heroicons-squares-2x2', to: '/issuer' },
   { label: 'Certificates', icon: 'i-heroicons-document-text', to: '/issuer/certificates' },
   { label: 'Courses', icon: 'i-heroicons-academic-cap', to: '/issuer/courses' },
+  { label: 'Settings', icon: 'i-heroicons-cog-6-tooth', to: '/issuer/settings' },
 ]
 
 async function logout() {
@@ -36,14 +37,6 @@ async function logout() {
         <p v-if="institutionName" class="rail-institution">
           {{ institutionName }}
         </p>
-      </div>
-
-      <!-- Primary action sits above the nav: issuing is why this portal exists -->
-      <div class="rail-action-wrap">
-        <button class="rail-action" @click="issueModalOpen = true">
-          <UIcon name="i-heroicons-plus" class="rail-action-icon" />
-          Issue certificate
-        </button>
       </div>
 
       <nav class="rail-nav">

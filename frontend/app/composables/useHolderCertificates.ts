@@ -9,7 +9,6 @@ export interface HolderCertificate {
   id: string
   course_name: string
   institution_name: string | null
-  badge_url: string | null
   completion_date: string
   expiry_date: string | null
   issued_at: string

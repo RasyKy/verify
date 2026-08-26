@@ -1,26 +1,24 @@
 /**
- * Courses — backs the typeahead in CertificateForm.vue, and course-level
- * badge management (the /issuer/courses page).
+ * Courses — backs the typeahead in CertificateForm.vue, and per-course
+ * certificate template selection (the /issuer/courses page).
  *
- *   GET    /api/courses            issuer  → ["Web Development Fundamentals", …]
- *   POST   /api/courses            issuer  → { id, name }
- *   GET    /api/courses/full       issuer  → [{ id, name, badgeUrl }, …]
- *   POST   /api/courses/:id/badge  issuer  → { id, name, badgeUrl }
- *   DELETE /api/courses/:id/badge  issuer  → { id, name, badgeUrl: null }
+ *   GET    /api/courses                 issuer  → ["Web Development Fundamentals", …]
+ *   POST   /api/courses                 issuer  → { id, name }
+ *   GET    /api/courses/full            issuer  → [{ id, name, certificateTemplate }, …]
+ *   PATCH  /api/courses/:id/template    issuer  → { id, name, certificateTemplate }
  *
  * GET /courses returns a BARE STRING ARRAY, not objects. That is what the
  * UInputMenu the form uses consumes, and wrapping each name in an object
  * would mean editing the component for no gain — /courses/full is a
- * separate endpoint for the badge-management page precisely so this
+ * separate endpoint for the course-management page precisely so this
  * contract never has to change.
  *
- * Badge images are purely presentational metadata (frontend-design plan,
- * per-course-badges branch): badge_url is never read by services/hash.js,
- * so uploading/replacing/removing one has zero effect on the certificate
- * hash, the chain, or verification.
+ * Template choice is purely presentational metadata: certificate_template is
+ * never read by services/hash.js, so changing a course's template has zero
+ * effect on the certificate hash, the chain, or verification — it only
+ * changes how services/certificateRender.js renders future downloads.
  */
 import { Router } from 'express';
-import multer from 'multer';
 
 import {
   adminClient as defaultAdminClient,
@@ -33,62 +31,18 @@ import {
   ROLES,
 } from '../middleware/auth.js';
 import { validate, validateAll } from '../middleware/validate.js';
-import { createCourseSchema } from '../schemas/certificate.js';
-import { uuidParam } from '../schemas/common.js';
-import { badRequest, notFound } from '../lib/errors.js';
 import {
-  deleteBadge as defaultDeleteBadge,
-  uploadBadge as defaultUploadBadge,
-} from '../services/storage.js';
-
-const MAX_BADGE_BYTES = 2 * 1024 * 1024;
-
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: MAX_BADGE_BYTES },
-});
-
-const PNG_SIGNATURE = Buffer.from([
-  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
-]);
-
-function isPng(buffer) {
-  return buffer.length >= 8 && buffer.subarray(0, 8).equals(PNG_SIGNATURE);
-}
-
-function isJpeg(buffer) {
-  return (
-    buffer.length >= 3 &&
-    buffer[0] === 0xff &&
-    buffer[1] === 0xd8 &&
-    buffer[2] === 0xff
-  );
-}
-
-/**
- * The file's declared mimetype is client-supplied and trivially spoofable,
- * so it is only ever used alongside a magic-byte check on the actual bytes
- * — never on its own.
- * @returns {'png' | 'jpg' | null}
- */
-function detectImageExt(buffer, mimetype) {
-  if (mimetype === 'image/png' && isPng(buffer)) return 'png';
-  if (
-    (mimetype === 'image/jpeg' || mimetype === 'image/jpg') &&
-    isJpeg(buffer)
-  ) {
-    return 'jpg';
-  }
-  return null;
-}
+  createCourseSchema,
+  updateCourseTemplateSchema,
+} from '../schemas/certificate.js';
+import { uuidParam } from '../schemas/common.js';
+import { notFound } from '../lib/errors.js';
 
 const courseIdParams = uuidParam('id');
 
 export function createCoursesRouter({
   adminClient = defaultAdminClient,
   requireAuth: auth = requireAuth,
-  uploadBadge = defaultUploadBadge,
-  deleteBadge = defaultDeleteBadge,
 } = {}) {
   const router = Router();
   const issuerOnly = [auth, requireRole(ROLES.ISSUER), requireOrganization];
@@ -138,6 +92,10 @@ export function createCoursesRouter({
    * /api/courses:
    *   post:
    *     summary: Add a course to the organization's list
+   *     description: >
+   *       `certificateTemplate` is optional and only applied when the course
+   *       is actually created — idempotent re-submission of an existing
+   *       course name never overwrites its template.
    *     tags: [Courses]
    *     security:
    *       - bearerAuth: []
@@ -168,21 +126,29 @@ export function createCoursesRouter({
     ...issuerOnly,
     validate(createCourseSchema),
     async (req, res, next) => {
-      const { name } = req.validated.body;
+      const { name, certificateTemplate } = req.validated.body;
       try {
         // Idempotent on (organization_id, name): the typeahead can fire twice on
         // a fast double-click, and a duplicate must return the existing row
-        // rather than a 409 the user cannot act on.
+        // rather than a 409 the user cannot act on. certificateTemplate is
+        // deliberately ignored on this path — re-submitting a course's own
+        // name must never silently overwrite a template someone already set.
         const existing = unwrap(
           await adminClient
             .from('courses')
-            .select('id, name')
+            .select('id, name, certificate_template')
             .eq('organization_id', req.user.organizationId)
             .eq('name', name)
             .maybeSingle(),
           'find course'
         );
-        if (existing) return res.status(201).json(existing);
+        if (existing) {
+          return res.status(201).json({
+            id: existing.id,
+            name: existing.name,
+            certificateTemplate: existing.certificate_template,
+          });
+        }
 
         const created = unwrap(
           await adminClient
@@ -191,12 +157,19 @@ export function createCoursesRouter({
               organization_id: req.user.organizationId,
               name,
               created_by: req.user.id,
+              ...(certificateTemplate
+                ? { certificate_template: certificateTemplate }
+                : {}),
             })
-            .select('id, name')
+            .select('id, name, certificate_template')
             .single(),
           'create course'
         );
-        res.status(201).json(created);
+        res.status(201).json({
+          id: created.id,
+          name: created.name,
+          certificateTemplate: created.certificate_template,
+        });
       } catch (err) {
         next(err);
       }
@@ -207,13 +180,13 @@ export function createCoursesRouter({
    * @openapi
    * /api/courses/full:
    *   get:
-   *     summary: The organization's courses, with badge info (for /issuer/courses)
+   *     summary: The organization's courses, with certificate template info
    *     tags: [Courses]
    *     security:
    *       - bearerAuth: []
    *     responses:
    *       200:
-   *         description: Array of { id, name, badgeUrl }
+   *         description: Array of { id, name, certificateTemplate }
    *       401:
    *         description: Missing or invalid bearer token
    *         content:
@@ -232,7 +205,7 @@ export function createCoursesRouter({
       const rows = unwrap(
         await adminClient
           .from('courses')
-          .select('id, name, badge_url')
+          .select('id, name, certificate_template')
           .eq('organization_id', req.user.organizationId)
           .order('name'),
         'list courses (full)'
@@ -241,7 +214,7 @@ export function createCoursesRouter({
         (rows ?? []).map((row) => ({
           id: row.id,
           name: row.name,
-          badgeUrl: row.badge_url,
+          certificateTemplate: row.certificate_template,
         }))
       );
     } catch (err) {
@@ -251,56 +224,39 @@ export function createCoursesRouter({
 
   /**
    * @openapi
-   * /api/courses/{id}/badge:
-   *   post:
-   *     summary: Upload (or replace) a course's badge image
+   * /api/courses/{id}/template:
+   *   patch:
+   *     summary: Set which certificate template a course's certificates use
    *     description: >
-   *       multipart/form-data, field name "badge". PNG or JPG only, 2MB max —
-   *       purely presentational, has no effect on the certificate hash or
-   *       verification.
+   *       Purely presentational — has no effect on the certificate hash, the
+   *       chain, or verification.
    *     tags: [Courses]
    *     security:
    *       - bearerAuth: []
    *     responses:
    *       200:
-   *         description: Updated course, with the new badgeUrl
-   *       400:
-   *         description: Missing file, wrong type, or too large
-   *         content:
-   *           application/json:
-   *             schema:
-   *               $ref: '#/components/schemas/ErrorResponse'
+   *         description: Updated course, with the new certificateTemplate
    *       404:
    *         description: No such course in the caller's organization
    *         content:
    *           application/json:
    *             schema:
    *               $ref: '#/components/schemas/ErrorResponse'
+   *       422:
+   *         description: Validation failed
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
    */
-  router.post(
-    '/courses/:id/badge',
+  router.patch(
+    '/courses/:id/template',
     ...issuerOnly,
-    validateAll({ params: courseIdParams }),
-    (req, res, next) => {
-      upload.single('badge')(req, res, (err) => {
-        if (!err) return next();
-        if (err.code === 'LIMIT_FILE_SIZE') {
-          return next(
-            badRequest(
-              `Badge image must be ${MAX_BADGE_BYTES / (1024 * 1024)}MB or smaller.`
-            )
-          );
-        }
-        next(badRequest('Could not read the uploaded file.'));
-      });
-    },
+    validateAll({ params: courseIdParams, body: updateCourseTemplateSchema }),
     async (req, res, next) => {
       try {
         const { id } = req.validated.params;
-        if (!req.file) throw badRequest('No badge image was uploaded.');
-
-        const ext = detectImageExt(req.file.buffer, req.file.mimetype);
-        if (!ext) throw badRequest('Badge image must be a PNG or JPG file.');
+        const { certificateTemplate } = req.validated.body;
 
         const course = unwrap(
           await adminClient
@@ -309,90 +265,23 @@ export function createCoursesRouter({
             .eq('id', id)
             .eq('organization_id', req.user.organizationId)
             .maybeSingle(),
-          'load course for badge upload'
+          'load course for template update'
         );
         if (!course) throw notFound('Course not found.');
-
-        const badgeUrl = await uploadBadge(
-          req.user.organizationId,
-          id,
-          req.file.buffer,
-          ext,
-          req.file.mimetype
-        );
 
         const updated = unwrap(
           await adminClient
             .from('courses')
-            .update({ badge_url: badgeUrl })
+            .update({ certificate_template: certificateTemplate })
             .eq('id', id)
-            .select('id, name, badge_url')
+            .select('id, name, certificate_template')
             .maybeSingle(),
-          'save course badge'
+          'update course template'
         );
         res.json({
           id: updated.id,
           name: updated.name,
-          badgeUrl: updated.badge_url,
-        });
-      } catch (err) {
-        next(err);
-      }
-    }
-  );
-
-  /**
-   * @openapi
-   * /api/courses/{id}/badge:
-   *   delete:
-   *     summary: Remove a course's badge image
-   *     tags: [Courses]
-   *     security:
-   *       - bearerAuth: []
-   *     responses:
-   *       200:
-   *         description: Updated course, with badgeUrl now null
-   *       404:
-   *         description: No such course in the caller's organization
-   *         content:
-   *           application/json:
-   *             schema:
-   *               $ref: '#/components/schemas/ErrorResponse'
-   */
-  router.delete(
-    '/courses/:id/badge',
-    ...issuerOnly,
-    validateAll({ params: courseIdParams }),
-    async (req, res, next) => {
-      try {
-        const { id } = req.validated.params;
-
-        const course = unwrap(
-          await adminClient
-            .from('courses')
-            .select('id')
-            .eq('id', id)
-            .eq('organization_id', req.user.organizationId)
-            .maybeSingle(),
-          'load course for badge removal'
-        );
-        if (!course) throw notFound('Course not found.');
-
-        await deleteBadge(req.user.organizationId, id);
-
-        const updated = unwrap(
-          await adminClient
-            .from('courses')
-            .update({ badge_url: null })
-            .eq('id', id)
-            .select('id, name, badge_url')
-            .maybeSingle(),
-          'clear course badge'
-        );
-        res.json({
-          id: updated.id,
-          name: updated.name,
-          badgeUrl: updated.badge_url,
+          certificateTemplate: updated.certificate_template,
         });
       } catch (err) {
         next(err);

@@ -18,10 +18,9 @@ const dateLine = computed(() => {
   <div class="cert-card p-5 rounded-xl flex flex-col gap-3">
     <div class="flex items-start justify-between gap-2">
       <UAvatar
-        :src="cert.badge_url ?? undefined"
         icon="i-heroicons-academic-cap"
         class="size-9 shrink-0"
-        :style="cert.badge_url ? undefined : 'background: var(--accent-light); color: var(--accent)'"
+        style="background: var(--accent-light); color: var(--accent)"
       />
       <UiStatusChip :status="cert.status" class="shrink-0" />
     </div>

@@ -30,6 +30,19 @@ const unavailable = computed(() => Boolean(error.value))
 // This page's own URL — the canonical public link for a certificate, shared
 // via "Open public page" and the QR code in the issuer/recipient portals.
 const certUrl = computed(() => `${useRequestURL().origin}/cert/${certId}`)
+
+// Rendered server-side (GET /api/certificates/:id/download) — a plain link,
+// since the browser handles the Content-Disposition download natively.
+// Public and unauthenticated, same as the QR endpoint.
+function downloadUrl(format: 'pdf' | 'png') {
+  return `${apiBase}/api/certificates/${certId}/download?format=${format}`
+}
+
+// Same endpoint as "Download PNG" — an <img> tag ignores the response's
+// Content-Disposition: attachment, so it renders inline here instead of
+// triggering a save dialog.
+const previewLoaded = ref(false)
+const previewFailed = ref(false)
 </script>
 
 <template>
@@ -73,6 +86,22 @@ const certUrl = computed(() => `${useRequestURL().origin}/cert/${certId}`)
         <!-- Result card -->
         <VerifyResultCard :result="displayResult" :loading="pending" />
 
+        <!-- The rendered template itself, not just the data card above -->
+        <div v-if="!pending && displayResult?.certificate" class="mt-6 preview-frame">
+          <div v-if="!previewLoaded && !previewFailed" class="preview-skeleton" />
+          <p v-if="previewFailed" class="preview-fallback">
+            Preview unavailable right now — the PDF/PNG downloads below still work.
+          </p>
+          <img
+            v-show="previewLoaded"
+            :src="downloadUrl('png')"
+            :alt="`${displayResult.certificate.courseName} certificate`"
+            class="preview-image"
+            @load="previewLoaded = true"
+            @error="previewFailed = true"
+          >
+        </div>
+
         <!-- QR code -->
         <div
           v-if="!pending && displayResult?.certificate"
@@ -84,9 +113,19 @@ const certUrl = computed(() => `${useRequestURL().origin}/cert/${certId}`)
               <div class="qr-placeholder" />
             </template>
           </ClientOnly>
-          <p class="text-xs text-gray-500 flex-1 min-w-0">
-            Scan this code to open this certificate's public page directly.
-          </p>
+          <div class="flex-1 min-w-0 space-y-2">
+            <p class="text-xs text-gray-500">
+              Scan this code to open this certificate's public page directly.
+            </p>
+            <div class="flex flex-wrap gap-2">
+              <UButton :to="downloadUrl('pdf')" target="_blank" variant="soft" color="neutral" size="sm" icon="i-heroicons-document-arrow-down">
+                Download PDF
+              </UButton>
+              <UButton :to="downloadUrl('png')" target="_blank" variant="soft" color="neutral" size="sm" icon="i-heroicons-photo">
+                Download PNG
+              </UButton>
+            </div>
+          </div>
         </div>
       </template>
     </div>
@@ -99,5 +138,50 @@ const certUrl = computed(() => `${useRequestURL().origin}/cert/${certId}`)
   height: 140px;
   background: var(--surface-hover);
   border-radius: 0.5rem;
+}
+
+.preview-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1.414 / 1;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+}
+
+.preview-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.preview-skeleton {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, var(--surface-hover) 25%, var(--surface) 50%, var(--surface-hover) 75%);
+  background-size: 200% 100%;
+  animation: preview-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes preview-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.preview-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 24px;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .preview-skeleton { animation: none; }
 }
 </style>

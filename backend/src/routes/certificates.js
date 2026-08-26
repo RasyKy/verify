@@ -24,6 +24,7 @@ import QRCode from 'qrcode';
 
 import { env } from '../config/env.js';
 import { certificateService as defaultService } from '../services/certificate.js';
+import { certificateRenderService as defaultRenderService } from '../services/certificateRender.js';
 import { logger } from '../lib/logger.js';
 import {
   requireAuth,
@@ -31,19 +32,44 @@ import {
   requireRole,
   ROLES,
 } from '../middleware/auth.js';
-import { issuanceLimiter, verifyLimiter } from '../middleware/rateLimit.js';
+import {
+  downloadLimiter,
+  issuanceLimiter,
+  verifyLimiter,
+} from '../middleware/rateLimit.js';
 import { validate, validateAll } from '../middleware/validate.js';
 import {
   certIdParamSchema,
+  downloadQuerySchema,
   issueCertificateSchema,
   listCertificatesSchema,
   qrQuerySchema,
   revokeCertificateSchema,
   updateCertificateSchema,
 } from '../schemas/certificate.js';
+import { notFound } from '../lib/errors.js';
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * organizations.logo_url / signature_url can be a root-relative path (seed
+ * data and any asset served from the frontend's own /public folder, e.g.
+ * "/rupp-logo.png") rather than an absolute Supabase Storage URL. The
+ * Puppeteer render has no origin of its own — page.setContent() carries no
+ * base URL — so a relative src silently fails to load there even though it
+ * resolves fine everywhere in-app (the browser fills in the frontend's own
+ * origin). Resolve against publicAppUrl so both forms render correctly;
+ * already-absolute URLs (real uploads) pass through unchanged.
+ */
+function resolveAssetUrl(url) {
+  if (!url) return url;
+  try {
+    return new URL(url, env.publicAppUrl).href;
+  } catch {
+    return url;
+  }
+}
 
 /**
  * Client IPs are personal data under most readings, and the only thing the
@@ -60,6 +86,7 @@ function hashIp(ip) {
 
 export function createCertificatesRouter({
   service = defaultService,
+  renderService = defaultRenderService,
   requireAuth: auth = requireAuth,
 } = {}) {
   const router = Router();
@@ -225,6 +252,117 @@ export function createCertificatesRouter({
         res.type('image/png');
         res.set('Cache-Control', 'public, max-age=86400');
         return res.send(png);
+      } catch (err) {
+        next(err);
+      }
+    }
+  );
+
+  /**
+   * @openapi
+   * /api/certificates/{id}/download:
+   *   get:
+   *     summary: Rendered certificate document (PDF or PNG)
+   *     description: >
+   *       Server-rendered from the same publicly-verifiable record
+   *       /cert/{certId} and /verify/{certId} already show — a revoked or
+   *       expired certificate's download reflects the same status a viewer
+   *       would see on-screen. Institution branding (logo, signature,
+   *       signatory, template) is purely presentational and has no bearing
+   *       on the hash or the chain.
+   *     tags: [Certificates]
+   *     security: []
+   *     parameters:
+   *       - name: id
+   *         in: path
+   *         required: true
+   *         schema:
+   *           type: string
+   *           format: uuid
+   *       - name: format
+   *         in: query
+   *         schema:
+   *           type: string
+   *           enum: [pdf, png]
+   *           default: pdf
+   *     responses:
+   *       200:
+   *         description: The rendered document
+   *         content:
+   *           application/pdf: {}
+   *           image/png: {}
+   *       404:
+   *         description: No such certificate, or its status could not be verified
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       422:
+   *         description: Validation failed
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       429:
+   *         description: Rate limited
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       503:
+   *         description: The chain, database, or renderer is temporarily unreachable
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   */
+  router.get(
+    '/certificates/:id/download',
+    downloadLimiter,
+    validateAll({ params: certIdParamSchema, query: downloadQuerySchema }),
+    async (req, res, next) => {
+      const { id } = req.validated.params;
+      const { format } = req.validated.query;
+
+      try {
+        const result = await service.verify({ certId: id });
+        if (!result.certificate) {
+          throw notFound('Certificate not found.');
+        }
+
+        const renderData = {
+          status: result.status,
+          studentName: result.certificate.studentName,
+          courseName: result.certificate.courseName,
+          institutionName: result.certificate.institutionName,
+          completionDate: result.certificate.completionDate,
+          certId: result.certificate.certId,
+          verifyUrl: `${env.publicAppUrl}/cert/${id}`,
+          logoUrl: resolveAssetUrl(result.certificate.logoUrl),
+          signatureUrl: resolveAssetUrl(result.certificate.signatureUrl),
+          signatoryName: result.certificate.signatoryName,
+          signatoryTitle: result.certificate.signatoryTitle,
+          certificateTemplate: result.certificate.certificateTemplate,
+        };
+
+        const fileBase = `certificate-${id}`;
+        if (format === 'png') {
+          const png = await renderService.renderPng(renderData);
+          res.type('image/png');
+          res.set(
+            'Content-Disposition',
+            `attachment; filename="${fileBase}.png"`
+          );
+          return res.send(png);
+        }
+
+        const pdf = await renderService.renderPdf(renderData);
+        res.type('application/pdf');
+        res.set(
+          'Content-Disposition',
+          `attachment; filename="${fileBase}.pdf"`
+        );
+        return res.send(pdf);
       } catch (err) {
         next(err);
       }

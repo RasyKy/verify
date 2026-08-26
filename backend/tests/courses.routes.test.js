@@ -1,17 +1,14 @@
 /**
- * Course + badge endpoint tests.
+ * Course endpoint tests.
  *
  * Hermetic — a fake Supabase client is injected into the router factory, same
- * pattern as holder.routes.test.js. Storage is also faked via the router
- * factory's uploadBadge/deleteBadge overrides, so no real Supabase Storage
- * call ever happens in this suite.
+ * pattern as holder.routes.test.js.
  */
 import express from 'express';
 import request from 'supertest';
 
 import { createCoursesRouter } from '../src/routes/courses.js';
 import { errorHandler } from '../src/middleware/errorHandler.js';
-import { upstreamUnavailable } from '../src/lib/errors.js';
 
 const ISSUER = {
   id: 'issuer-1',
@@ -24,12 +21,7 @@ const COURSE_ID = '11111111-1111-4111-8111-111111111111';
 const OTHER_ORG_COURSE_ID = '22222222-2222-4222-8222-222222222222';
 const MISSING_COURSE_ID = '99999999-9999-4999-8999-999999999999';
 
-const PNG_SIGNATURE = Buffer.from([
-  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
-]);
-const JPEG_SIGNATURE = Buffer.from([0xff, 0xd8, 0xff, 0xe0]);
-
-/** Same fakeDb shape used by holder.routes.test.js, with insert() added. */
+/** Same fakeDb shape used by holder.routes.test.js, with insert()/update() added. */
 function fakeDb(tables = {}) {
   function from(table) {
     const rows = tables[table];
@@ -37,8 +29,8 @@ function fakeDb(tables = {}) {
       throw new Error(`fakeDb: unexpected table "${table}"`);
     }
     const filters = [];
-    let pendingUpdate = null;
     let pendingInsert = null;
+    let pendingUpdate = null;
     const matches = (row) =>
       filters.every(([field, value]) => row[field] === value);
     const applyUpdate = () => {
@@ -54,13 +46,13 @@ function fakeDb(tables = {}) {
         return builder;
       },
       order: () => builder,
-      update: (patch) => {
-        pendingUpdate = patch;
-        return builder;
-      },
       insert: (patch) => {
         pendingInsert = { id: `new-${rows.length + 1}`, ...patch };
         rows.push(pendingInsert);
+        return builder;
+      },
+      update: (patch) => {
+        pendingUpdate = patch;
         return builder;
       },
       maybeSingle: () => {
@@ -86,13 +78,7 @@ function fakeDb(tables = {}) {
   return { from };
 }
 
-function makeApp({
-  courses = [],
-  user = ISSUER,
-  uploadBadge = async () =>
-    'https://storage.example/course-badges/org-1/course.png?v=1',
-  deleteBadge = async () => {},
-} = {}) {
+function makeApp({ courses = [], user = ISSUER } = {}) {
   const app = express();
   app.use(express.json());
   app.use(
@@ -108,8 +94,6 @@ function makeApp({
         req.user = user;
         next();
       },
-      uploadBadge,
-      deleteBadge,
     })
   );
   app.use(errorHandler);
@@ -120,23 +104,102 @@ const COURSE = {
   id: COURSE_ID,
   name: 'Blockchain for Developers',
   organization_id: 'org-1',
-  badge_url: null,
+  certificate_template: 'classic',
 };
 
 describe('GET /api/courses', () => {
-  it('is unaffected by the badge feature — still a bare string array', async () => {
+  it("returns a bare string array of the organization's course names", async () => {
     const res = await request(makeApp({ courses: [{ ...COURSE }] })).get(
       '/api/courses'
     );
     expect(res.status).toBe(200);
     expect(res.body).toEqual(['Blockchain for Developers']);
   });
+
+  it('requires an issuer role', async () => {
+    const res = await request(
+      makeApp({ courses: [{ ...COURSE }], user: { ...ISSUER, role: 'holder' } })
+    ).get('/api/courses');
+    expect(res.status).toBe(403);
+  });
+
+  it('requires authentication', async () => {
+    const res = await request(
+      makeApp({ courses: [{ ...COURSE }], user: null })
+    ).get('/api/courses');
+    expect(res.status).toBe(401);
+  });
+});
+
+describe('POST /api/courses', () => {
+  it('creates a new course', async () => {
+    const res = await request(makeApp({ courses: [] }))
+      .post('/api/courses')
+      .send({ name: 'New Course' });
+
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({ name: 'New Course' });
+  });
+
+  it('is idempotent on (organization, name) — returns the existing course', async () => {
+    const res = await request(makeApp({ courses: [{ ...COURSE }] }))
+      .post('/api/courses')
+      .send({ name: 'Blockchain for Developers' });
+
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({
+      id: COURSE_ID,
+      name: 'Blockchain for Developers',
+    });
+  });
+
+  it('creates a new course with the given certificate template', async () => {
+    const res = await request(makeApp({ courses: [] }))
+      .post('/api/courses')
+      .send({ name: 'New Course', certificateTemplate: 'editorial' });
+
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({
+      name: 'New Course',
+      certificateTemplate: 'editorial',
+    });
+  });
+
+  it("does not let a re-submission overwrite an existing course's template", async () => {
+    const res = await request(
+      makeApp({ courses: [{ ...COURSE, certificate_template: 'modern' }] })
+    )
+      .post('/api/courses')
+      .send({
+        name: 'Blockchain for Developers',
+        certificateTemplate: 'editorial',
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.certificateTemplate).toBe('modern');
+  });
+
+  it('rejects an unknown certificateTemplate value', async () => {
+    const res = await request(makeApp({ courses: [] }))
+      .post('/api/courses')
+      .send({ name: 'New Course', certificateTemplate: 'nonexistent' });
+    expect(res.status).toBe(422);
+  });
+
+  it('requires an issuer role', async () => {
+    const res = await request(
+      makeApp({ courses: [], user: { ...ISSUER, role: 'holder' } })
+    )
+      .post('/api/courses')
+      .send({ name: 'New Course' });
+    expect(res.status).toBe(403);
+  });
 });
 
 describe('GET /api/courses/full', () => {
-  it('returns badgeUrl alongside id and name', async () => {
+  it('returns certificateTemplate alongside id and name', async () => {
     const res = await request(
-      makeApp({ courses: [{ ...COURSE, badge_url: 'https://x/badge.png' }] })
+      makeApp({ courses: [{ ...COURSE, certificate_template: 'modern' }] })
     ).get('/api/courses/full');
 
     expect(res.status).toBe(200);
@@ -144,16 +207,9 @@ describe('GET /api/courses/full', () => {
       {
         id: COURSE_ID,
         name: 'Blockchain for Developers',
-        badgeUrl: 'https://x/badge.png',
+        certificateTemplate: 'modern',
       },
     ]);
-  });
-
-  it('returns badgeUrl: null for a course with no badge', async () => {
-    const res = await request(makeApp({ courses: [{ ...COURSE }] })).get(
-      '/api/courses/full'
-    );
-    expect(res.body[0].badgeUrl).toBeNull();
   });
 
   it('requires an issuer role', async () => {
@@ -164,62 +220,21 @@ describe('GET /api/courses/full', () => {
   });
 });
 
-describe('POST /api/courses/:id/badge', () => {
-  it('uploads a valid PNG and returns the updated badgeUrl', async () => {
+describe('PATCH /api/courses/:id/template', () => {
+  it("updates the course's certificate template", async () => {
     const res = await request(makeApp({ courses: [{ ...COURSE }] }))
-      .post(`/api/courses/${COURSE_ID}/badge`)
-      .attach('badge', PNG_SIGNATURE, {
-        filename: 'badge.png',
-        contentType: 'image/png',
-      });
+      .patch(`/api/courses/${COURSE_ID}/template`)
+      .send({ certificateTemplate: 'editorial' });
 
     expect(res.status).toBe(200);
-    expect(res.body.badgeUrl).toContain('course-badges');
+    expect(res.body.certificateTemplate).toBe('editorial');
   });
 
-  it('uploads a valid JPEG', async () => {
+  it('rejects an unknown template value', async () => {
     const res = await request(makeApp({ courses: [{ ...COURSE }] }))
-      .post(`/api/courses/${COURSE_ID}/badge`)
-      .attach('badge', JPEG_SIGNATURE, {
-        filename: 'badge.jpg',
-        contentType: 'image/jpeg',
-      });
-
-    expect(res.status).toBe(200);
-  });
-
-  it('rejects a file whose bytes do not match its declared type', async () => {
-    const res = await request(makeApp({ courses: [{ ...COURSE }] }))
-      .post(`/api/courses/${COURSE_ID}/badge`)
-      .attach('badge', Buffer.from('not actually a png'), {
-        filename: 'badge.png',
-        contentType: 'image/png',
-      });
-
-    expect(res.status).toBe(400);
-  });
-
-  it('rejects a disallowed file type outright (e.g. SVG)', async () => {
-    const res = await request(makeApp({ courses: [{ ...COURSE }] }))
-      .post(`/api/courses/${COURSE_ID}/badge`)
-      .attach('badge', Buffer.from('<svg></svg>'), {
-        filename: 'badge.svg',
-        contentType: 'image/svg+xml',
-      });
-
-    expect(res.status).toBe(400);
-  });
-
-  it('rejects an oversized file', async () => {
-    const big = Buffer.concat([PNG_SIGNATURE, Buffer.alloc(2 * 1024 * 1024)]);
-    const res = await request(makeApp({ courses: [{ ...COURSE }] }))
-      .post(`/api/courses/${COURSE_ID}/badge`)
-      .attach('badge', big, {
-        filename: 'badge.png',
-        contentType: 'image/png',
-      });
-
-    expect(res.status).toBe(400);
+      .patch(`/api/courses/${COURSE_ID}/template`)
+      .send({ certificateTemplate: 'nonexistent' });
+    expect(res.status).toBe(422);
   });
 
   it('404s on a course belonging to another organization', async () => {
@@ -230,23 +245,15 @@ describe('POST /api/courses/:id/badge', () => {
         ],
       })
     )
-      .post(`/api/courses/${OTHER_ORG_COURSE_ID}/badge`)
-      .attach('badge', PNG_SIGNATURE, {
-        filename: 'badge.png',
-        contentType: 'image/png',
-      });
-
+      .patch(`/api/courses/${OTHER_ORG_COURSE_ID}/template`)
+      .send({ certificateTemplate: 'modern' });
     expect(res.status).toBe(404);
   });
 
   it('404s on a nonexistent course', async () => {
     const res = await request(makeApp({ courses: [] }))
-      .post(`/api/courses/${MISSING_COURSE_ID}/badge`)
-      .attach('badge', PNG_SIGNATURE, {
-        filename: 'badge.png',
-        contentType: 'image/png',
-      });
-
+      .patch(`/api/courses/${MISSING_COURSE_ID}/template`)
+      .send({ certificateTemplate: 'modern' });
     expect(res.status).toBe(404);
   });
 
@@ -254,78 +261,8 @@ describe('POST /api/courses/:id/badge', () => {
     const res = await request(
       makeApp({ courses: [{ ...COURSE }], user: { ...ISSUER, role: 'holder' } })
     )
-      .post(`/api/courses/${COURSE_ID}/badge`)
-      .attach('badge', PNG_SIGNATURE, {
-        filename: 'badge.png',
-        contentType: 'image/png',
-      });
-
-    expect(res.status).toBe(403);
-  });
-
-  it('requires authentication', async () => {
-    const res = await request(makeApp({ courses: [{ ...COURSE }], user: null }))
-      .post(`/api/courses/${COURSE_ID}/badge`)
-      .attach('badge', PNG_SIGNATURE, {
-        filename: 'badge.png',
-        contentType: 'image/png',
-      });
-
-    expect(res.status).toBe(401);
-  });
-
-  it('400s when no file is attached', async () => {
-    const res = await request(makeApp({ courses: [{ ...COURSE }] })).post(
-      `/api/courses/${COURSE_ID}/badge`
-    );
-    expect(res.status).toBe(400);
-  });
-
-  it('surfaces a storage failure as 503, not a 500 or a silent success', async () => {
-    const res = await request(
-      makeApp({
-        courses: [{ ...COURSE }],
-        uploadBadge: async () => {
-          throw upstreamUnavailable('Storage');
-        },
-      })
-    )
-      .post(`/api/courses/${COURSE_ID}/badge`)
-      .attach('badge', PNG_SIGNATURE, {
-        filename: 'badge.png',
-        contentType: 'image/png',
-      });
-
-    expect(res.status).toBe(503);
-  });
-});
-
-describe('DELETE /api/courses/:id/badge', () => {
-  it('clears the badge and returns badgeUrl: null', async () => {
-    const res = await request(
-      makeApp({ courses: [{ ...COURSE, badge_url: 'https://x/badge.png' }] })
-    ).delete(`/api/courses/${COURSE_ID}/badge`);
-
-    expect(res.status).toBe(200);
-    expect(res.body.badgeUrl).toBeNull();
-  });
-
-  it('404s on a course belonging to another organization', async () => {
-    const res = await request(
-      makeApp({
-        courses: [
-          { ...COURSE, id: OTHER_ORG_COURSE_ID, organization_id: 'org-2' },
-        ],
-      })
-    ).delete(`/api/courses/${OTHER_ORG_COURSE_ID}/badge`);
-
-    expect(res.status).toBe(404);
-  });
-
-  it('rejects a non-issuer role', async () => {
-    const res = await request(
-      makeApp({ courses: [{ ...COURSE }], user: { ...ISSUER, role: 'holder' } })
-    ).delete(`/api/courses/${COURSE_ID}/badge`);
+      .patch(`/api/courses/${COURSE_ID}/template`)
+      .send({ certificateTemplate: 'modern' });
     expect(res.status).toBe(403);
   });
 });

@@ -24,6 +24,25 @@ onBeforeUnmount(() => clearTimeout(copyTimer))
 
 const certUrl = computed(() => (props.cert ? `${useRequestURL().origin}/cert/${props.cert.id}` : ''))
 
+// Rendered server-side (GET /api/certificates/:id/download) — a plain link,
+// since the browser handles the Content-Disposition download natively, no
+// JS fetch needed. Public and unauthenticated, same as the QR endpoint.
+const { public: { apiBase } } = useRuntimeConfig()
+function downloadUrl(format: 'pdf' | 'png') {
+  return props.cert ? `${apiBase}/api/certificates/${props.cert.id}/download?format=${format}` : ''
+}
+
+// Same endpoint as the "Download PNG" button — an <img> tag ignores
+// Content-Disposition: attachment, so it renders inline instead of
+// triggering a save dialog. Lets the holder see the actual template
+// (branding, layout) their institution chose, not just a data card.
+const previewLoaded = ref(false)
+const previewFailed = ref(false)
+watch(() => props.cert?.id, () => {
+  previewLoaded.value = false
+  previewFailed.value = false
+})
+
 // LinkedIn's certification "Add to Profile" flow, not the generic link-share
 // flow — this pre-fills a Licenses & Certifications entry with the cert's own
 // details rather than just posting a link.
@@ -57,8 +76,21 @@ function formatTimestamp(dateStr: string) {
   <UModal :open="open" title="Certificate details" @update:open="emit('update:open', $event)">
     <template #body>
       <div v-if="cert" class="space-y-4">
-        <div v-if="cert.badge_url" class="badge-hero">
-          <img :src="cert.badge_url" alt="" class="badge-hero-image" loading="lazy" decoding="async" />
+        <!-- The rendered template itself, not just a data summary — this is
+             what downloading actually produces. -->
+        <div class="preview-frame">
+          <div v-if="!previewLoaded && !previewFailed" class="preview-skeleton" />
+          <p v-if="previewFailed" class="preview-fallback">
+            Preview unavailable right now — the PDF/PNG downloads below still work.
+          </p>
+          <img
+            v-show="previewLoaded"
+            :src="downloadUrl('png')"
+            :alt="`${cert.course_name} certificate`"
+            class="preview-image"
+            @load="previewLoaded = true"
+            @error="previewFailed = true"
+          >
         </div>
 
         <div class="grid grid-cols-2 gap-4">
@@ -137,16 +169,38 @@ function formatTimestamp(dateStr: string) {
           </ClientOnly>
           <div class="flex-1 space-y-2 min-w-0">
             <p class="text-xs detail-label">Scan to open the public certificate page, or share it directly.</p>
-            <UButton
-              :to="linkedInShareUrl"
-              target="_blank"
-              variant="outline"
-              color="neutral"
-              size="sm"
-              icon="i-heroicons-arrow-up-on-square"
-            >
-              Share to LinkedIn
-            </UButton>
+            <div class="flex flex-wrap gap-2">
+              <UButton
+                :to="linkedInShareUrl"
+                target="_blank"
+                variant="outline"
+                color="neutral"
+                size="sm"
+                icon="i-heroicons-arrow-up-on-square"
+              >
+                Share to LinkedIn
+              </UButton>
+              <UButton
+                :to="downloadUrl('pdf')"
+                target="_blank"
+                variant="outline"
+                color="neutral"
+                size="sm"
+                icon="i-heroicons-document-arrow-down"
+              >
+                Download PDF
+              </UButton>
+              <UButton
+                :to="downloadUrl('png')"
+                target="_blank"
+                variant="outline"
+                color="neutral"
+                size="sm"
+                icon="i-heroicons-photo"
+              >
+                Download PNG
+              </UButton>
+            </div>
             <p v-if="cert.status === 'valid'" class="text-xs blockchain-note">
               Recorded on the Polygon blockchain · {{ formatTimestamp(cert.issuedAtBlockchainTimestamp) }}
             </p>
@@ -193,25 +247,51 @@ function formatTimestamp(dateStr: string) {
   white-space: nowrap;
 }
 
-.badge-hero {
-  display: flex;
-  justify-content: center;
-  padding: 4px 0 2px;
+.preview-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1.414 / 1;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
 }
-.badge-hero-image {
-  width: 88px;
-  height: 88px;
+
+.preview-image {
+  width: 100%;
+  height: 100%;
   object-fit: contain;
-  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.16));
-  animation: badge-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
-@keyframes badge-pop {
-  from { opacity: 0; transform: scale(0.85) translateY(4px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
+
+.preview-skeleton {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, var(--surface-hover) 25%, var(--surface) 50%, var(--surface-hover) 75%);
+  background-size: 200% 100%;
+  animation: preview-shimmer 1.4s ease-in-out infinite;
 }
+
+@keyframes preview-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.preview-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 24px;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .badge-hero-image { animation: none; }
+  .preview-skeleton { animation: none; }
 }
+
 .detail-label { color: var(--text-tertiary); }
 .detail-value { color: var(--text-primary); }
 .detail-divider { border-top: 1px solid var(--border); }

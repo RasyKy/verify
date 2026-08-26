@@ -34,7 +34,6 @@ const HOLDER_CERT_SELECT = `
   id, course_name, completion_date, expiry_date,
   claim_state, revoked_at, is_hidden, created_at,
   organizations ( name ),
-  courses ( badge_url ),
   certificate_hashes ( chain_issued_at, is_current )
 `;
 
@@ -52,7 +51,6 @@ const PUBLIC_CERT_SELECT = `
   id, student_name, course_name, completion_date, expiry_date,
   claim_state, revoked_at, created_at,
   organizations ( name ),
-  courses ( badge_url ),
   certificate_hashes ( chain_issued_at, is_current )
 `;
 
@@ -69,7 +67,6 @@ function toHolderShape(row, now = new Date()) {
     id: row.id,
     course_name: row.course_name,
     institution_name: row.organizations?.name ?? null,
-    badge_url: row.courses?.badge_url ?? null,
     completion_date: row.completion_date,
     expiry_date: row.expiry_date,
     issued_at: row.created_at,
@@ -95,7 +92,6 @@ function toPublicShape(row, now = new Date()) {
     id: row.id,
     course_name: row.course_name,
     institution_name: row.organizations?.name ?? null,
-    badge_url: row.courses?.badge_url ?? null,
     completion_date: row.completion_date,
     expiry_date: row.expiry_date,
     issued_at: row.created_at,
