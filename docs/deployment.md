@@ -82,6 +82,7 @@ throws at *build* time without the first two:
 | `NUXT_PUBLIC_SUPABASE_URL` | the Supabase project URL |
 | `NUXT_PUBLIC_SUPABASE_KEY` | the **anon/publishable** key — never the service key, which bypasses RLS (T-06) |
 | `NUXT_PUBLIC_API_BASE` | the Render service URL, e.g. `https://verify-api.onrender.com` |
+| `NUXT_PUBLIC_SENTRY_DSN` | optional; the frontend's Sentry project DSN. Unlike the backend's `SENTRY_DSN` this one is meant to be public — it only accepts events, never exposes data |
 
 ## 3. Supabase — the settings that do not live in this repo
 

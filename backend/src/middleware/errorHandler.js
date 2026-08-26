@@ -10,6 +10,8 @@
  * in CertificateForm.vue and RevokeConfirmModal.vue — so a validation failure
  * surfaces in the toast rather than "Something went wrong".
  */
+import * as Sentry from '@sentry/node';
+
 import { AppError, notFound } from '../lib/errors.js';
 import { logger } from '../lib/logger.js';
 import { env } from '../config/env.js';
@@ -36,6 +38,12 @@ export function errorHandler(err, req, res, _next) {
 
   if (status >= 500) {
     logger.error(err?.message ?? 'Unhandled error', logPayload);
+    // No-ops if Sentry was never initialised (SENTRY_DSN unset) — same
+    // "no account needed for local dev" default as instrument.js.
+    Sentry.captureException(err, {
+      tags: { requestId: req.id, path: req.originalUrl, method: req.method },
+      user: req.user?.id ? { id: req.user.id } : undefined,
+    });
   } else {
     // Expected 4xx: one line, no stack. Not a defect, just a rejected request.
     logger.warn(err?.message ?? 'Request rejected', {
