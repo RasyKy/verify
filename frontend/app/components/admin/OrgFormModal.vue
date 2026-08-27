@@ -208,7 +208,7 @@ async function submit() {
           <span>
             <strong>Listed as accredited</strong>
             <span class="hint">
-              Controls the public registry only — separate from whether the
+              Controls the public registry only, separate from whether the
               institution is active.
             </span>
           </span>

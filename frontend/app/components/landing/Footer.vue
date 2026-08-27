@@ -50,7 +50,6 @@ const year = new Date().getFullYear()
 <style scoped>
 .site-footer {
   background: var(--canvas);
-  border-top: 1px solid var(--border);
   padding: 56px 40px 40px;
 }
 

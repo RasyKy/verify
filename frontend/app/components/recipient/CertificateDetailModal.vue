@@ -81,7 +81,7 @@ function formatTimestamp(dateStr: string) {
         <div class="preview-frame">
           <div v-if="!previewLoaded && !previewFailed" class="preview-skeleton" />
           <p v-if="previewFailed" class="preview-fallback">
-            Preview unavailable right now — the PDF/PNG downloads below still work.
+            Preview unavailable right now. The PDF/PNG downloads below still work.
           </p>
           <img
             v-show="previewLoaded"
@@ -107,16 +107,12 @@ function formatTimestamp(dateStr: string) {
             <UiStatusChip :status="cert.status" />
           </div>
           <div>
-            <p class="text-xs mb-0.5 detail-label">Completed</p>
+            <p class="text-xs mb-0.5 detail-label">Completion date</p>
             <p class="text-sm font-medium detail-value">{{ formatDate(cert.completion_date) }}</p>
           </div>
           <div>
-            <p class="text-xs mb-0.5 detail-label">Expiry</p>
+            <p class="text-xs mb-0.5 detail-label">Expiry date</p>
             <p class="text-sm font-medium detail-value">{{ cert.expiry_date ? formatDate(cert.expiry_date) : 'No expiry' }}</p>
-          </div>
-          <div>
-            <p class="text-xs mb-0.5 detail-label">Issued</p>
-            <p class="text-sm font-medium detail-value">{{ formatDate(cert.issued_at) }}</p>
           </div>
         </div>
 
@@ -125,9 +121,9 @@ function formatTimestamp(dateStr: string) {
           copy in one click. Reading a UUID off the screen to type elsewhere is
           where verification actually falls down.
         -->
-        <div class="pt-4 detail-divider space-y-3">
+        <div class="pt-5 detail-divider space-y-4">
           <div>
-            <p class="text-xs mb-1 detail-label">Certificate ID</p>
+            <p class="section-label mb-1.5">Certificate ID</p>
             <div class="copy-row">
               <code class="copy-value">{{ cert.id }}</code>
               <UButton
@@ -142,7 +138,7 @@ function formatTimestamp(dateStr: string) {
           </div>
 
           <div>
-            <p class="text-xs mb-1 detail-label">Verification link</p>
+            <p class="section-label mb-1.5">Verification link</p>
             <div class="copy-row">
               <code class="copy-value">{{ certUrl }}</code>
               <UButton
@@ -154,21 +150,18 @@ function formatTimestamp(dateStr: string) {
                 @click="copy('url', certUrl)"
               />
             </div>
-            <p class="text-xs mt-1 detail-label">
-              Anyone can open this — no account needed.
-            </p>
           </div>
         </div>
 
-        <div class="flex items-center gap-4 pt-4 detail-divider">
+        <div class="flex items-center gap-5 pt-5 detail-divider">
           <ClientOnly>
             <QrcodeVue :value="certUrl" :size="140" level="M" />
             <template #fallback>
               <div class="qr-placeholder" />
             </template>
           </ClientOnly>
-          <div class="flex-1 space-y-2 min-w-0">
-            <p class="text-xs detail-label">Scan to open the public certificate page, or share it directly.</p>
+          <div class="flex-1 space-y-3 min-w-0">
+            <p class="section-label">Share &amp; verify</p>
             <div class="flex flex-wrap gap-2">
               <UButton
                 :to="linkedInShareUrl"
@@ -201,8 +194,9 @@ function formatTimestamp(dateStr: string) {
                 Download PNG
               </UButton>
             </div>
-            <p v-if="cert.status === 'valid'" class="text-xs blockchain-note">
-              Recorded on the Polygon blockchain · {{ formatTimestamp(cert.issuedAtBlockchainTimestamp) }}
+            <p v-if="cert.status === 'valid'" class="onchain-note">
+              <UIcon name="i-heroicons-check-badge" class="size-3.5 shrink-0" />
+              On-chain · {{ formatTimestamp(cert.issuedAtBlockchainTimestamp) }}
             </p>
           </div>
         </div>
@@ -240,11 +234,23 @@ function formatTimestamp(dateStr: string) {
   flex: 1;
   min-width: 0;
   font-family: ui-monospace, 'SF Mono', Menlo, monospace;
-  font-size: 11.5px;
+  font-size: 12px;
+  font-weight: 500;
   color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* ── Section labels — small bold uppercase headers, same voice as the
+   dashboard's eyebrow text, used to introduce a block instead of a
+   full sentence of instructions. ── */
+.section-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
 }
 
 .preview-frame {
@@ -295,6 +301,13 @@ function formatTimestamp(dateStr: string) {
 .detail-label { color: var(--text-tertiary); }
 .detail-value { color: var(--text-primary); }
 .detail-divider { border-top: 1px solid var(--border); }
-.blockchain-note { color: var(--text-tertiary); }
+.onchain-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+}
 .qr-placeholder { width: 140px; height: 140px; background: var(--surface-hover); border-radius: 0.5rem; }
 </style>

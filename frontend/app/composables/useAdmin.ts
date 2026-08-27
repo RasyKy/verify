@@ -135,7 +135,7 @@ export function actionMeta(action: string) {
 }
 
 export function formatDate(isoDate: string): string {
-  if (!isoDate) return '—'
+  if (!isoDate) return '-'
   return new Date(isoDate).toLocaleDateString('en-GB', {
     day: 'numeric',
     month: 'short',

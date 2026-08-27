@@ -330,6 +330,14 @@ export function createCertificatesRouter({
           throw notFound('Certificate not found.');
         }
 
+        // Short, not absent and not long: the rendered image bakes in a live
+        // status stamp (renderStatusStamp in templates/certificates/shared.js
+        // draws a REVOKED/EXPIRED ribbon), so caching this for hours risks a
+        // browser showing a stale "looks valid" thumbnail after a revoke.
+        // 5 minutes is enough to make repeat dashboard loads in one browsing
+        // session free, without holding onto a wrong-looking image for long.
+        res.set('Cache-Control', 'public, max-age=300');
+
         const renderData = {
           status: result.status,
           studentName: result.certificate.studentName,

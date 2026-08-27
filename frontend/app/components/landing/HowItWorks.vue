@@ -101,8 +101,6 @@ const steps = [
 
   padding: 96px 40px;
   background: var(--hiw-bg);
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
   content-visibility: auto;
   contain-intrinsic-size: auto 400px;
 }

@@ -46,7 +46,7 @@ function onNewSearch(id: string) {
 
       <!-- Logo + wordmark -->
       <div class="flex items-center justify-center gap-2.5 mb-8">
-        <NuxtLink to="/verify" aria-label="Verify — home">
+        <NuxtLink to="/verify" aria-label="Verify: home">
           <BrandLogo :size="32" wordmark />
         </NuxtLink>
       </div>
@@ -70,7 +70,7 @@ function onNewSearch(id: string) {
         </h2>
         <p class="mt-1.5 text-sm text-gray-600">
           We could not reach the verification service, so we cannot confirm this
-          certificate right now. This does not mean it is invalid — please try again
+          certificate right now. This does not mean it is invalid. Please try again
           shortly.
         </p>
         <UButton class="mt-4" variant="soft" color="neutral" @click="refreshNuxtData()">

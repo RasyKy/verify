@@ -92,7 +92,7 @@ const sortedRows = computed(() => {
             :class="{ 'col-hide-mobile': col.hideMobile }"
           >
             <slot :name="`cell-${col.key}`" :value="row[col.key]" :row="row">
-              <span class="cell-text">{{ row[col.key] ?? '—' }}</span>
+              <span class="cell-text">{{ row[col.key] ?? '-' }}</span>
             </slot>
           </td>
         </tr>

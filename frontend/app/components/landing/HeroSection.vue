@@ -103,7 +103,6 @@ onMounted(() => {
 
       <p class="subline">
         Paste the certificate ID and check it against the blockchain record.
-        No account, no waiting on the issuing institution.
       </p>
 
       <!--
@@ -126,42 +125,6 @@ onMounted(() => {
           <UIcon name="i-heroicons-qr-code" class="qr-icon" />
           Scan QR code instead
         </button>
-        <span class="dot-sep" aria-hidden="true">·</span>
-        <span class="trust-note">
-          <UIcon name="i-heroicons-lock-closed" class="trust-icon" />
-          Checked against the chain, not a database copy
-        </span>
-      </div>
-
-      <!--
-        Sets the expectation before anyone searches, and gives the composition a
-        base wider than the search bar so the hero is not top-heavy. These are
-        the four values verifyStatus() can actually return — not marketing.
-      -->
-      <div class="outcomes">
-        <p class="outcomes-label">Every check comes back as one of four</p>
-        <ul class="outcome-list">
-          <li class="outcome outcome--verified">
-            <UIcon name="i-heroicons-check-circle-solid" class="outcome-icon" />
-            <span class="outcome-name">Verified</span>
-            <span class="outcome-note">Genuine and current</span>
-          </li>
-          <li class="outcome outcome--revoked">
-            <UIcon name="i-heroicons-x-circle-solid" class="outcome-icon" />
-            <span class="outcome-name">Revoked</span>
-            <span class="outcome-note">Withdrawn by the issuer</span>
-          </li>
-          <li class="outcome outcome--expired">
-            <UIcon name="i-heroicons-clock-solid" class="outcome-icon" />
-            <span class="outcome-name">Expired</span>
-            <span class="outcome-note">Past its expiry date</span>
-          </li>
-          <li class="outcome outcome--invalid">
-            <UIcon name="i-heroicons-exclamation-triangle-solid" class="outcome-icon" />
-            <span class="outcome-name">Invalid</span>
-            <span class="outcome-note">Not on the chain</span>
-          </li>
-        </ul>
       </div>
     </div>
 
@@ -170,11 +133,24 @@ onMounted(() => {
 </template>
 
 <style scoped>
-/* ── Stage ── */
+/* ── Stage ──
+   Sized to fill what's left of the viewport under the 63px header, not just
+   padded to fit its own content — with the hero this light now, a fixed
+   padding left the next section's heading and top row of logos peeking in
+   at ordinary laptop viewport heights. min-height (not height) still lets a
+   short viewport or a long one grow the box instead of clipping or
+   stranding acres of blank canvas — dvh accounts for mobile browser chrome
+   showing/hiding; the vh line above it is the fallback for browsers without
+   dvh support. */
 .hero {
   position: relative;
   isolation: isolate;
   overflow: hidden;
+  min-height: calc(100vh - 63px);
+  min-height: calc(100dvh - 63px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 92px 24px 64px;
   perspective: 1200px;
   --mx: 0;
@@ -409,79 +385,6 @@ onMounted(() => {
 
 .qr-icon { width: 15px; height: 15px; }
 
-.dot-sep { color: var(--text-tertiary); }
-
-.trust-note {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--text-tertiary);
-}
-
-.trust-icon { width: 13px; height: 13px; }
-
-.outcomes {
-  margin-top: 44px;
-  width: 100%;
-  max-width: 720px;
-}
-
-.outcomes-label {
-  font-size: 11.5px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-tertiary);
-  margin: 0 0 14px;
-}
-
-.outcome-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.outcome {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  padding: 14px 10px 13px;
-  border-radius: 12px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  box-shadow: 0 1px 2px rgba(55, 53, 47, 0.04);
-}
-
-.outcome-icon {
-  width: 19px;
-  height: 19px;
-  margin-bottom: 3px;
-}
-
-.outcome-name {
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--text-primary);
-  line-height: 1.2;
-}
-
-.outcome-note {
-  font-size: 11.5px;
-  line-height: 1.35;
-  color: var(--text-tertiary);
-  text-align: center;
-}
-
-.outcome--verified .outcome-icon { color: var(--status-valid-text); }
-.outcome--revoked  .outcome-icon { color: var(--status-revoked-text); }
-.outcome--expired  .outcome-icon { color: var(--status-expired-text); }
-.outcome--invalid  .outcome-icon { color: var(--status-revoked-text); }
-
 /* ── Reduced motion: no drift ──
    The search bar flattens its own tilt and shake. */
 @media (prefers-reduced-motion: reduce) {
@@ -497,27 +400,7 @@ onMounted(() => {
   .card-float { display: none; }
 }
 
-@media (max-width: 720px) {
-  .outcome-list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
 @media (max-width: 620px) {
   .hero { padding: 64px 20px 52px; }
-
-  .outcomes { margin-top: 34px; }
-
-  .outcome {
-    flex-direction: row;
-    justify-content: flex-start;
-    gap: 8px;
-    padding: 11px 13px;
-  }
-
-  .outcome-icon { margin-bottom: 0; }
-
-  /* The label carries it at this width; the gloss would wrap to three lines. */
-  .outcome-note { display: none; }
 }
 </style>

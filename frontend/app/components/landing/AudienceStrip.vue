@@ -267,7 +267,6 @@ onUnmounted(() => { stopAutoAdvance(); clearHoverTimer() })
 /* ── Section ── */
 .audience {
   padding: 72px 40px;
-  border-top: 1px solid var(--border);
 }
 
 .audience-inner {

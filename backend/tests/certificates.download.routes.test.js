@@ -170,6 +170,13 @@ describe('GET /api/certificates/:id/download', () => {
     expect(renderData.logoUrl).toBe(absoluteLogo);
   });
 
+  it('sets a short, not absent, cache lifetime — the render bakes in a live status stamp, so caching too long risks a stale "looks valid" image after a revoke', async () => {
+    const res = await request(makeApp()).get(
+      `/api/certificates/${CERT_ID}/download`
+    );
+    expect(res.headers['cache-control']).toBe('public, max-age=300');
+  });
+
   it('surfaces a renderer failure as 503', async () => {
     const renderService = {
       renderPdf: async () => {

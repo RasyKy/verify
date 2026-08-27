@@ -50,7 +50,7 @@ const previewFailed = ref(false)
     <div class="max-w-xl mx-auto px-4 pt-16 pb-16">
       <!-- Logo + wordmark -->
       <div class="flex items-center justify-center gap-2.5 mb-8">
-        <NuxtLink to="/verify" aria-label="Verify — home">
+        <NuxtLink to="/verify" aria-label="Verify: home">
           <BrandLogo :size="32" wordmark />
         </NuxtLink>
       </div>
@@ -74,7 +74,7 @@ const previewFailed = ref(false)
         </h2>
         <p class="mt-1.5 text-sm text-gray-600">
           We could not reach the verification service, so we cannot confirm this
-          certificate right now. This does not mean it is invalid — please try again
+          certificate right now. This does not mean it is invalid. Please try again
           shortly.
         </p>
         <UButton class="mt-4" variant="soft" color="neutral" @click="refreshNuxtData()">
@@ -90,7 +90,7 @@ const previewFailed = ref(false)
         <div v-if="!pending && displayResult?.certificate" class="mt-6 preview-frame">
           <div v-if="!previewLoaded && !previewFailed" class="preview-skeleton" />
           <p v-if="previewFailed" class="preview-fallback">
-            Preview unavailable right now — the PDF/PNG downloads below still work.
+            Preview unavailable right now. The PDF/PNG downloads below still work.
           </p>
           <img
             v-show="previewLoaded"

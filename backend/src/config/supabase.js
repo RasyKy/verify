@@ -43,7 +43,7 @@ let _anonClient = null;
 export function getAnonClient() {
   if (!env.SUPABASE_ANON_KEY) {
     throw new Error(
-      'SUPABASE_ANON_KEY is not set — the RLS-bound anon client is unavailable.'
+      'SUPABASE_ANON_KEY is not set: the RLS-bound anon client is unavailable.'
     );
   }
   _anonClient ??= createClient(

@@ -140,8 +140,8 @@ async function saveDetails() {
       <h1 class="text-2xl font-bold page-title">Certificate settings</h1>
       <p class="text-sm mt-1 page-subtitle">
         Your logo, signature, and signatory appear on every certificate document
-        recipients download — purely presentational, with no effect on verification.
-        To choose which template a course uses, see
+        recipients download. They're purely presentational, with no effect on
+        verification. To choose which template a course uses, see
         <NuxtLink to="/issuer/courses" class="text-link">Courses</NuxtLink>.
       </p>
     </div>

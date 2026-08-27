@@ -15,12 +15,6 @@ import {
   renderStatusStamp,
 } from './shared.js';
 
-// Inline SVG feTurbulence noise, tiled — a data URI so the render never
-// depends on a network fetch. Very low alpha (0.05): felt as paper grain,
-// not visible as a pattern.
-const PAPER_TEXTURE =
-  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E";
-
 export function renderClassic(data) {
   const {
     studentName,
@@ -55,12 +49,23 @@ export function renderClassic(data) {
     padding: 56px;
     overflow: hidden;
     background-color: #faf6ec;
+    /*
+     * Paper grain as a fine hairline weave rather than organic noise. An
+     * earlier feTurbulence-based texture looked fine but ballooned a ~900KB
+     * render to 6.2MB: Puppeteer rasterizes the fully-composited page rather
+     * than keeping the CSS tile as a tile, and genuinely-random per-pixel
+     * noise defeats PNG's deflate compression regardless of how low its
+     * opacity is tuned. A repeating-gradient weave is structured/low-entropy
+     * instead — it compresses the way a striped pattern does, not like
+     * static — while still reading as subtle fiber at this opacity. Confirmed
+     * by re-rendering and checking Content-Length, not by eye alone.
+     */
     background-image:
       radial-gradient(ellipse at top left, rgba(191, 155, 66, 0.06), transparent 55%),
       radial-gradient(ellipse at bottom right, rgba(191, 155, 66, 0.06), transparent 55%),
-      url("${PAPER_TEXTURE}");
-    background-repeat: no-repeat, no-repeat, repeat;
-    background-size: auto, auto, 180px 180px;
+      repeating-linear-gradient(0deg, rgba(140, 115, 60, 0.035) 0px, rgba(140, 115, 60, 0.035) 1px, transparent 1px, transparent 3px),
+      repeating-linear-gradient(90deg, rgba(140, 115, 60, 0.035) 0px, rgba(140, 115, 60, 0.035) 1px, transparent 1px, transparent 3px);
+    background-repeat: no-repeat, no-repeat, repeat, repeat;
   }
   .frame {
     width: 100%;

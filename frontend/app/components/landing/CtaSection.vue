@@ -41,8 +41,6 @@
   background-image: url('/bg-cta.webp');
   background-size: cover;
   background-position: center;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
   padding: 88px 40px;
   content-visibility: auto;
   contain-intrinsic-size: auto 300px;

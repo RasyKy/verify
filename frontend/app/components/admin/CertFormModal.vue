@@ -113,7 +113,7 @@ async function submit() {
           ? {
               title: 'Certificate issued',
               description:
-                'The claim email could not be sent — use the resend action to get a fresh link.',
+                'The claim email could not be sent. Use the resend action to get a fresh link.',
               color: 'warning' as const,
             }
           : {

@@ -4,10 +4,10 @@ definePageMeta({ layout: 'default' })
 const UPDATED = '2026-08-23'
 
 useSeoMeta({
-  title: 'Terms of service — Verify',
+  title: 'Terms of service | Verify',
   description:
     'The terms for using Verify: what a verification result does and does not prove, what institutions and holders are each responsible for, and the limits of the service.',
-  ogTitle: 'Terms of service — Verify',
+  ogTitle: 'Terms of service | Verify',
   ogDescription:
     'What a verification result proves, what institutions and holders are responsible for, and the limits of the service.',
 })
@@ -33,8 +33,8 @@ useHead({ link: [{ rel: 'canonical', href: 'https://verify.app/terms' }] })
 
     <h2>1. Accepting these terms</h2>
     <p>
-      By using Verify — signing in, issuing a certificate, claiming one, or
-      checking one — you accept these terms. If you are using Verify for an
+      By using Verify (signing in, issuing a certificate, claiming one, or
+      checking one), you accept these terms. If you are using Verify for an
       institution, you confirm you are authorised to accept them on its behalf.
     </p>
 
@@ -48,19 +48,19 @@ useHead({ link: [{ rel: 'canonical', href: 'https://verify.app/terms' }] })
     <p>A verification result therefore tells you one of four things:</p>
     <ul>
       <li>
-        <strong>Verified</strong> — the details match the record the issuer
+        <strong>Verified</strong>: the details match the record the issuer
         anchored, the certificate has not been revoked, and it has not expired.
       </li>
       <li>
-        <strong>Revoked</strong> — the issuing institution has withdrawn this
+        <strong>Revoked</strong>: the issuing institution has withdrawn this
         certificate. Why is between them and the holder.
       </li>
       <li>
-        <strong>Expired</strong> — genuine, but past the expiry date the issuer
+        <strong>Expired</strong>: genuine, but past the expiry date the issuer
         set.
       </li>
       <li>
-        <strong>Invalid</strong> — no matching record was found, or the details
+        <strong>Invalid</strong>: no matching record was found, or the details
         do not match the anchored fingerprint.
       </li>
     </ul>
@@ -71,7 +71,7 @@ useHead({ link: [{ rel: 'canonical', href: 'https://verify.app/terms' }] })
         has not been altered since the institution issued it. It does not mean
         the institution is reputable, accredited, or telling the truth about
         what the holder did. A perfectly verifiable certificate from a
-        worthless institution is still worthless — verification proves
+        worthless institution is still worthless. Verification proves
         integrity, not merit.
       </p>
     </div>
@@ -121,9 +121,9 @@ useHead({ link: [{ rel: 'canonical', href: 'https://verify.app/terms' }] })
     </ul>
     <p>
       We may suspend an institution that issues fraudulent certificates.
-      Certificates already issued under a suspended institution stay verifiable
-      — revoking them would punish the graduates for their institution's
-      conduct.
+      Certificates already issued under a suspended institution stay
+      verifiable. Revoking them would punish the graduates for their
+      institution's conduct.
     </p>
 
     <h2>5. If you hold a certificate</h2>
@@ -131,7 +131,7 @@ useHead({ link: [{ rel: 'canonical', href: 'https://verify.app/terms' }] })
       <li>Claim only certificates issued to you.</li>
       <li>
         You may share a certificate with anyone. You may hide it from your
-        public profile at any time — but hiding is not the same as revoking, and
+        public profile at any time, but hiding is not the same as revoking, and
         anyone already holding the link can still verify it.
       </li>
       <li>
@@ -159,7 +159,7 @@ useHead({ link: [{ rel: 'canonical', href: 'https://verify.app/terms' }] })
     <p>
       Verify is provided as-is. We aim to keep it available but do not promise
       uninterrupted service, and parts of it depend on infrastructure we do not
-      control — a public blockchain network, an authentication provider, an
+      control: a public blockchain network, an authentication provider, an
       email provider.
     </p>
     <p>
@@ -171,7 +171,7 @@ useHead({ link: [{ rel: 'canonical', href: 'https://verify.app/terms' }] })
     <h2>8. Limits of liability</h2>
     <p>
       To the extent the law allows, Verify is not liable for indirect or
-      consequential loss arising from use of the service — including decisions
+      consequential loss arising from use of the service, including decisions
       made in reliance on a verification result, loss of access to an account,
       or the conduct of any institution or holder on the platform.
     </p>
@@ -183,7 +183,7 @@ useHead({ link: [{ rel: 'canonical', href: 'https://verify.app/terms' }] })
     <p>
       You may stop using Verify at any time and ask us to delete your account.
       We may suspend or close an account that breaches these terms. Certificates
-      that have already been issued remain verifiable regardless — that is what
+      that have already been issued remain verifiable regardless. That is what
       the people relying on them are entitled to.
     </p>
 

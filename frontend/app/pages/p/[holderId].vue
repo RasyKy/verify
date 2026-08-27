@@ -62,7 +62,7 @@ const summaryLine = computed(() => {
  * shareable by link, which is what the holder actually opted into.
  */
 useHead({
-  title: () => (displayName.value ? `${displayName.value} — Verify` : 'Verify'),
+  title: () => (displayName.value ? `${displayName.value} | Verify` : 'Verify'),
   meta: [{ name: 'robots', content: 'noindex, nofollow' }],
 })
 </script>
@@ -72,7 +72,7 @@ useHead({
     <div class="profile-page">
       <!-- Logo + wordmark -->
       <div class="flex items-center justify-center mb-10">
-        <NuxtLink to="/" aria-label="Verify — home">
+        <NuxtLink to="/" aria-label="Verify: home">
           <BrandLogo :size="32" wordmark />
         </NuxtLink>
       </div>
