@@ -181,7 +181,7 @@ export function createAdminRouter({
 
       if (!slug) {
         throw badRequest(
-          'Could not derive a slug from that name — please supply one.'
+          'Could not derive a slug from that name. Please supply one.'
         );
       }
 
@@ -570,7 +570,7 @@ export function createAdminRouter({
           recipientEmail: row.student_email,
           courseName: row.course_name,
           organizationId: row.organization_id,
-          organizationName: row.organizations?.name ?? '—',
+          organizationName: row.organizations?.name ?? '-',
           // The edit form needs these two; the list itself does not show them.
           completionDate: row.completion_date,
           expiryDate: row.expiry_date ?? null,
@@ -696,7 +696,7 @@ export function createAdminRouter({
 
       await audit({
         action: AUDIT_ACTIONS.CERTIFICATE_REVOKED,
-        targetLabel: `${row.student_name} — ${row.course_name} (deleted)`,
+        targetLabel: `${row.student_name} · ${row.course_name} (deleted)`,
         actor: req.user,
         organizationId: row.organization_id ?? null,
         metadata: { certificate_id: row.id, deleted: true },
@@ -744,7 +744,7 @@ export function createAdminRouter({
           action: row.action,
           targetLabel: row.target_label,
           organizationId: row.organization_id ?? '',
-          organizationName: row.organizations?.name ?? '—',
+          organizationName: row.organizations?.name ?? '-',
         }))
       );
     } catch (err) {

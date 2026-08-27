@@ -61,7 +61,7 @@ async function submit() {
             color: 'success' as const,
           }
         : {
-            title: 'Account created — no email sent',
+            title: 'Account created, no email sent',
             description: `Email is not configured on the server. Ask ${email} to use "Forgot password" on the sign-in page.`,
             color: 'warning' as const,
           },

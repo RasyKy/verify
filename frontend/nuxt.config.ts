@@ -2,7 +2,13 @@
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
-  modules: ['@nuxt/ui', '@nuxtjs/supabase', '@nuxtjs/sitemap', '@nuxtjs/robots'],
+  modules: [
+    '@nuxt/ui',
+    '@nuxtjs/supabase',
+    '@nuxtjs/sitemap',
+    '@nuxtjs/robots',
+    '@sentry/nuxt/module',
+  ],
   css: ['~/assets/css/main.css'],
   /**
    * `apiBase` must be declared here or NUXT_PUBLIC_API_BASE in .env is inert —
@@ -18,7 +24,28 @@ export default defineNuxtConfig({
       // `Authorization`, and auth is bearer-token rather than cookie, so there is
       // nothing same-origin would buy us.
       apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:3001',
+      // Read by sentry.client.config.ts. Empty string, not undefined, when
+      // unset — Sentry.init() below treats an empty dsn as "don't send".
+      sentryDsn: process.env.NUXT_PUBLIC_SENTRY_DSN || '',
     },
+  },
+  /**
+   * Sentry DSNs are meant to be public (they only ever accept events, never
+   * expose data), so this is safe to read client-side — unlike the backend's
+   * SENTRY_DSN this is not a secret. Actual init (with the same PII scrubbing
+   * the backend uses) lives in sentry.client.config.ts / sentry.server.config.ts,
+   * not here.
+   *
+   * No source-map upload configured — that needs a SENTRY_AUTH_TOKEN this
+   * project doesn't have yet. Without it the plugin just logs "no auth
+   * token, skipping" at build time rather than failing; add authToken here
+   * once that token exists, so Sentry shows real function/line names
+   * instead of minified ones.
+   */
+  sentry: {
+    // Skips this module's build step entirely when there's no DSN — the same
+    // "no account needed for local dev" default the backend already has.
+    enabled: Boolean(process.env.NUXT_PUBLIC_SENTRY_DSN),
   },
   app: {
     head: {

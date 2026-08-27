@@ -33,7 +33,8 @@ import {
 const HOLDER_CERT_SELECT = `
   id, course_name, completion_date, expiry_date,
   claim_state, revoked_at, is_hidden, created_at,
-  organizations ( name ),
+  organizations ( name, logo_url ),
+  courses ( certificate_template ),
   certificate_hashes ( chain_issued_at, is_current )
 `;
 
@@ -67,6 +68,10 @@ function toHolderShape(row, now = new Date()) {
     id: row.id,
     course_name: row.course_name,
     institution_name: row.organizations?.name ?? null,
+    institution_logo_url: row.organizations?.logo_url ?? null,
+    // Same 'classic' fallback as certificateService.verify() — a null
+    // course_id (legacy/seed rows) means no course to join, not an error.
+    certificate_template: row.courses?.certificate_template ?? 'classic',
     completion_date: row.completion_date,
     expiry_date: row.expiry_date,
     issued_at: row.created_at,

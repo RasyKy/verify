@@ -2,11 +2,11 @@ export function useFaqs() {
   return [
     {
       q: 'How does certificate verification work?',
-      a: 'When you issue a certificate, Verify creates a digital fingerprint of the recipient details. Anyone verifying re-checks that fingerprint — if it matches, the certificate is genuine. Changing any field breaks the match, making the certificate immediately show as invalid.',
+      a: 'When you issue a certificate, Verify creates a digital fingerprint of the recipient details. Anyone verifying re-checks that fingerprint: if it matches, the certificate is genuine. Changing any field breaks the match, making the certificate immediately show as invalid.',
     },
     {
       q: 'Who can verify a certificate?',
-      a: 'Anyone — employers, universities, event organisers, or members of the public. Verification is public and requires no account. Verifiers just scan the QR code or visit the certificate URL.',
+      a: 'Anyone: employers, universities, event organisers, or members of the public. Verification is public and requires no account. Verifiers just scan the QR code or visit the certificate URL.',
     },
     {
       q: 'What happens if I need to revoke a certificate?',
@@ -14,7 +14,7 @@ export function useFaqs() {
     },
     {
       q: 'Do recipients need to create an account?',
-      a: 'No. Recipients receive their certificate as a direct link by email and can view and share it immediately — no account required. They can optionally save the certificate to a personal dashboard for privacy controls, but this is never required for sharing or verification.',
+      a: 'No. Recipients receive their certificate as a direct link by email and can view and share it immediately, no account required. They can optionally save the certificate to a personal dashboard for privacy controls, but this is never required for sharing or verification.',
     },
     {
       q: "Who owns my institution's credential data?",

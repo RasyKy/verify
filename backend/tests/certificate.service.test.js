@@ -262,6 +262,37 @@ describe('verify()', () => {
     );
   });
 
+  it('reads institution branding from organizations and the template from courses', async () => {
+    const { row, hash, chain } = await genuine({
+      organizations: {
+        name: 'Royal Phnom Penh University',
+        logo_url: 'https://x/logo.png',
+        signature_url: 'https://x/sig.png',
+        signatory_name: 'Dr. Sok Dara',
+        signatory_title: 'Dean',
+      },
+      courses: { certificate_template: 'modern' },
+    });
+    const db = fakeDb({ certificates: row, certificate_hashes: { hash } });
+
+    const result = await makeService({ db, chain }).verify({ certId: CERT_ID });
+
+    expect(result.certificate.logoUrl).toBe('https://x/logo.png');
+    expect(result.certificate.signatureUrl).toBe('https://x/sig.png');
+    expect(result.certificate.signatoryName).toBe('Dr. Sok Dara');
+    expect(result.certificate.signatoryTitle).toBe('Dean');
+    expect(result.certificate.certificateTemplate).toBe('modern');
+  });
+
+  it('defaults to the classic template when the course has none linked', async () => {
+    const { row, hash, chain } = await genuine({ courses: null });
+    const db = fakeDb({ certificates: row, certificate_hashes: { hash } });
+
+    const result = await makeService({ db, chain }).verify({ certId: CERT_ID });
+
+    expect(result.certificate.certificateTemplate).toBe('classic');
+  });
+
   it('detects tampering — an edited field no longer matches the stored hash', async () => {
     const { row, hash, chain } = await genuine();
     // Somebody edited the name directly in the database. The stored hash and the

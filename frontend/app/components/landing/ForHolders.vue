@@ -3,12 +3,11 @@
     <div class="holders-inner">
       <!-- ── Copy ── -->
       <div class="holders-copy">
-        <div class="section-label">If you were awarded one</div>
-        <h2 class="section-headline">Your certificate, in your own account.</h2>
+        <div class="section-label">For holders</div>
+        <h2 class="section-headline">Your certificate. Your account.</h2>
         <p class="holders-sub">
-          Certificates are issued to you, not just about you. Claim yours once
-          and it lives in a holder account you control — ready to share with an
-          employer, and impossible for them to doubt.
+          Claim it once, and it's kept in an account you control, ready to
+          share with an employer anytime.
         </p>
 
         <ol class="steps">
@@ -34,8 +33,8 @@
         -->
         <p class="actions-note">
           <UIcon name="i-heroicons-envelope" class="note-icon" />
-          No account yet? It's created when you open the claim link your
-          institution emailed you.
+          No account yet? It's created the moment you open your
+          institution's claim email.
         </p>
       </div>
 
@@ -75,8 +74,7 @@
 
           <p class="portal-foot">
             <UIcon name="i-heroicons-eye-slash" class="foot-icon" />
-            Hiding a certificate removes it from your public profile. It stays
-            verifiable by anyone holding its link.
+            Hidden certificates stay off your profile. The link still works.
           </p>
         </div>
       </div>
@@ -88,15 +86,15 @@
 const steps = [
   {
     title: 'Open the claim link',
-    body: 'Your institution emails it the moment the certificate is issued. It is addressed to you and works once.',
+    body: 'Your institution emails it the moment your certificate is issued.',
   },
   {
     title: 'Set up your account',
-    body: 'Continue with Google, an emailed code, or a password — whichever you prefer. This is what makes the certificate yours.',
+    body: 'Sign in with Google, email, or a password. Takes seconds.',
   },
   {
     title: 'Share it, or hide it',
-    body: 'Send the link to an employer and they can confirm it in seconds. Hide a certificate and it drops off your public profile without ever becoming unverifiable.',
+    body: 'Send the link to an employer to verify it instantly, or hide it from your profile. The link still works either way.',
   },
 ]
 </script>
@@ -105,7 +103,6 @@ const steps = [
 .holders {
   padding: 96px 40px;
   background: var(--canvas);
-  border-bottom: 1px solid var(--border);
   content-visibility: auto;
   contain-intrinsic-size: auto 600px;
 }

@@ -172,7 +172,7 @@ async function confirmDeactivate() {
       title="Delete account permanently"
 
 
-      :message="`Remove ${deleteTargetName} and their sign-in entirely. Certificates they issued stay valid, and the audit log keeps their name — but the account cannot be restored. Deactivate instead if you may want them back.`"
+      :message="`Remove ${deleteTargetName} and their sign-in entirely. Certificates they issued stay valid, and the audit log keeps their name, but the account cannot be restored. Deactivate instead if you may want them back.`"
 
 
       confirm-label="Delete permanently"

@@ -10,10 +10,10 @@
 definePageMeta({ layout: 'default' })
 
 useSeoMeta({
-  title: 'Contact — Verify',
+  title: 'Contact | Verify',
   description:
     'How to reach Verify: support for certificate holders, onboarding for institutions, privacy requests, and security disclosure.',
-  ogTitle: 'Contact — Verify',
+  ogTitle: 'Contact | Verify',
   ogDescription: 'Support, institution onboarding, privacy requests and security disclosure.',
 })
 
@@ -25,7 +25,7 @@ const channels = [
     icon: 'i-heroicons-lifebuoy',
     tint: 'green',
     title: 'Help with a certificate',
-    body: 'You hold a certificate and something is wrong — a claim link that will not open, a certificate you cannot find, or a verification result you did not expect.',
+    body: 'You hold a certificate and something is wrong: a claim link that will not open, a certificate you cannot find, or a verification result you did not expect.',
     email: SITE_CONTACT.support,
   },
   {
@@ -102,8 +102,8 @@ const channels = [
           <h3>Something on my certificate is wrong</h3>
           <p>
             Contact the institution that issued it, not us. Certificate details
-            are fixed at issuance — changing a name or date changes the
-            fingerprint anchored on the blockchain — so only the issuer can
+            are fixed at issuance: changing a name or date changes the
+            fingerprint anchored on the blockchain, so only the issuer can
             correct it, by revoking and reissuing.
           </p>
         </div>
@@ -121,7 +121,7 @@ const channels = [
         <div class="faq-item">
           <h3>A certificate came back "Invalid"</h3>
           <p>
-            Check the ID for a typo first — it is the single most common cause.
+            Check the ID for a typo first. It is the single most common cause.
             If the ID is right and the result still says Invalid, the details do
             not match what was anchored on the chain, and the institution that
             issued it is the right place to take that.

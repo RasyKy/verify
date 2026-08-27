@@ -86,6 +86,39 @@ export function useCourses() {
 }
 
 /**
+ * The fixed certificate templates (backend/src/templates/certificates/).
+ * Template choice is per-course, not per-organization or per-certificate.
+ */
+export type CertificateTemplate = 'classic' | 'modern' | 'editorial'
+
+/** A course with its certificate template, for the /issuer/courses management page. */
+export interface CourseWithTemplate {
+  id: string
+  name: string
+  certificateTemplate: CertificateTemplate
+}
+
+/** The organization's courses, with template info. Separate from useCourses()
+ *  so the typeahead's bare-string-array contract never has to change. */
+export function useCoursesFull() {
+  const api = useApi()
+  const { data, pending, refresh, error } = useAsyncData<CourseWithTemplate[]>(
+    'issuer:courses:full',
+    () => api<CourseWithTemplate[]>('/api/courses/full'),
+    { default: () => [] },
+  )
+  return { courses: data, pending, refresh, error }
+}
+
+/** Sets which template a course's certificates render with. */
+export function updateCourseTemplate(id: string, certificateTemplate: CertificateTemplate) {
+  return useApi()<CourseWithTemplate>(`/api/courses/${id}/template`, {
+    method: 'PATCH',
+    body: { certificateTemplate },
+  })
+}
+
+/**
  * Dashboard figures for a range. Refetches when `range` changes rather than
  * slicing a cached list client-side, because the chart series is zero-filled
  * server-side for exactly the requested window.
@@ -148,10 +181,15 @@ export function resendClaimEmail(id: string) {
 }
 
 /** Idempotent server-side on (organization, name). */
-export function createCourse(name: string) {
-  return useApi()<{ id: string; name: string }>('/api/courses', {
+/**
+ * `certificateTemplate` is optional and only takes effect when the course is
+ * actually created — idempotent re-submission of an existing name never
+ * overwrites its template (see routes/courses.js).
+ */
+export function createCourse(name: string, certificateTemplate?: CertificateTemplate) {
+  return useApi()<CourseWithTemplate>('/api/courses', {
     method: 'POST',
-    body: { name },
+    body: certificateTemplate ? { name, certificateTemplate } : { name },
   })
 }
 

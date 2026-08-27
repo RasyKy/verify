@@ -163,7 +163,7 @@ watch(supaUser, async (user) => {
         </h2>
         <p class="brand-sub">
           Every certificate issued here is anchored on-chain, so anyone holding
-          the link can confirm it in seconds — without calling the institution
+          the link can confirm it in seconds, without calling the institution
           that issued it.
         </p>
       </div>

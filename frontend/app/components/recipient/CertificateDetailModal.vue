@@ -5,12 +5,6 @@ import type { HolderCertificate } from '~/composables/useHolderCertificates'
 const props = defineProps<{ open: boolean; cert: HolderCertificate | null }>()
 const emit = defineEmits<{ 'update:open': [value: boolean] }>()
 
-const statusConfig: Record<'valid' | 'revoked' | 'expired', { label: string; style: string }> = {
-  valid: { label: 'Valid', style: 'background: var(--status-valid-bg); color: var(--status-valid-text)' },
-  revoked: { label: 'Revoked', style: 'background: var(--status-revoked-bg); color: var(--status-revoked-text)' },
-  expired: { label: 'Expired', style: 'background: var(--status-expired-bg); color: var(--status-expired-text)' },
-}
-
 const copied = ref<'id' | 'url' | null>(null)
 let copyTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -29,6 +23,25 @@ async function copy(which: 'id' | 'url', value: string) {
 onBeforeUnmount(() => clearTimeout(copyTimer))
 
 const certUrl = computed(() => (props.cert ? `${useRequestURL().origin}/cert/${props.cert.id}` : ''))
+
+// Rendered server-side (GET /api/certificates/:id/download) — a plain link,
+// since the browser handles the Content-Disposition download natively, no
+// JS fetch needed. Public and unauthenticated, same as the QR endpoint.
+const { public: { apiBase } } = useRuntimeConfig()
+function downloadUrl(format: 'pdf' | 'png') {
+  return props.cert ? `${apiBase}/api/certificates/${props.cert.id}/download?format=${format}` : ''
+}
+
+// Same endpoint as the "Download PNG" button — an <img> tag ignores
+// Content-Disposition: attachment, so it renders inline instead of
+// triggering a save dialog. Lets the holder see the actual template
+// (branding, layout) their institution chose, not just a data card.
+const previewLoaded = ref(false)
+const previewFailed = ref(false)
+watch(() => props.cert?.id, () => {
+  previewLoaded.value = false
+  previewFailed.value = false
+})
 
 // LinkedIn's certification "Add to Profile" flow, not the generic link-share
 // flow — this pre-fills a Licenses & Certifications entry with the cert's own
@@ -63,6 +76,23 @@ function formatTimestamp(dateStr: string) {
   <UModal :open="open" title="Certificate details" @update:open="emit('update:open', $event)">
     <template #body>
       <div v-if="cert" class="space-y-4">
+        <!-- The rendered template itself, not just a data summary — this is
+             what downloading actually produces. -->
+        <div class="preview-frame">
+          <div v-if="!previewLoaded && !previewFailed" class="preview-skeleton" />
+          <p v-if="previewFailed" class="preview-fallback">
+            Preview unavailable right now. The PDF/PNG downloads below still work.
+          </p>
+          <img
+            v-show="previewLoaded"
+            :src="downloadUrl('png')"
+            :alt="`${cert.course_name} certificate`"
+            class="preview-image"
+            @load="previewLoaded = true"
+            @error="previewFailed = true"
+          >
+        </div>
+
         <div class="grid grid-cols-2 gap-4">
           <div>
             <p class="text-xs mb-0.5 detail-label">Course</p>
@@ -74,21 +104,15 @@ function formatTimestamp(dateStr: string) {
           </div>
           <div>
             <p class="text-xs mb-0.5 detail-label">Status</p>
-            <span :style="statusConfig[cert.status].style" class="text-xs font-medium px-2 py-0.5 rounded-full">
-              {{ statusConfig[cert.status].label }}
-            </span>
+            <UiStatusChip :status="cert.status" />
           </div>
           <div>
-            <p class="text-xs mb-0.5 detail-label">Completed</p>
+            <p class="text-xs mb-0.5 detail-label">Completion date</p>
             <p class="text-sm font-medium detail-value">{{ formatDate(cert.completion_date) }}</p>
           </div>
           <div>
-            <p class="text-xs mb-0.5 detail-label">Expiry</p>
+            <p class="text-xs mb-0.5 detail-label">Expiry date</p>
             <p class="text-sm font-medium detail-value">{{ cert.expiry_date ? formatDate(cert.expiry_date) : 'No expiry' }}</p>
-          </div>
-          <div>
-            <p class="text-xs mb-0.5 detail-label">Issued</p>
-            <p class="text-sm font-medium detail-value">{{ formatDate(cert.issued_at) }}</p>
           </div>
         </div>
 
@@ -97,9 +121,9 @@ function formatTimestamp(dateStr: string) {
           copy in one click. Reading a UUID off the screen to type elsewhere is
           where verification actually falls down.
         -->
-        <div class="pt-4 detail-divider space-y-3">
+        <div class="pt-5 detail-divider space-y-4">
           <div>
-            <p class="text-xs mb-1 detail-label">Certificate ID</p>
+            <p class="section-label mb-1.5">Certificate ID</p>
             <div class="copy-row">
               <code class="copy-value">{{ cert.id }}</code>
               <UButton
@@ -114,7 +138,7 @@ function formatTimestamp(dateStr: string) {
           </div>
 
           <div>
-            <p class="text-xs mb-1 detail-label">Verification link</p>
+            <p class="section-label mb-1.5">Verification link</p>
             <div class="copy-row">
               <code class="copy-value">{{ certUrl }}</code>
               <UButton
@@ -126,33 +150,53 @@ function formatTimestamp(dateStr: string) {
                 @click="copy('url', certUrl)"
               />
             </div>
-            <p class="text-xs mt-1 detail-label">
-              Anyone can open this — no account needed.
-            </p>
           </div>
         </div>
 
-        <div class="flex items-center gap-4 pt-4 detail-divider">
+        <div class="flex items-center gap-5 pt-5 detail-divider">
           <ClientOnly>
             <QrcodeVue :value="certUrl" :size="140" level="M" />
             <template #fallback>
               <div class="qr-placeholder" />
             </template>
           </ClientOnly>
-          <div class="flex-1 space-y-2 min-w-0">
-            <p class="text-xs detail-label">Scan to open the public certificate page, or share it directly.</p>
-            <UButton
-              :to="linkedInShareUrl"
-              target="_blank"
-              variant="outline"
-              color="neutral"
-              size="sm"
-              icon="i-heroicons-arrow-up-on-square"
-            >
-              Share to LinkedIn
-            </UButton>
-            <p v-if="cert.status === 'valid'" class="text-xs blockchain-note">
-              Recorded on the Polygon blockchain · {{ formatTimestamp(cert.issuedAtBlockchainTimestamp) }}
+          <div class="flex-1 space-y-3 min-w-0">
+            <p class="section-label">Share &amp; verify</p>
+            <div class="flex flex-wrap gap-2">
+              <UButton
+                :to="linkedInShareUrl"
+                target="_blank"
+                variant="outline"
+                color="neutral"
+                size="sm"
+                icon="i-heroicons-arrow-up-on-square"
+              >
+                Share to LinkedIn
+              </UButton>
+              <UButton
+                :to="downloadUrl('pdf')"
+                target="_blank"
+                variant="outline"
+                color="neutral"
+                size="sm"
+                icon="i-heroicons-document-arrow-down"
+              >
+                Download PDF
+              </UButton>
+              <UButton
+                :to="downloadUrl('png')"
+                target="_blank"
+                variant="outline"
+                color="neutral"
+                size="sm"
+                icon="i-heroicons-photo"
+              >
+                Download PNG
+              </UButton>
+            </div>
+            <p v-if="cert.status === 'valid'" class="onchain-note">
+              <UIcon name="i-heroicons-check-badge" class="size-3.5 shrink-0" />
+              On-chain · {{ formatTimestamp(cert.issuedAtBlockchainTimestamp) }}
             </p>
           </div>
         </div>
@@ -190,16 +234,80 @@ function formatTimestamp(dateStr: string) {
   flex: 1;
   min-width: 0;
   font-family: ui-monospace, 'SF Mono', Menlo, monospace;
-  font-size: 11.5px;
+  font-size: 12px;
+  font-weight: 500;
   color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+/* ── Section labels — small bold uppercase headers, same voice as the
+   dashboard's eyebrow text, used to introduce a block instead of a
+   full sentence of instructions. ── */
+.section-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.preview-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1.414 / 1;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+}
+
+.preview-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.preview-skeleton {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, var(--surface-hover) 25%, var(--surface) 50%, var(--surface-hover) 75%);
+  background-size: 200% 100%;
+  animation: preview-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes preview-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.preview-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 24px;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .preview-skeleton { animation: none; }
+}
+
 .detail-label { color: var(--text-tertiary); }
 .detail-value { color: var(--text-primary); }
 .detail-divider { border-top: 1px solid var(--border); }
-.blockchain-note { color: var(--text-tertiary); }
+.onchain-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+}
 .qr-placeholder { width: 140px; height: 140px; background: var(--surface-hover); border-radius: 0.5rem; }
 </style>

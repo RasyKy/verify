@@ -68,7 +68,7 @@ export function useClaimResend(
         title: 'Could not renew the claim link',
         description: apiErrorMessage(
           err,
-          'Nothing changed — the existing link still works.',
+          'Nothing changed. The existing link still works.',
         ),
         color: 'error',
       })

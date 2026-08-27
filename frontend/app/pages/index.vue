@@ -4,12 +4,12 @@ definePageMeta({ layout: 'default' })
 const faqs = useFaqs()
 
 useSeoMeta({
-  title: 'Verify — Issue digital certificates your recipients actually trust',
+  title: 'Verify | Issue digital certificates your recipients actually trust',
   description:
-    'Verify lets institutions issue, manage, and revoke digital credentials that recipients can share and employers can check instantly — in minutes, not days.',
-  ogTitle: 'Verify — Issue digital certificates your recipients actually trust',
+    'Verify lets institutions issue, manage, and revoke digital credentials that recipients can share and employers can check instantly. It takes minutes, not days.',
+  ogTitle: 'Verify | Issue digital certificates your recipients actually trust',
   ogDescription:
-    'Verify lets institutions issue, manage, and revoke digital credentials that recipients can share and employers can check instantly — in minutes, not days.',
+    'Verify lets institutions issue, manage, and revoke digital credentials that recipients can share and employers can check instantly. It takes minutes, not days.',
   ogImage: '/og-image.svg',
   ogUrl: 'https://verify.app',
   ogType: 'website',

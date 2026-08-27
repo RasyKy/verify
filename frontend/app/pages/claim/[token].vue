@@ -77,7 +77,7 @@ async function finalizeClaim() {
     }
     if (signedInAs !== expected) {
       await supabase.auth.signOut()
-      claimError.value = `You are signed in as ${signedInAs}, but this certificate belongs to ${expected}. You have been signed out — please continue with that address.`
+      claimError.value = `You are signed in as ${signedInAs}, but this certificate belongs to ${expected}. You have been signed out. Please continue with that address.`
       return
     }
 
@@ -237,7 +237,7 @@ async function onCreateAccount() {
     // either case, so point there rather than guess.
     if (!data.session) {
       passwordError.value =
-        'Could not sign you in with that password — this address may already have an account. Use the login code above instead; it works either way.'
+        'Could not sign you in with that password. This address may already have an account. Use the login code above instead; it works either way.'
       return
     }
     await finalizeClaim()
@@ -313,7 +313,7 @@ onUnmounted(() => {
         </div>
         <h1 class="text-lg font-medium text-gray-900">Too many attempts.</h1>
         <p class="text-sm text-gray-500 mt-2">
-          Your link is still valid — please wait a few minutes and reload this page.
+          Your link is still valid. Please wait a few minutes and reload this page.
         </p>
       </div>
 
@@ -336,7 +336,7 @@ onUnmounted(() => {
         </div>
         <h1 class="text-lg font-medium text-gray-900">This link has been replaced.</h1>
         <p class="text-sm text-gray-500 mt-2">
-          A newer claim email was sent to you — please open the most recent one. Your certificate
+          A newer claim email was sent to you. Please open the most recent one. Your certificate
           has not been claimed yet.
         </p>
       </div>
@@ -376,7 +376,7 @@ onUnmounted(() => {
 
         <h1 class="text-lg font-medium text-gray-900 text-center">Claim your certificate</h1>
         <p class="text-sm text-gray-500 text-center mt-1">
-          {{ preview!.courseName }} — {{ preview!.institutionName }}
+          {{ preview!.courseName }} · {{ preview!.institutionName }}
         </p>
 
         <div class="mt-5 bg-gray-50 border border-gray-200 rounded-md px-3 py-2 text-center">

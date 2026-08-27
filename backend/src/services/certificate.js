@@ -65,7 +65,8 @@ const CERT_SELECT = `
   claim_state, claimed_at,
   revoked_at, revoke_reason, is_hidden,
   created_at,
-  organizations ( name )
+  organizations ( name, logo_url, signature_url, signatory_name, signatory_title ),
+  courses ( certificate_template )
 `;
 
 /**
@@ -714,6 +715,13 @@ export function createCertificateService({
         issuedAtBlockchainTimestamp: onChain.issuedAt
           ? new Date(onChain.issuedAt * 1000).toISOString()
           : (stored?.chain_issued_at ?? null),
+        // Purely presentational — see the header note and hash.js's own
+        // canonical string, which never reads any of these.
+        logoUrl: row.organizations?.logo_url ?? null,
+        signatureUrl: row.organizations?.signature_url ?? null,
+        signatoryName: row.organizations?.signatory_name ?? null,
+        signatoryTitle: row.organizations?.signatory_title ?? null,
+        certificateTemplate: row.courses?.certificate_template ?? 'classic',
       },
     };
   }

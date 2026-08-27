@@ -60,15 +60,16 @@ const faqs = useFaqs()
 .faq-list {
   display: flex;
   flex-direction: column;
-  gap: 0;
+  gap: 10px;
 }
 
+/* Each question is its own rounded, filled card rather than a row in a
+   hairline-divided list — closed items read as a stack of quiet chips,
+   the open one reads as a distinct panel instead of just more list text. */
 .faq-item {
-  border-bottom: 1px solid var(--border);
-}
-
-.faq-item:first-child {
-  border-top: 1px solid var(--border);
+  background: var(--surface-hover);
+  border-radius: var(--radius-card);
+  overflow: hidden;
 }
 
 .faq-summary {
@@ -76,7 +77,7 @@ const faqs = useFaqs()
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 20px 0;
+  padding: 20px 24px;
   cursor: pointer;
   list-style: none;
   user-select: none;
@@ -110,7 +111,7 @@ const faqs = useFaqs()
   line-height: 1.7;
   color: var(--text-secondary);
   margin: 0;
-  padding-bottom: 20px;
+  padding: 0 24px 22px;
 }
 
 /* Disable chevron animation for reduced-motion users */
@@ -128,6 +129,14 @@ const faqs = useFaqs()
 
   .section-headline {
     font-size: 26px;
+  }
+
+  .faq-summary {
+    padding: 16px 18px;
+  }
+
+  .faq-a {
+    padding: 0 18px 18px;
   }
 }
 

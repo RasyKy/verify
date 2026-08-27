@@ -1,7 +1,7 @@
 <template>
   <header class="landing-header">
     <div class="header-inner">
-      <a href="/" class="logo-link" aria-label="Verify — home">
+      <a href="/" class="logo-link" aria-label="Verify: home">
         <BrandLogo :size="30" wordmark />
       </a>
 

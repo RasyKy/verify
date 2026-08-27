@@ -4,10 +4,10 @@ definePageMeta({ layout: 'default' })
 const UPDATED = '2026-08-23'
 
 useSeoMeta({
-  title: 'Privacy policy — Verify',
+  title: 'Privacy policy | Verify',
   description:
     'What Verify collects, what is written to the blockchain (only a hash), who can see a certificate, and how to have your data corrected or removed.',
-  ogTitle: 'Privacy policy — Verify',
+  ogTitle: 'Privacy policy | Verify',
   ogDescription:
     'What Verify collects, what is written to the blockchain, and how to have your data corrected or removed.',
 })
@@ -24,7 +24,7 @@ useHead({ link: [{ rel: 'canonical', href: 'https://verify.app/privacy' }] })
     <div class="note">
       <p>
         <strong>The short version.</strong> Your name, email and course details
-        are stored in our database — never on the blockchain. The only thing
+        are stored in our database, never on the blockchain. The only thing
         written to the chain is a one-way hash: a fixed-length fingerprint that
         cannot be reversed back into your details.
       </p>
@@ -79,8 +79,8 @@ useHead({ link: [{ rel: 'canonical', href: 'https://verify.app/privacy' }] })
 
     <h3>Administrative records</h3>
     <p>
-      Actions that change something meaningful — issuing, revoking, suspending
-      an institution, deactivating an account — are recorded in an audit log
+      Actions that change something meaningful (issuing, revoking, suspending
+      an institution, deactivating an account) are recorded in an audit log
       with the account that performed them. This log is what makes the platform
       accountable, and it is deliberately not editable.
     </p>
@@ -93,8 +93,8 @@ useHead({ link: [{ rel: 'canonical', href: 'https://verify.app/privacy' }] })
     <p>
       When a certificate is issued, we compute a <strong>SHA-256 hash</strong>
       of a fixed string built from the certificate ID, the holder's name, the
-      course name, and the completion and expiry dates. That hash — and only
-      that hash — is written to the Polygon blockchain, along with the time it
+      course name, and the completion and expiry dates. Only that hash is
+      written to the Polygon blockchain, along with the time it
       was recorded.
     </p>
     <p><strong>What is never written to the blockchain:</strong></p>
@@ -108,14 +108,14 @@ useHead({ link: [{ rel: 'canonical', href: 'https://verify.app/privacy' }] })
       A hash is one-way. Someone reading the chain sees a 32-byte value and the
       time it was recorded; they cannot work backwards from it to your name. It
       is only useful to someone who <em>already</em> holds the certificate
-      details and wants to check that they have not been altered — which is
+      details and wants to check that they have not been altered. That is
       exactly what verification does.
     </p>
 
     <div class="note">
       <p>
-        <strong>Blockchain entries are permanent.</strong> Nobody — not us, not
-        your institution — can delete a hash once it has been recorded. This is
+        <strong>Blockchain entries are permanent.</strong> Nobody, not us and
+        not your institution, can delete a hash once it has been recorded. This is
         what makes the record trustworthy, and it is also a genuine limit on
         erasure: see section 7.
       </p>
@@ -141,7 +141,7 @@ useHead({ link: [{ rel: 'canonical', href: 'https://verify.app/privacy' }] })
     <p>
       We are stating this plainly because it would be easy to read "hidden" as
       "unverifiable", and then be surprised. Verification cannot be switched
-      off by the holder — an employer must be able to trust that a certificate
+      off by the holder. An employer must be able to trust that a certificate
       which checks out has not been quietly retracted from view.
     </p>
 
@@ -182,7 +182,7 @@ useHead({ link: [{ rel: 'canonical', href: 'https://verify.app/privacy' }] })
     <h2>7. Keeping and deleting data</h2>
     <p>
       Certificates are kept for as long as the issuing institution wants them to
-      remain verifiable, which is normally indefinitely — a degree that stops
+      remain verifiable, which is normally indefinitely. A degree that stops
       verifying after five years is not much of a degree.
     </p>
     <p>
@@ -199,7 +199,7 @@ useHead({ link: [{ rel: 'canonical', href: 'https://verify.app/privacy' }] })
         The <strong>blockchain hash cannot be removed by anyone</strong>. It
         contains no readable personal data, but it is permanent. If a
         certificate should no longer be relied upon, the correct remedy is
-        revocation — which makes every future verification return "Revoked" —
+        revocation (which makes every future verification return "Revoked"),
         not deletion.
       </li>
     </ul>
@@ -213,8 +213,8 @@ useHead({ link: [{ rel: 'canonical', href: 'https://verify.app/privacy' }] })
       and we will respond within 30 days.
     </p>
     <p>
-      If the thing that is wrong is printed <em>on a certificate</em> — a
-      misspelled name, the wrong date — contact the institution that issued it.
+      If the thing that is wrong is printed <em>on a certificate</em> (a
+      misspelled name, the wrong date), contact the institution that issued it.
       Correcting a certificate changes its hash, so the institution has to
       reissue it, and only they can decide to do that.
     </p>
