@@ -212,7 +212,7 @@ const typeLabels: Record<string, string> = {
 
       title="Delete institution"
 
-      :message="`Permanently remove ${org?.name}. This is only possible because it has no issuers and no certificates — suspending is the reversible option.`"
+      :message="`Permanently remove ${org?.name}. This is only possible because it has no issuers and no certificates. Suspending is the reversible option.`"
 
       confirm-label="Delete permanently"
 

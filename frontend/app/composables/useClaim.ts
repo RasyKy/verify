@@ -50,7 +50,7 @@ export function authErrorMessage(err: AuthErrorLike | null | undefined, fallback
     message === ''
 
   if (serverSide) {
-    return 'We could not reach the sign-in service just now — that is on our side, not your link. Please try the login code above, or try again in a few minutes.'
+    return 'We could not reach the sign-in service just now. That is on our side, not your link. Please try the login code above, or try again in a few minutes.'
   }
   if (/rate limit/i.test(message)) {
     return 'Too many attempts in a short time. Please wait a few minutes and try again.'

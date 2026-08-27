@@ -70,6 +70,19 @@ export const publicProfileLimiter = make({
 });
 
 /**
+ * Certificate document rendering — public and unauthenticated like verify,
+ * but far more expensive per request (a Puppeteer render, not a read).
+ * Tighter than verifyLimiter for exactly that reason: certificateRender.js's
+ * own concurrency cap protects memory, this protects against a request flood
+ * queuing up faster than renders can drain.
+ */
+export const downloadLimiter = make({
+  name: 'download',
+  windowMs: 60_000,
+  limit: 10,
+});
+
+/**
  * Claim acceptance — the tightest limit in the app. A claim token is the sole
  * credential for taking ownership of a certificate (T-02), so brute-forcing it
  * must be hopeless even though the token itself is 256 bits.

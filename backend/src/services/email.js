@@ -289,7 +289,7 @@ function issuerInviteEmailHtml({ fullName, organizationName, inviteUrl }) {
         so you can issue and revoke certificates on their behalf.
       </p>
       <p style="font-size:14px;line-height:1.6;color:#374151">
-        Set your password to get started — we'll email you a code to confirm it's you.
+        Set your password to get started. We'll email you a code to confirm it's you.
       </p>
       <p style="margin:24px 0">
         <a href="${inviteUrl}"
@@ -298,7 +298,7 @@ function issuerInviteEmailHtml({ fullName, organizationName, inviteUrl }) {
         </a>
       </p>
       <p style="font-size:12px;color:#6b7280;line-height:1.6">
-        If you were not expecting this, you can ignore this email — the account
+        If you were not expecting this, you can ignore this email. The account
         cannot be used until a password is set.
       </p>
     </div>

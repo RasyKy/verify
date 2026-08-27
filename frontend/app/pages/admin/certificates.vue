@@ -68,7 +68,7 @@ const columns: Column[] = [
 const revokeTarget = ref<string | null>(null)
 const revokeTargetName = computed(() => {
   const c = certs.value.find(c => c.id === revokeTarget.value)
-  return c ? `${c.courseName} — ${c.recipientName}` : ''
+  return c ? `${c.courseName} · ${c.recipientName}` : ''
 })
 
 const toast = useToast()
@@ -76,7 +76,7 @@ const toast = useToast()
 const deleteTarget = ref<string | null>(null)
 const deleteTargetName = computed(() => {
   const c = certs.value.find(c => c.id === deleteTarget.value)
-  return c ? `${c.courseName} — ${c.recipientName}` : ''
+  return c ? `${c.courseName} · ${c.recipientName}` : ''
 })
 
 async function confirmDelete() {
@@ -195,7 +195,7 @@ async function confirmRevoke() {
     <AdminConfirmDialog
       :open="!!deleteTarget"
       title="Delete certificate permanently"
-      :message="`Erase &quot;${deleteTargetName}&quot; from the database. It will be revoked on the blockchain first, but the entry there can never be removed — and afterwards this ID reports as invalid, not revoked. Revoke instead unless the record must not exist.`"
+      :message="`Erase &quot;${deleteTargetName}&quot; from the database. It will be revoked on the blockchain first, but the entry there can never be removed, and afterwards this ID reports as invalid, not revoked. Revoke instead unless the record must not exist.`"
       confirm-label="Delete permanently"
       variant="danger"
       @confirm="confirmDelete"

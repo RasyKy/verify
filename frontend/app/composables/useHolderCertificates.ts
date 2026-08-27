@@ -5,11 +5,14 @@
  * Fixed-key useAsyncData so every consumer shares one request/cache, same
  * pattern as useCertificates.ts.
  */
+export type CertificateTemplate = 'classic' | 'modern' | 'editorial'
+
 export interface HolderCertificate {
   id: string
   course_name: string
   institution_name: string | null
-  badge_url: string | null
+  institution_logo_url: string | null
+  certificate_template: CertificateTemplate
   completion_date: string
   expiry_date: string | null
   issued_at: string

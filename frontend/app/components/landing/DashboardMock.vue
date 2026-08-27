@@ -13,8 +13,8 @@
 
       <!-- Screen reader description of the demo -->
       <span class="sr-only">
-        Demo: an issuer clicks "Issue certificate", types a recipient name and course, clicks Issue,
-        and a verified credential appears in the table within seconds.
+        Demo: an issuer clicks "Issue certificate", a form opens, types a recipient name and course,
+        clicks Issue, and a valid credential appears in the table within seconds.
       </span>
 
       <!-- Browser mock (fully decorative) -->
@@ -42,11 +42,11 @@
             </svg>
           </div>
 
-          <!-- Toolbar -->
-          <div class="ui-toolbar">
-            <div class="ui-search">
-              <UIcon name="i-heroicons-magnifying-glass" class="ui-search-icon" />
-              <span class="ui-search-placeholder">Search recipients…</span>
+          <!-- Page header: title + the real page's own "Issue certificate" button -->
+          <div class="ui-header">
+            <div>
+              <p class="ui-page-title">Certificates</p>
+              <p class="ui-page-subtitle">View, search, and manage all issued certificates.</p>
             </div>
             <div
               ref="issueBtnRef"
@@ -58,44 +58,27 @@
             </div>
           </div>
 
-          <!-- Inline form wrapper uses grid collapse (compositor-safe) -->
-          <div class="inline-form-wrap" :class="{ 'inline-form-wrap--open': showForm }">
-          <div class="inline-form">
-            <div class="inline-fields">
-              <div class="inline-field">
-                <span class="inline-label">Recipient name</span>
-                <div ref="nameFieldRef" class="inline-input">
-                  {{ typedName }}<span v-if="activeField === 'name'" class="cursor-blink" />
-                </div>
-              </div>
-              <div class="inline-field">
-                <span class="inline-label">Course</span>
-                <div ref="courseFieldRef" class="inline-input">
-                  {{ typedCourse }}<span v-if="activeField === 'course'" class="cursor-blink" />
-                </div>
-              </div>
+          <!-- Filter bar -->
+          <div class="ui-toolbar">
+            <div class="ui-search">
+              <UIcon name="i-heroicons-magnifying-glass" class="ui-search-icon" />
+              <span class="ui-search-placeholder">Search by student name or certificate ID…</span>
             </div>
-            <div class="inline-actions">
-              <button
-                ref="confirmBtnRef"
-                type="button"
-                class="inline-issue-btn"
-                :class="{ 'inline-issue-btn--hovered': confirmHovered, 'inline-issue-btn--pressed': confirmPressed }"
-              >
-                Issue
-              </button>
+            <div class="ui-status-select">
+              All statuses
+              <UIcon name="i-heroicons-chevron-down" class="ui-status-chevron" />
             </div>
-          </div>
           </div>
 
           <!-- Table -->
           <table class="ui-table">
             <thead>
               <tr>
-                <th>Recipient</th>
+                <th>Recipient name</th>
                 <th>Course</th>
-                <th>Completed</th>
+                <th>Completion date</th>
                 <th>Status</th>
+                <th class="th-actions" />
               </tr>
             </thead>
             <tbody>
@@ -114,6 +97,7 @@
                     :class="`status-chip--${newRowStatus.toLowerCase()}`"
                   >{{ newRowStatus }}</span>
                 </td>
+                <td />
               </tr>
               <!-- Static rows -->
               <tr v-for="row in rows" :key="row.name">
@@ -125,9 +109,52 @@
                     {{ row.status }}
                   </span>
                 </td>
+                <td class="td-actions">
+                  <span class="ui-row-actions">
+                    <UIcon name="i-heroicons-eye" class="ui-row-action" />
+                    <UIcon name="i-heroicons-pencil-square" class="ui-row-action" />
+                    <UIcon
+                      v-if="row.status !== 'Revoked'"
+                      name="i-heroicons-no-symbol"
+                      class="ui-row-action ui-row-action--danger"
+                    />
+                  </span>
+                </td>
               </tr>
             </tbody>
           </table>
+
+          <!-- Issue-certificate modal, matching the real page: a centered dialog
+               over a dimmed backdrop, not an inline form under the toolbar. -->
+          <div class="ui-modal-overlay" :class="{ 'ui-modal-overlay--open': showForm }">
+            <div class="ui-modal">
+              <p class="ui-modal-title">Issue certificate</p>
+              <div class="inline-fields">
+                <div class="inline-field">
+                  <span class="inline-label">Recipient name</span>
+                  <div ref="nameFieldRef" class="inline-input">
+                    {{ typedName }}<span v-if="activeField === 'name'" class="cursor-blink" />
+                  </div>
+                </div>
+                <div class="inline-field">
+                  <span class="inline-label">Course</span>
+                  <div ref="courseFieldRef" class="inline-input">
+                    {{ typedCourse }}<span v-if="activeField === 'course'" class="cursor-blink" />
+                  </div>
+                </div>
+              </div>
+              <div class="inline-actions">
+                <button
+                  ref="confirmBtnRef"
+                  type="button"
+                  class="inline-issue-btn"
+                  :class="{ 'inline-issue-btn--hovered': confirmHovered, 'inline-issue-btn--pressed': confirmPressed }"
+                >
+                  Issue
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -136,10 +163,10 @@
 
 <script setup lang="ts">
 const rows = [
-  { name: 'Sarah Kimura',  course: 'Web Development',    date: 'Jun 12, 2025', status: 'Issued'  },
-  { name: 'James Okonkwo', course: 'Data Analytics',     date: 'May 30, 2025', status: 'Issued'  },
+  { name: 'Sarah Kimura',  course: 'Web Development',    date: 'Jun 12, 2025', status: 'Valid'   },
+  { name: 'James Okonkwo', course: 'Data Analytics',     date: 'May 30, 2025', status: 'Valid'   },
   { name: 'Anya Petrov',   course: 'UX Design',          date: 'Apr 18, 2025', status: 'Revoked' },
-  { name: 'Lim Sokha',     course: 'Project Management', date: 'Mar 5, 2025',  status: 'Issued'  },
+  { name: 'Lim Sokha',     course: 'Project Management', date: 'Mar 5, 2025',  status: 'Valid'   },
 ]
 
 // Template refs
@@ -173,7 +200,7 @@ const confirmPressed = ref(false)
 // Animated row
 const newRow        = ref(false)
 const newRowVisible = ref(false)
-const newRowStatus  = ref<'Pending' | 'Issued'>('Pending')
+const newRowStatus  = ref<'Pending' | 'Valid'>('Pending')
 
 // ── Timeline primitives ────────────────────────────────────────────────────
 
@@ -247,7 +274,7 @@ async function runScene(ctrl: Ctrl) {
   btnHovered.value  = false
   await sleep(200, ctrl)
 
-  // ③ Form slides in
+  // ③ Modal opens
   showForm.value = true
   await sleep(480, ctrl)
   await nextTick()
@@ -279,7 +306,7 @@ async function runScene(ctrl: Ctrl) {
   confirmHovered.value = false
   await sleep(200, ctrl)
 
-  // ⑦ Form collapses
+  // ⑦ Modal closes
   showForm.value = false
   await sleep(420, ctrl)
 
@@ -290,8 +317,8 @@ async function runScene(ctrl: Ctrl) {
   newRowVisible.value = true
   await sleep(800, ctrl)
 
-  // ⑨ Chip: Pending → Issued
-  newRowStatus.value = 'Issued'
+  // ⑨ Chip: Pending → Valid
+  newRowStatus.value = 'Valid'
   await sleep(700, ctrl)
 
   // ⑩ Hold
@@ -349,7 +376,7 @@ onMounted(() => {
     // Static finished state — no cursor, no animation
     newRow.value        = true
     newRowVisible.value = true
-    newRowStatus.value  = 'Issued'
+    newRowStatus.value  = 'Valid'
     typedName.value     = 'Chanlina Meas'
     typedCourse.value   = 'Graphic Design'
   }
@@ -475,11 +502,35 @@ onMounted(() => {
   will-change: transform;
 }
 
-/* ── Toolbar ── */
+/* ── Page header — title + the real page's own Issue button, matching the
+   layout of pages/issuer/certificates.vue rather than putting the button
+   next to search. ── */
+.ui-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.ui-page-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.ui-page-subtitle {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin: 2px 0 0;
+}
+
+/* ── Filter bar ── */
 .ui-toolbar {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   margin-bottom: 10px;
 }
 
@@ -492,6 +543,7 @@ onMounted(() => {
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--canvas);
+  min-width: 0;
 }
 
 .ui-search-icon {
@@ -503,6 +555,29 @@ onMounted(() => {
 
 .ui-search-placeholder {
   font-size: 12px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ui-status-select {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--canvas);
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.ui-status-chevron {
+  width: 11px;
+  height: 11px;
   color: var(--text-tertiary);
 }
 
@@ -529,23 +604,46 @@ onMounted(() => {
   height: 12px;
 }
 
-/* ── Inline form — grid collapse (avoids max-height/margin-bottom layout reflow) ── */
-.inline-form-wrap {
-  display: grid;
-  grid-template-rows: 0fr;
+/* ── Issue-certificate modal — a centered dialog over a dimmed backdrop,
+   matching how the real page opens this form, rather than an inline strip. ── */
+.ui-modal-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: transparent;
   opacity: 0;
-  transition: grid-template-rows 0.38s ease, opacity 0.3s ease;
+  pointer-events: none;
+  transition: opacity 0.28s ease, background-color 0.28s ease;
 }
 
-.inline-form-wrap--open {
-  grid-template-rows: 1fr;
+.ui-modal-overlay--open {
   opacity: 1;
-  margin-bottom: 10px;
+  background-color: rgba(20, 20, 18, 0.32);
+  pointer-events: auto;
 }
 
-.inline-form {
-  overflow: hidden;
-  min-height: 0;
+.ui-modal {
+  width: 240px;
+  background: var(--surface);
+  border-radius: 10px;
+  box-shadow: 0 20px 44px -14px rgba(20, 20, 18, 0.4);
+  padding: 16px;
+  transform: scale(0.94) translateY(6px);
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.ui-modal-overlay--open .ui-modal {
+  transform: scale(1) translateY(0);
+}
+
+.ui-modal-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 12px;
 }
 
 .inline-fields {
@@ -658,6 +756,30 @@ onMounted(() => {
   white-space: nowrap;
 }
 
+.th-actions,
+.td-actions {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.ui-row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.ui-row-action {
+  width: 13px;
+  height: 13px;
+  color: var(--text-tertiary);
+}
+
+.ui-row-action--danger {
+  color: var(--status-revoked-text);
+  opacity: 0.75;
+}
+
 /* ── Status chips ── */
 .status-chip {
   display: inline-flex;
@@ -669,7 +791,7 @@ onMounted(() => {
   transition: background-color 0.45s ease, color 0.45s ease;
 }
 
-.status-chip--issued {
+.status-chip--valid {
   background: var(--status-valid-bg);
   color: var(--status-valid-text);
 }
@@ -696,9 +818,9 @@ onMounted(() => {
   transform: translateX(0);
 }
 
-/* ── Chip pop on Pending → Issued ── */
+/* ── Chip pop on Pending → Valid ── */
 @media (prefers-reduced-motion: no-preference) {
-  .status-chip--issued {
+  .status-chip--valid {
     animation: chipPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 
@@ -723,7 +845,10 @@ onMounted(() => {
     font-size: 26px;
   }
 
-  .td-date {
+  .td-date,
+  .ui-page-subtitle,
+  .th-actions,
+  .td-actions {
     display: none;
   }
 }

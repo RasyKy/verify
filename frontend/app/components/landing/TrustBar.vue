@@ -44,9 +44,6 @@
                 decoding="async"
               />
               <span v-else class="trust-logo">{{ acronymOf(org.name) }}</span>
-              <span class="trust-meta">
-                {{ typeLabel(org.type) }} · {{ joinedLabel(org.joinedAt) }}
-              </span>
             </li>
           </ul>
         </div>
@@ -99,44 +96,34 @@ function acronymOf(name: string) {
   if (initials.length >= 2) return initials.slice(0, 6)
   return name.replace(/[^a-zA-Z]/g, '').slice(0, 4).toUpperCase() || name.slice(0, 4)
 }
-
-const TYPE_LABELS: Record<string, string> = {
-  university: 'University',
-  bootcamp: 'Bootcamp',
-  'professional-body': 'Professional body',
-  event: 'Event',
-}
-
-function typeLabel(type: string) {
-  return TYPE_LABELS[type] ?? type
-}
-
-function joinedLabel(joinedAt: string) {
-  return new Date(joinedAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
-}
 </script>
 
 <style scoped>
 .trust-bar {
-  background: var(--surface-hover);
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-  padding: 28px 0;
+  background: var(--surface);
+  padding: 72px 0;
 }
 
 .trust-inner {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 20px;
+  gap: 40px;
 }
 
+/* Same size/weight as every other section headline on the page
+   (.section-headline in HowItWorks/FeaturesSection/FaqSection/etc.) — a real
+   heading, not a muted caption, so the rail reads as a stated claim rather
+   than fine print. */
 .trust-label {
-  font-size: 13px;
-  color: var(--text-tertiary);
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+  text-align: center;
   margin: 0;
   padding: 0 40px;
-  letter-spacing: 0.02em;
 }
 
 /* ── The rail ──
@@ -201,49 +188,33 @@ function joinedLabel(joinedAt: string) {
 
 /* Fixed width, not shrink-to-fit. The registry's marks range from a wide
    wordmark to a circular seal, and sizing each tile to its own logo made the
-   rail lurch between narrow and wide tiles as it scrolled. */
+   rail lurch between narrow and wide tiles as it scrolled. No card chrome —
+   just the mark itself, floating on the band. */
 .trust-item {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 5px;
   flex-shrink: 0;
-  width: 196px;
-  padding: 12px 14px;
-  border: 1px solid var(--border-strong);
-  border-radius: 8px;
-  background: var(--surface);
-  transition: border-color 0.1s ease;
-}
-
-.trust-item:hover {
-  border-color: var(--text-tertiary);
+  width: 180px;
 }
 
 /* One box for every mark. `contain` letterboxes inside it, so a square seal
-   gets the full 44px of height instead of being scaled down to the width a
-   wordmark happens to need. */
+   gets the full height instead of being scaled down to the width a wordmark
+   happens to need. */
 .trust-mark {
-  height: 44px;
+  height: 56px;
   width: auto;
-  max-width: 150px;
+  max-width: 180px;
   object-fit: contain;
   display: block;
 }
 
 .trust-logo {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   letter-spacing: 0.06em;
   color: var(--text-secondary);
   font-family: ui-monospace, 'Cascadia Code', monospace;
-}
-
-.trust-meta {
-  font-size: 11px;
-  color: var(--text-tertiary);
-  white-space: nowrap;
 }
 
 /* ── Reduced motion ──
@@ -266,10 +237,11 @@ function joinedLabel(joinedAt: string) {
 
 @media (max-width: 640px) {
   .trust-bar {
-    padding: 24px 0;
+    padding: 48px 0;
   }
 
   .trust-label {
+    font-size: 26px;
     padding: 0 20px;
   }
 
@@ -279,13 +251,12 @@ function joinedLabel(joinedAt: string) {
   }
 
   .trust-item {
-    width: 168px;
-    padding: 10px 12px;
+    width: 150px;
   }
 
   .trust-mark {
-    height: 38px;
-    max-width: 128px;
+    height: 46px;
+    max-width: 150px;
   }
 }
 </style>

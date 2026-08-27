@@ -101,8 +101,7 @@ const BASE_ROW = {
   revoked_at: null,
   is_hidden: false,
   created_at: '2026-02-03T09:15:00.000Z',
-  organizations: { name: 'Royal Phnom Penh University' },
-  courses: { badge_url: null },
+  organizations: { name: 'Royal Phnom Penh University', logo_url: null },
   certificate_hashes: [
     { chain_issued_at: '2026-02-03T09:15:22.000Z', is_current: true },
   ],
@@ -176,27 +175,50 @@ describe('GET /api/holder/certificates', () => {
     expect(res.body[0].institution_name).toBe('Royal Phnom Penh University');
   });
 
-  it('reads badge_url from the courses join, null when the course has none', async () => {
-    const rows = [{ ...BASE_ROW, id: 'cert-1', holder_id: 'holder-1' }];
-    const res = await request(makeApp({ certificates: rows })).get(
-      '/api/holder/certificates'
-    );
-    expect(res.body[0].badge_url).toBeNull();
-  });
-
-  it('reads badge_url from the courses join when the course has a badge', async () => {
+  it('reads institution_logo_url from the organizations join', async () => {
     const rows = [
       {
         ...BASE_ROW,
         id: 'cert-1',
         holder_id: 'holder-1',
-        courses: { badge_url: 'https://storage.example/badge.png' },
+        organizations: { name: 'RUPP', logo_url: '/rupp-logo.png' },
       },
     ];
     const res = await request(makeApp({ certificates: rows })).get(
       '/api/holder/certificates'
     );
-    expect(res.body[0].badge_url).toBe('https://storage.example/badge.png');
+    expect(res.body[0].institution_logo_url).toBe('/rupp-logo.png');
+  });
+
+  it('defaults institution_logo_url to null when the org has none', async () => {
+    const rows = [{ ...BASE_ROW, id: 'cert-1', holder_id: 'holder-1' }];
+    const res = await request(makeApp({ certificates: rows })).get(
+      '/api/holder/certificates'
+    );
+    expect(res.body[0].institution_logo_url).toBeNull();
+  });
+
+  it('reads certificate_template from the courses join', async () => {
+    const rows = [
+      {
+        ...BASE_ROW,
+        id: 'cert-1',
+        holder_id: 'holder-1',
+        courses: { certificate_template: 'modern' },
+      },
+    ];
+    const res = await request(makeApp({ certificates: rows })).get(
+      '/api/holder/certificates'
+    );
+    expect(res.body[0].certificate_template).toBe('modern');
+  });
+
+  it("defaults certificate_template to 'classic' when there is no course join — same fallback as certificateService.verify()", async () => {
+    const rows = [{ ...BASE_ROW, id: 'cert-1', holder_id: 'holder-1' }];
+    const res = await request(makeApp({ certificates: rows })).get(
+      '/api/holder/certificates'
+    );
+    expect(res.body[0].certificate_template).toBe('classic');
   });
 
   it('picks the is_current hash row for issuedAtBlockchainTimestamp', async () => {

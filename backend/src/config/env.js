@@ -198,15 +198,15 @@ function load(source = process.env) {
         try {
           url = new URL(origin);
         } catch {
-          return `${origin} — not a valid absolute URL`;
+          return `${origin}: not a valid absolute URL`;
         }
         if (
           /^(localhost|127\.0\.0\.1|\[::1\]|0\.0\.0\.0)$/.test(url.hostname)
         ) {
-          return `${origin} — points at this machine, not the deployed frontend`;
+          return `${origin}: points at this machine, not the deployed frontend`;
         }
         if (url.protocol !== 'https:') {
-          return `${origin} — must be https in production`;
+          return `${origin}: must be https in production`;
         }
         return null;
       })

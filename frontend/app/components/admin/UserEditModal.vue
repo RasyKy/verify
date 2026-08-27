@@ -92,7 +92,7 @@ async function submit() {
           <label class="label">Email</label>
           <p class="readonly">{{ user?.email }}</p>
           <p class="hint">
-            The account's identity — change it in Supabase Auth, not here.
+            The account's identity. Change it in Supabase Auth, not here.
           </p>
         </div>
 

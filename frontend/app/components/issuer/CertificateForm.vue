@@ -186,7 +186,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
           : {
               title: 'Certificate issued',
               description:
-                'The claim email could not be sent — the certificate is valid and can be shared directly.',
+                'The claim email could not be sent. The certificate is valid and can be shared directly.',
               color: 'warning' as const,
             },
       )

@@ -126,14 +126,39 @@ export const qrQuerySchema = z.object({
   size: z.coerce.number().int().min(64).max(1024).default(320),
 });
 
+/** GET /api/certificates/:id/download — rendered PDF or PNG document. */
+export const downloadQuerySchema = z.object({
+  format: z.enum(['pdf', 'png']).default('pdf'),
+});
+
 /** GET /api/dashboard?range= */
 export const dashboardQuerySchema = z.object({
   range: z.enum(['7d', '30d', '90d']).default('30d'),
 });
 
-/** POST /api/courses — inline course creation from the typeahead. */
+/**
+ * The fixed certificate templates (backend/src/templates/certificates/).
+ * Template choice is per-course — every certificate issued for a course
+ * renders with that course's template — not per-organization or per-cert.
+ */
+export const CERTIFICATE_TEMPLATES = ['classic', 'modern', 'editorial'];
+
+/**
+ * POST /api/courses — inline course creation from the typeahead, or the
+ * explicit "New course" flow on /issuer/courses. `certificateTemplate` is
+ * optional and only applied when a NEW course is actually inserted — the
+ * idempotent existing-course path never overwrites one that's already set.
+ */
 export const createCourseSchema = z
   .object({
     name: hashableText('Course name', { min: 1, max: 200 }),
+    certificateTemplate: z.enum(CERTIFICATE_TEMPLATES).optional(),
+  })
+  .strict();
+
+/** PATCH /api/courses/:id/template */
+export const updateCourseTemplateSchema = z
+  .object({
+    certificateTemplate: z.enum(CERTIFICATE_TEMPLATES),
   })
   .strict();
