@@ -73,3 +73,67 @@ export function renderStatusStamp(status) {
 export function escapeAttr(value) {
   return escapeHtml(value);
 }
+
+/**
+ * Up to two initials for the no-logo monogram fallback.
+ *
+ * Institution branding is optional (organizations.logo_url is nullable), and
+ * an empty slot where a seal belongs makes a certificate look unfinished. A
+ * monogram is the standard stand-in: it is derived, never stored, so it can
+ * never drift out of sync with the institution's actual name.
+ *
+ * Skips articles/conjunctions so "Royal University of Phnom Penh" reads as
+ * "RU", not "RO" — the words a reader would themselves abbreviate away.
+ *
+ * @param {string} name
+ * @returns {string} 1–2 uppercase letters, or '' when there is nothing usable
+ */
+const MONOGRAM_STOPWORDS = new Set([
+  'of',
+  'the',
+  'and',
+  'for',
+  'de',
+  'du',
+  'la',
+  'le',
+  'at',
+  'in',
+]);
+
+export function monogramFor(name) {
+  if (typeof name !== 'string') return '';
+  const words = name
+    .trim()
+    .split(/[\s\-–—]+/)
+    .filter((w) => w.length > 0 && !MONOGRAM_STOPWORDS.has(w.toLowerCase()));
+  if (words.length === 0) return '';
+  const letters = words
+    .slice(0, 2)
+    .map((w) => [...w][0])
+    .join('');
+  return letters.toUpperCase();
+}
+
+/**
+ * Picks a font size from length breakpoints.
+ *
+ * A certificate canvas is a fixed 1600x1131 with no scrollback and no reflow
+ * to fall back on, so a long name does not simply wrap — it pushes the footer
+ * off the page and silently clips the QR code, which is the one element that
+ * must always survive. CSS alone cannot measure text, so the size is chosen
+ * here from character count: crude, but deterministic and testable, and it
+ * degrades in the right direction (longer input, smaller type).
+ *
+ * @param {string} text
+ * @param {Array<{ upTo?: number, size: number }>} steps ascending by `upTo`;
+ *   the final entry omits `upTo` and acts as the floor.
+ * @returns {number} px
+ */
+export function fitFontSize(text, steps) {
+  const length = typeof text === 'string' ? text.trim().length : 0;
+  for (const step of steps) {
+    if (step.upTo === undefined || length <= step.upTo) return step.size;
+  }
+  return steps[steps.length - 1].size;
+}
