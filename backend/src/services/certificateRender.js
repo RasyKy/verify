@@ -90,8 +90,24 @@ export function createCertificateRenderService({
     const qrDataUrl = await QRCode.toDataURL(data.verifyUrl, {
       width: 300,
       margin: 1,
+      // 'H' (~30% correctable) rather than the default 'M' (~15%) — the
+      // classic template overlays our own mark on the center of the code,
+      // and this is the error-correction headroom that overlay needs to
+      // stay reliably scannable.
+      errorCorrectionLevel: 'H',
     });
-    return { ...data, qrDataUrl };
+    // Verify's own mark, not the issuing institution's — every certificate's
+    // QR points at OUR verify page, regardless of who issued it, so it
+    // should read as "check this on Verify", not carry a random institution
+    // logo. /favicon.svg specifically, not /logo.png: it's the mark already
+    // designed and proven legible at small sizes (that's what a favicon is
+    // for), where the fuller wordmark composition would just blur into noise
+    // at 22px. Root-relative, so it needs the same origin resolution the
+    // route layer already applies to institution assets — see
+    // routes/certificates.js's resolveAssetUrl() for why page.setContent()
+    // can't resolve a bare "/favicon.svg" on its own.
+    const qrLogoUrl = new URL('/favicon.svg', env.publicAppUrl).href;
+    return { ...data, qrDataUrl, qrLogoUrl };
   }
 
   async function renderPage(data) {
