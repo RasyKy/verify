@@ -181,9 +181,6 @@ async function logout() {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  /* White here, not the --canvas-app grey the issuer/admin shells use — this
-     is a single-column content page, not a sidebar-framed one, so the grey
-     read as an unintentional off-white rather than a deliberate canvas. */
   background: var(--surface);
 }
 

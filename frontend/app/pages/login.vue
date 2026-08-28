@@ -76,6 +76,7 @@ async function destinationAfterLogin(): Promise<string | null> {
 
 const email = ref('')
 const password = ref('')
+const showPassword = ref(false)
 const error = ref(false)
 /** Why a previous attempt (or a guard) rejected an otherwise valid session. */
 const notice = useAuthNotice()
@@ -247,14 +248,26 @@ watch(supaUser, async (user) => {
             <UInput
               id="password"
               v-model="password"
-              type="password"
+              :type="showPassword ? 'text' : 'password'"
               placeholder="••••••••"
               autocomplete="current-password"
               icon="i-heroicons-lock-closed"
               size="lg"
               class="w-full"
               :disabled="loading"
-            />
+            >
+              <template #trailing>
+                <UButton
+                  variant="link"
+                  color="neutral"
+                  size="sm"
+                  :icon="showPassword ? 'i-heroicons-eye-slash' : 'i-heroicons-eye'"
+                  :aria-label="showPassword ? 'Hide password' : 'Show password'"
+                  :padded="false"
+                  @click="showPassword = !showPassword"
+                />
+              </template>
+            </UInput>
           </div>
 
           <UAlert

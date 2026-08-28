@@ -23,6 +23,7 @@ export function renderClassic(data) {
     completionDate,
     certId,
     qrDataUrl,
+    qrLogoUrl,
     logoUrl,
     signatureUrl,
     signatoryName,
@@ -82,47 +83,56 @@ export function renderClassic(data) {
   .logo { height: 96px; object-fit: contain; margin-bottom: 26px; }
   .eyebrow {
     font-family: Georgia, 'Times New Roman', serif;
-    font-size: 15px;
+    font-size: 16px;
     letter-spacing: 0.32em;
     text-transform: uppercase;
     color: #8a6c1f;
-    margin-bottom: 18px;
+    margin-bottom: 20px;
   }
   .headline {
-    font-size: 26px;
+    font-size: 28px;
     letter-spacing: 0.06em;
     color: #3d3320;
     margin-bottom: 34px;
   }
   .student-name {
-    font-size: 80px;
+    font-size: 92px;
     font-style: italic;
     font-weight: 500;
     color: #1f1b10;
-    padding-bottom: 22px;
-    margin-bottom: 34px;
+    padding-bottom: 24px;
+    margin-bottom: 36px;
     border-bottom: 1px solid #bf9b42;
-    max-width: 1100px;
+    max-width: 1240px;
   }
   .lede {
-    font-size: 19px;
+    font-size: 20px;
     color: #6b5a30;
     letter-spacing: 0.03em;
-    margin-bottom: 14px;
+    margin-bottom: 16px;
   }
   .course-name-line {
-    font-size: 44px;
+    font-size: 52px;
     font-weight: 700;
     line-height: 1.15;
     color: #2b2417;
-    max-width: 1100px;
-    margin-bottom: 18px;
+    max-width: 1200px;
+    margin-bottom: 24px;
   }
-  .awarded-line {
-    font-size: 20px;
-    color: #4a4128;
+  .awarded-label {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 15px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: #8a6c1f;
+    margin-bottom: 8px;
   }
-  .institution-name { font-weight: 700; color: #2b2417; }
+  .institution-name {
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: 0.015em;
+    color: #2b2417;
+  }
   .ornament {
     display: flex;
     align-items: center;
@@ -145,17 +155,45 @@ export function renderClassic(data) {
     align-items: flex-end;
     justify-content: space-between;
   }
-  .sig-block { text-align: center; width: 280px; }
-  .sig-image { height: 54px; object-fit: contain; margin-bottom: 6px; }
-  .sig-line { border-top: 1px solid #8a6c1f; padding-top: 10px; }
-  .sig-name { font-size: 18px; font-weight: 700; color: #2b2417; }
-  .sig-title { font-size: 14px; color: #5c4a22; letter-spacing: 0.03em; margin-top: 2px; }
-  .qr-block { text-align: center; width: 280px; }
-  .qr-image { width: 96px; height: 96px; border: 6px solid #fff; box-shadow: 0 0 0 1px #bf9b42; border-radius: 10px; padding: 8px; background: #fff; }
-  .qr-caption { font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #7a5c15; margin-top: 10px; }
-  .date-block { text-align: center; width: 280px; }
-  .date-value { font-size: 19px; font-weight: 700; color: #2b2417; }
-  .date-caption { font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: #7a5c15; margin-top: 5px; }
+  .sig-block { text-align: center; width: 300px; }
+  .sig-image { height: 68px; object-fit: contain; margin-bottom: 8px; }
+  .sig-line { border-top: 1px solid #8a6c1f; padding-top: 12px; }
+  .sig-name { font-size: 22px; font-weight: 700; color: #2b2417; }
+  .sig-title { font-size: 15px; color: #5c4a22; letter-spacing: 0.03em; margin-top: 3px; }
+  .qr-block { text-align: center; width: 300px; }
+  .qr-wrap { position: relative; display: inline-block; }
+  /*
+   * Sized up from the pre-logo 96px: box-sizing:border-box means the 6px
+   * border + 8px padding on every side eat into the box before any QR
+   * pixel is drawn, so at 96px the actual module grid was only ~68px —
+   * too little resolution for a centered logo to sit on without blotting
+   * out a disproportionate share of it. 130px leaves ~102px of real QR.
+   */
+  .qr-image { width: 130px; height: 130px; border: 6px solid #fff; box-shadow: 0 0 0 1px #bf9b42; border-radius: 10px; padding: 8px; background: #fff; }
+  /*
+   * The QR is generated at errorCorrectionLevel 'H' (~30% correctable)
+   * specifically so this overlay is safe. Verified, not assumed: rendered
+   * a real certificate and decoded the QR back with jsQR — at the previous
+   * 96px/26px pairing it did NOT decode; at 130px image / 22px logo it does,
+   * with margin to spare.
+   */
+  .qr-logo {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 22px;
+    height: 22px;
+    object-fit: contain;
+    background: #fff;
+    border-radius: 5px;
+    padding: 3px;
+    box-shadow: 0 0 0 3px #fff;
+  }
+  .qr-caption { font-size: 14px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #7a5c15; margin-top: 10px; }
+  .date-block { text-align: center; width: 300px; }
+  .date-value { font-size: 22px; font-weight: 700; color: #2b2417; }
+  .date-caption { font-size: 14px; letter-spacing: 0.06em; text-transform: uppercase; color: #7a5c15; margin-top: 6px; }
   .cert-id { position: absolute; bottom: 20px; right: 32px; font-size: 11px; color: #8a7c54; letter-spacing: 0.04em; }
 </style>
 </head>
@@ -169,7 +207,8 @@ export function renderClassic(data) {
       <h1 class="student-name">${escapeHtml(studentName)}</h1>
       <p class="lede">has successfully completed</p>
       <p class="course-name-line">${escapeHtml(courseName)}</p>
-      <p class="awarded-line">awarded by <span class="institution-name">${escapeHtml(institutionName)}</span></p>
+      <p class="awarded-label">Awarded by</p>
+      <p class="institution-name">${escapeHtml(institutionName)}</p>
 
       <div class="ornament" aria-hidden="true">
         <span class="ornament-line"></span>
@@ -192,7 +231,10 @@ export function renderClassic(data) {
         </div>
 
         <div class="qr-block">
-          <img class="qr-image" src="${escapeAttr(qrDataUrl)}" alt="" />
+          <div class="qr-wrap">
+            <img class="qr-image" src="${escapeAttr(qrDataUrl)}" alt="" />
+            <img class="qr-logo" src="${escapeAttr(qrLogoUrl)}" alt="" />
+          </div>
           <p class="qr-caption">Verify Online</p>
         </div>
       </div>
