@@ -17,10 +17,10 @@ const loadError = computed(() =>
   error.value ? apiErrorMessage(error.value, 'Could not load courses') : null,
 )
 
-const TEMPLATES: Array<{ value: CertificateTemplate; label: string; description: string }> = [
-  { value: 'classic', label: 'Classic', description: 'Cream paper, gold rule border, serif type.' },
-  { value: 'modern', label: 'Modern', description: 'White canvas, bold sans type, one accent block.' },
-  { value: 'editorial', label: 'Editorial', description: 'Dark ground, monospace accents, verification panel.' },
+const TEMPLATES: Array<{ value: CertificateTemplate; label: string; description: string; tag: string }> = [
+  { value: 'classic', label: 'Classic', description: 'Cream paper, gold rule border, serif type.', tag: 'Cream, gold border' },
+  { value: 'modern', label: 'Modern', description: 'White canvas, bold sans type, one accent block.', tag: 'White, bold sans' },
+  { value: 'editorial', label: 'Editorial', description: 'Dark ground, monospace accents, verification panel.', tag: 'Dark, monospace' },
 ]
 
 function templateInfo(value: CertificateTemplate) {
@@ -171,7 +171,7 @@ async function onCreateCourse() {
       </li>
     </ul>
 
-    <UModal v-model:open="createModalOpen" title="New course">
+    <UModal v-model:open="createModalOpen" title="New course" :ui="{ content: 'max-w-2xl' }">
       <template #body>
         <div class="space-y-5">
           <UFormField name="courseName" label="Course name">
@@ -180,22 +180,25 @@ async function onCreateCourse() {
 
           <div>
             <p class="field-label mb-3">Certificate template</p>
-            <div class="flex flex-col gap-3">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <button
                 v-for="tpl in TEMPLATES"
                 :key="tpl.value"
                 type="button"
-                class="template-card"
-                :class="{ 'template-card--active': newCourseTemplate === tpl.value }"
+                class="modal-template-card"
+                :class="{ 'modal-template-card--active': newCourseTemplate === tpl.value }"
+                :aria-label="`${tpl.label} template — ${tpl.description}`"
+                :aria-pressed="newCourseTemplate === tpl.value"
                 @click="newCourseTemplate = tpl.value"
               >
-                <span class="template-preview">
-                  <img :src="`/certificate-templates/${tpl.value}.png`" :alt="`${tpl.label} template preview`" class="template-preview-image" loading="lazy" />
+                <span class="modal-template-preview">
+                  <img :src="`/certificate-templates/${tpl.value}.png`" :alt="`${tpl.label} template preview`" class="modal-template-preview-image" loading="lazy" />
+                  <span v-if="newCourseTemplate === tpl.value" class="modal-template-check">
+                    <UIcon name="i-heroicons-check" class="size-3" />
+                  </span>
                 </span>
-                <span class="template-info">
-                  <span class="template-name">{{ tpl.label }}</span>
-                  <span class="template-desc">{{ tpl.description }}</span>
-                </span>
+                <span class="modal-template-name">{{ tpl.label }}</span>
+                <span class="modal-template-tag">{{ tpl.tag }}</span>
               </button>
             </div>
           </div>
@@ -393,5 +396,81 @@ async function onCreateCourse() {
   .template-preview {
     width: 100%;
   }
+}
+
+/*
+ * "New course" modal's template picker — deliberately separate classes from
+ * .template-card/.template-preview above, which stay as-is for the inline
+ * per-course row picker. A grid of larger, full-bleed (uncropped) previews
+ * so all 3 templates are comparable at a glance, no scrolling.
+ */
+.modal-template-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 10px 10px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    background var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+.modal-template-card:hover {
+  border-color: var(--border-strong);
+}
+.modal-template-card--active {
+  border-color: var(--accent);
+  background: var(--accent-light);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.modal-template-preview {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 1600 / 1131;
+  border-radius: 7px;
+  overflow: hidden;
+  background: var(--surface-hover);
+  box-shadow: var(--shadow-card);
+  margin-bottom: 10px;
+}
+.modal-template-preview-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.modal-template-check {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 0 2px var(--surface);
+}
+
+.modal-template-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.modal-template-tag {
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
 }
 </style>
