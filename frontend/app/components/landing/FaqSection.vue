@@ -26,8 +26,14 @@ const faqs = useFaqs()
 </script>
 
 <style scoped>
+/*
+ * Top padding is deliberately smaller than the bottom: ForHolders, the
+ * section directly above, already closes with its own 96px bottom padding —
+ * stacked with this section's own 96px top, the gap between "For holders"
+ * and "FAQ" read as roughly double every other section gap on the page.
+ */
 .faq {
-  padding: 96px 40px;
+  padding: 48px 40px 96px;
   content-visibility: auto;
   contain-intrinsic-size: auto 400px;
 }
@@ -124,7 +130,7 @@ const faqs = useFaqs()
 /* ── Responsive ── */
 @media (max-width: 640px) {
   .faq {
-    padding: 64px 24px;
+    padding: 32px 24px 64px;
   }
 
   .section-headline {

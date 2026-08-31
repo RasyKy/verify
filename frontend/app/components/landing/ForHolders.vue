@@ -3,7 +3,7 @@
     <div class="holders-inner">
       <!-- ── Copy ── -->
       <div class="holders-copy">
-        <div class="section-label">For holders</div>
+        <div class="section-label">For recipients</div>
         <h2 class="section-headline">Your certificate. Your account.</h2>
         <p class="holders-sub">
           Claim it once, and it's kept in an account you control, ready to
