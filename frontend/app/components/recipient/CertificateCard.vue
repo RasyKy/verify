@@ -19,9 +19,11 @@ const dateLine = computed(() =>
 
 // Same endpoint the detail modal uses for its live preview — an <img> tag
 // ignores the response's Content-Disposition: attachment, so it renders
-// inline.
+// inline. size=thumb: a card-sized render doesn't need the same resolution
+// a real download does — see certificateRender.js's renderPng() for what
+// that trades away (nothing but raster resolution; layout is identical).
 const { public: { apiBase } } = useRuntimeConfig()
-const thumbUrl = `${apiBase}/api/certificates/${props.cert.id}/download?format=png`
+const thumbUrl = `${apiBase}/api/certificates/${props.cert.id}/download?format=png&size=thumb`
 
 const thumbEl = ref<HTMLElement | null>(null)
 const thumbSrc = ref<string | null>(null)
@@ -29,22 +31,25 @@ const thumbLoaded = ref(false)
 const thumbFailed = ref(false)
 
 /*
- * Each thumbnail is a real ~3200x2262 Puppeteer render, downscaled ~9x into
- * a small card. Wiring `<img :src>` directly and swapping the skeleton on
- * `@load` still let the browser start painting the element as bytes streamed
- * in — visible as a soft/misaligned frame for a moment before it snapped to
- * the final crisp render (worse on the first, uncached hit, which a hover
- * often lands right in the middle of). `decode()` on an off-screen Image
- * resolves only once the bitmap is fully decoded, so the <img> below is
- * never inserted until there's nothing left to stream in — one atomic reveal
- * instead of a partial one settling into a final one.
+ * Each thumbnail is a real (size=thumb) Puppeteer render, downscaled further
+ * into a small card. Wiring `<img :src>` directly and swapping the skeleton
+ * on `@load` still let the browser start painting the element as bytes
+ * streamed in — visible as a soft/misaligned frame for a moment before it
+ * snapped to the final crisp render (worse on a slow/cold render, which a
+ * hover often lands right in the middle of). `decode()` on an off-screen
+ * Image resolves only once the bitmap is fully decoded, so the <img> below
+ * is never inserted until there's nothing left to stream in — one atomic
+ * reveal instead of a partial one settling into a final one.
  *
  * IntersectionObserver replaces `loading="lazy"` as the trigger, since lazy
  * only applies to an <img>'s own src fetch — this needs to gate a manual
  * preload instead, for the same reason (each render costs the backend a
- * real Puppeteer run, cached 5 min server-side after the first).
+ * real Puppeteer run — see certificates.js's download route for the
+ * 5-minute browser Cache-Control that's the only caching involved; there is
+ * no server-side render cache).
  */
 let observer: IntersectionObserver | undefined
+let retryTimer: ReturnType<typeof setTimeout> | undefined
 
 onMounted(() => {
   if (!thumbEl.value) return
@@ -56,17 +61,35 @@ onMounted(() => {
   observer.observe(thumbEl.value)
 })
 
-onBeforeUnmount(() => observer?.disconnect())
+onBeforeUnmount(() => {
+  observer?.disconnect()
+  clearTimeout(retryTimer)
+})
 
-async function loadThumb() {
+/**
+ * The render endpoint is a live, uncached Puppeteer screenshot (see the URL
+ * comment above) — a cold backend or a momentarily-queued render can fail
+ * the very first attempt even though the same certificate renders fine a
+ * moment later, which is why a manual page refresh "fixes" a preview that
+ * was never actually broken. One automatic retry after a short delay covers
+ * that invisibly instead of leaving the card permanently stuck; the retry
+ * link in the fallback is the manual escape hatch if it fails twice.
+ */
+async function loadThumb(attempt = 0) {
   try {
+    const url = attempt > 0 ? `${thumbUrl}&retry=${attempt}` : thumbUrl
     const preload = new Image()
-    preload.src = thumbUrl
+    preload.src = url
     await preload.decode()
-    thumbSrc.value = thumbUrl
+    thumbSrc.value = url
     thumbLoaded.value = true
+    thumbFailed.value = false
   } catch {
-    thumbFailed.value = true
+    if (attempt < 1) {
+      retryTimer = setTimeout(() => loadThumb(attempt + 1), 1400)
+    } else {
+      thumbFailed.value = true
+    }
   }
 }
 </script>
@@ -83,7 +106,10 @@ async function loadThumb() {
         class="thumb-image"
       >
       <div v-if="!thumbLoaded && !thumbFailed" class="thumb-skeleton" />
-      <p v-if="thumbFailed" class="thumb-fallback">Preview unavailable</p>
+      <div v-if="thumbFailed" class="thumb-fallback">
+        <p>Preview unavailable</p>
+        <button type="button" class="thumb-retry" @click="loadThumb()">Retry</button>
+      </div>
     </div>
 
     <div class="p-5 flex flex-col gap-3">
@@ -189,12 +215,35 @@ async function loadThumb() {
   position: absolute;
   inset: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 6px;
   padding: 0 16px;
   text-align: center;
   font-size: 11.5px;
   color: var(--text-tertiary);
+}
+
+.thumb-fallback p {
+  margin: 0;
+}
+
+.thumb-retry {
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--accent-text);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.thumb-retry:hover {
+  color: var(--accent);
 }
 
 @media (prefers-reduced-motion: reduce) {

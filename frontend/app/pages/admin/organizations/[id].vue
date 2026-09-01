@@ -116,6 +116,8 @@ const typeLabels: Record<string, string> = {
           :src="org.logoUrl"
           :alt="org.name"
           class="org-logo"
+          width="56"
+          height="56"
         />
         <div v-else class="org-logo org-logo--placeholder">
           {{ org.name.charAt(0) }}

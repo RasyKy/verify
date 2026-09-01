@@ -147,8 +147,17 @@ export function createCertificatesRouter({
       // The verify page's search box accepts free text, so a malformed ID is a
       // normal user action, not a client error: answer `invalid` rather than 422.
       // This also rejects enumeration attempts before they reach the database.
+      //
+      // logVerification() is not awaited on this request path: its own doc
+      // comment (services/certificate.js) already says it's fire-and-forget
+      // and swallows its own errors, so blocking the response on it bought
+      // nothing but an extra DB round-trip per request. (The one accepted
+      // tradeoff: a graceful shutdown mid-request could now drop a log row
+      // that awaiting would have caught — the same "losing a row is fine"
+      // tolerance the function's own contract already states, just widened
+      // slightly.)
       if (!UUID_RE.test(certId)) {
-        await service.logVerification({
+        service.logVerification({
           certId,
           result: 'not_found',
           ipHash: hashIp(req.ip),
@@ -159,7 +168,14 @@ export function createCertificatesRouter({
 
       try {
         const result = await service.verify({ certId });
-        await service.logVerification({
+        // Matches chain.js's chainVerifyCache TTL exactly, so the HTTP cache
+        // and the in-process chain-verify cache go stale together — a
+        // revoke becomes visible on the next chain check either way, not
+        // held behind a longer browser cache. Same reasoning as the
+        // /download route's Cache-Control below, just a shorter window
+        // since this response has no render cost to amortize.
+        res.set('Cache-Control', 'public, max-age=30');
+        service.logVerification({
           certId,
           result: result.status === 'invalid' ? 'invalid' : result.status,
           ipHash: hashIp(req.ip),
@@ -169,7 +185,7 @@ export function createCertificatesRouter({
       } catch (err) {
         // A 503 from the chain reaches the client as UPSTREAM_UNAVAILABLE, which
         // the frontend must show as "could not check", never as "not genuine".
-        await service.logVerification({
+        service.logVerification({
           certId,
           result: 'error',
           ipHash: hashIp(req.ip),
@@ -285,6 +301,16 @@ export function createCertificatesRouter({
    *           type: string
    *           enum: [pdf, png]
    *           default: pdf
+   *       - name: size
+   *         in: query
+   *         description: >
+   *           `thumb` renders the PNG at a lower resolution (same layout,
+   *           deviceScaleFactor 1 instead of 2) for dashboard card previews.
+   *           Ignored for format=pdf.
+   *         schema:
+   *           type: string
+   *           enum: [full, thumb]
+   *           default: full
    *     responses:
    *       200:
    *         description: The rendered document
@@ -322,7 +348,7 @@ export function createCertificatesRouter({
     validateAll({ params: certIdParamSchema, query: downloadQuerySchema }),
     async (req, res, next) => {
       const { id } = req.validated.params;
-      const { format } = req.validated.query;
+      const { format, size } = req.validated.query;
 
       try {
         const result = await service.verify({ certId: id });
@@ -355,7 +381,7 @@ export function createCertificatesRouter({
 
         const fileBase = `certificate-${id}`;
         if (format === 'png') {
-          const png = await renderService.renderPng(renderData);
+          const png = await renderService.renderPng(renderData, { size });
           res.type('image/png');
           res.set(
             'Content-Disposition',

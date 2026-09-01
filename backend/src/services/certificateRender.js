@@ -153,19 +153,45 @@ export function createCertificateRenderService({
     });
   }
 
-  function renderPng(data) {
+  /**
+   * `size: 'thumb'` (dashboard card previews) drops deviceScaleFactor from 2
+   * to 1 — same 1600x1131 viewport, so the template's fixed-px layout
+   * (fitFontSize() etc. in templates/certificates/shared.js) is identical,
+   * only the final raster resolution is smaller. That's ~4x fewer pixels to
+   * encode and transfer for an image that's immediately downscaled into a
+   * small card anyway (CertificateCard.vue). `size: 'full'` (default) is
+   * unchanged — real downloads and the detail-modal preview keep print
+   * quality.
+   */
+  function renderPng(data, { size = 'full' } = {}) {
     return withSlot(async () => {
       const page = await renderPage(data);
       try {
         await page.setViewport({
           width: PAGE_WIDTH,
           height: PAGE_HEIGHT,
-          deviceScaleFactor: 2,
+          deviceScaleFactor: size === 'thumb' ? 1 : 2,
         });
         return await page.screenshot({ type: 'png' });
       } finally {
         await page.close();
       }
+    });
+  }
+
+  /**
+   * Fire-and-forget browser launch, called once at process startup
+   * (server.js). The browser is normally launched lazily on the first real
+   * render (getBrowser(), above) — without this, that first render is
+   * whoever's request happens to land first, typically a real user's first
+   * dashboard visit shortly after a deploy/restart. Warming it up here moves
+   * that launch latency off the request path entirely. A failure here isn't
+   * fatal: it's logged and the next real request just retries the launch
+   * the way it always has.
+   */
+  function warmUp() {
+    return getBrowser().catch((err) => {
+      logger.warn('render browser warm-up failed', { err });
     });
   }
 
@@ -182,7 +208,7 @@ export function createCertificateRenderService({
     }
   }
 
-  return { renderPdf, renderPng, close };
+  return { renderPdf, renderPng, warmUp, close };
 }
 
 /** Process-wide instance used by the routes. */

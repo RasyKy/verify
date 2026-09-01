@@ -1,6 +1,12 @@
 <script setup lang="ts">
-import QrcodeVue from 'qrcode.vue'
 import type { VerifyResult } from '~/composables/useVerify'
+
+// Lazy, not a static import: this renders inside <ClientOnly> already (the
+// QR code needs no SSR pass), but a static import still bundles the ~20KB
+// library into this route's chunk for every visitor — including anonymous
+// ones who never look at the code. Same pattern as the QR *scanner* in
+// components/verify/QrScannerModal.vue, which already does this correctly.
+const QrcodeVue = defineAsyncComponent(() => import('qrcode.vue'))
 
 definePageMeta({ layout: false })
 

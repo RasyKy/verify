@@ -42,6 +42,8 @@
                 class="trust-mark"
                 loading="lazy"
                 decoding="async"
+                width="180"
+                height="56"
               />
               <span v-else class="trust-logo">{{ acronymOf(org.name) }}</span>
             </li>

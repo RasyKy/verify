@@ -94,7 +94,7 @@ const columns: Column[] = [
       </template>
       <template #cell-name="{ row }">
         <div class="org-cell">
-          <img v-if="row.logoUrl" :src="row.logoUrl" :alt="''" class="org-mark" loading="lazy" />
+          <img v-if="row.logoUrl" :src="row.logoUrl" :alt="''" class="org-mark" loading="lazy" width="28" height="28" />
           <span v-else class="org-mark org-mark--empty">{{ (row.name?.[0] ?? '?').toUpperCase() }}</span>
           <span class="org-name">{{ row.name }}</span>
         </div>

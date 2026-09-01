@@ -1,17 +1,4 @@
 <script setup lang="ts">
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Filler,
-  Tooltip,
-} from 'chart.js'
-import { Line } from 'vue-chartjs'
-
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip)
-
 const props = defineProps<{
   data: Array<{ date: string; count: number }>
   loading: boolean
@@ -61,6 +48,27 @@ const chartOptions = {
     },
   },
 }
+
+/**
+ * Chart.js/vue-chartjs are loaded dynamically, not statically imported.
+ * This component renders unconditionally on the issuer dashboard, so a
+ * static import shipped ~60-90KB of chart JS on every visit — and worse,
+ * ran `ChartJS.register()` during SSR even though the chart itself only
+ * ever paints inside <ClientOnly> and never renders server-side. Same
+ * reasoning as the QR scanner's lazy `await import('qr-scanner')` in
+ * components/verify/QrScannerModal.vue.
+ */
+const LineChart = shallowRef<any>(null)
+
+onMounted(async () => {
+  const [chartJs, vueChartJs] = await Promise.all([
+    import('chart.js'),
+    import('vue-chartjs'),
+  ])
+  const { Chart: ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip } = chartJs
+  ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip)
+  LineChart.value = vueChartJs.Line
+})
 </script>
 
 <template>
@@ -70,7 +78,14 @@ const chartOptions = {
       <p class="text-sm text-gray-400">No certificates issued in this period.</p>
     </div>
     <ClientOnly v-else>
-      <Line :data="chartData" :options="chartOptions" style="height: 100%" />
+      <component
+        :is="LineChart"
+        v-if="LineChart"
+        :data="chartData"
+        :options="chartOptions"
+        style="height: 100%"
+      />
+      <div v-else class="h-full w-full bg-gray-100 rounded animate-pulse" />
     </ClientOnly>
   </div>
 </template>

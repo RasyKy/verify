@@ -10,6 +10,7 @@ import cron from 'node-cron';
 import { createApp } from './app.js';
 import { env } from './config/env.js';
 import { logger } from './lib/logger.js';
+import { certificateRenderService } from './services/certificateRender.js';
 import {
   EXPIRY_SWEEP_CRON,
   expiryNotificationsJob,
@@ -20,6 +21,12 @@ const app = createApp();
 // Features left inert by an incomplete .env — visible at boot rather than
 // discovered when a request needs them.
 for (const warning of env.warnings) logger.warn(warning);
+
+// Not awaited — the server binds and starts accepting requests immediately
+// either way. This just moves the render browser's launch latency off
+// whichever request would otherwise have been first to need it. See
+// certificateRender.js's warmUp() for the failure-handling reasoning.
+certificateRenderService.warmUp();
 
 const server = app.listen(env.PORT, () => {
   logger.info(`Verify backend listening on :${env.PORT}`, {
