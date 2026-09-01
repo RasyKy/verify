@@ -85,6 +85,34 @@ describe('GET /api/certificates/:id/download', () => {
     expect(res.status).toBe(422);
   });
 
+  it('defaults size to "full" and passes it through to renderPng', async () => {
+    const renderPng = jest.fn(async () => Buffer.from('PNG-fake'));
+    await request(makeApp({ renderService: { renderPng } })).get(
+      `/api/certificates/${CERT_ID}/download?format=png`
+    );
+
+    expect(renderPng).toHaveBeenCalledWith(expect.anything(), { size: 'full' });
+  });
+
+  it('passes size=thumb through to renderPng for dashboard card previews', async () => {
+    const renderPng = jest.fn(async () => Buffer.from('PNG-fake'));
+    const res = await request(makeApp({ renderService: { renderPng } })).get(
+      `/api/certificates/${CERT_ID}/download?format=png&size=thumb`
+    );
+
+    expect(res.status).toBe(200);
+    expect(renderPng).toHaveBeenCalledWith(expect.anything(), {
+      size: 'thumb',
+    });
+  });
+
+  it('rejects an unknown size', async () => {
+    const res = await request(makeApp()).get(
+      `/api/certificates/${CERT_ID}/download?format=png&size=huge`
+    );
+    expect(res.status).toBe(422);
+  });
+
   it('404s when the certificate does not verify', async () => {
     const service = {
       verify: async () => ({ status: 'invalid', certificate: null }),

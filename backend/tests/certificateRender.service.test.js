@@ -128,6 +128,57 @@ describe('certificateRenderService.renderPng', () => {
       expect.objectContaining({ type: 'png' })
     );
   });
+
+  it('defaults to full (retina) resolution when size is omitted', async () => {
+    const { service, pages } = makeService();
+    await service.renderPng(RENDER_DATA);
+
+    expect(pages[0].setViewport).toHaveBeenCalledWith(
+      expect.objectContaining({ deviceScaleFactor: 2 })
+    );
+  });
+
+  it('renders at deviceScaleFactor 1 for size: thumb, same viewport width/height', async () => {
+    const { service, pages } = makeService();
+    await service.renderPng(RENDER_DATA, { size: 'thumb' });
+
+    expect(pages[0].setViewport).toHaveBeenCalledWith(
+      expect.objectContaining({
+        width: 1600,
+        height: 1131,
+        deviceScaleFactor: 1,
+      })
+    );
+  });
+});
+
+describe('certificateRenderService.warmUp', () => {
+  it('launches the browser without rendering a page', async () => {
+    const { service, launchBrowser, pages } = makeService();
+    await service.warmUp();
+
+    expect(launchBrowser).toHaveBeenCalledTimes(1);
+    expect(pages).toHaveLength(0);
+  });
+
+  it('reuses the warmed-up browser for a subsequent render', async () => {
+    const { service, launchBrowser } = makeService();
+    await service.warmUp();
+    await service.renderPdf(RENDER_DATA);
+
+    expect(launchBrowser).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not throw when the launch fails — logs and lets the next call retry', async () => {
+    const failingLaunch = jest.fn(async () => {
+      throw new Error('no chromium here');
+    });
+    const service = createCertificateRenderService({
+      launchBrowser: failingLaunch,
+    });
+
+    await expect(service.warmUp()).resolves.toBeUndefined();
+  });
 });
 
 /**

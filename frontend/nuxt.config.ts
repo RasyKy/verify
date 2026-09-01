@@ -65,6 +65,30 @@ export default defineNuxtConfig({
           href: 'https://fonts.gstatic.com',
           crossorigin: '',
         },
+        /**
+         * The landing hero's <h1> — likely this page's LCP element, since it
+         * has no hero <img> — renders in this font. Without a direct preload,
+         * the browser only discovers the actual .woff2 after fetching AND
+         * parsing the stylesheet below: a second round trip sitting on the
+         * path to first heading paint, even with the preconnects above.
+         *
+         * This is the resolved "latin" subset file (the one unrestricted
+         * unicode-range, i.e. what actually serves plain English text) for
+         * the variable font's full 400-800 weight axis, fetched by hand from
+         * the stylesheet response — Google Fonts serves one file per
+         * language subset here, not one per weight, since this is a
+         * variable font. If Google rotates this URL on a future CDN
+         * refresh, this preload just becomes a silent no-op, not a
+         * breakage — the stylesheet <link> below still resolves the font
+         * normally either way.
+         */
+        {
+          rel: 'preload',
+          as: 'font',
+          type: 'font/woff2',
+          href: 'https://fonts.gstatic.com/s/bricolagegrotesque/v9/3y9K6as8bTXq_nANBjzKo3IeZx8z6up5BeSl9D4dj_x9PpZBMlGIInE.woff2',
+          crossorigin: '',
+        },
         {
           rel: 'stylesheet',
           href: 'https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap',

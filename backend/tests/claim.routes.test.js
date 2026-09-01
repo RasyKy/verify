@@ -109,8 +109,8 @@ describe('GET /api/claim/:token — public', () => {
         expires_at: PAST,
         used_at: null,
         sent_to: HOLDER_EMAIL,
+        certificates: CERT,
       },
-      certificates: CERT,
     });
     const res = await request(makeApp({ adminClient: db })).get(
       '/api/claim/some-token'
@@ -131,8 +131,8 @@ describe('GET /api/claim/:token — public', () => {
         expires_at: FUTURE,
         used_at: new Date().toISOString(),
         sent_to: HOLDER_EMAIL,
+        certificates: { ...CERT, claim_state: 'claimed' },
       },
-      certificates: { ...CERT, claim_state: 'claimed' },
     });
     const res = await request(makeApp({ adminClient: db })).get(
       '/api/claim/some-token'
@@ -155,8 +155,8 @@ describe('GET /api/claim/:token — public', () => {
         expires_at: FUTURE,
         used_at: new Date().toISOString(),
         sent_to: HOLDER_EMAIL,
+        certificates: { ...CERT, claim_state: 'unclaimed' },
       },
-      certificates: { ...CERT, claim_state: 'unclaimed' },
     });
     const res = await request(makeApp({ adminClient: db })).get(
       '/api/claim/some-token'
@@ -175,8 +175,8 @@ describe('GET /api/claim/:token — public', () => {
         expires_at: FUTURE,
         used_at: null,
         sent_to: HOLDER_EMAIL,
+        certificates: CERT,
       },
-      certificates: CERT,
     });
     const res = await request(makeApp({ adminClient: db })).get(
       '/api/claim/some-token'
@@ -204,8 +204,8 @@ describe('POST /api/claim/:token/confirm', () => {
         expires_at: FUTURE,
         used_at: null,
         sent_to: HOLDER_EMAIL,
+        certificates: CERT,
       },
-      certificates: CERT,
       profiles: null,
       ...overrides,
     });

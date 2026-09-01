@@ -682,11 +682,16 @@ export function createCertificateService({
 
     if (!row) return { status: 'invalid', certificate: null };
 
-    const stored = await currentHashRow(certId);
+    // currentHashRow (a DB round-trip) and chain.verify (RPC, or a cached
+    // hit — see blockchain.js's 30s TTL cache) are independent once
+    // `recomputed` exists — neither needs the other's result — so they run
+    // concurrently instead of back-to-back.
     const recomputed = hashFromRow(row);
-
     // Let a chain outage propagate as 503 — never as `invalid`.
-    const onChain = await chain.verify(recomputed);
+    const [stored, onChain] = await Promise.all([
+      currentHashRow(certId),
+      chain.verify(recomputed),
+    ]);
 
     const hashMatches = Boolean(stored) && hashesEqual(recomputed, stored.hash);
 

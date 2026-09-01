@@ -1,7 +1,7 @@
 {
   "name": "verify-backend",
   "version": "1.0.0",
-  "description": "Verify \u2014 REST API for certificate issuance, claiming and blockchain-backed verification",
+  "description": "Verify — REST API for certificate issuance, claiming and blockchain-backed verification",
   "type": "module",
   "main": "src/server.js",
   "engines": {
@@ -39,6 +39,7 @@
     "@sentry/node": "^10.19.0",
     "@sparticuz/chromium": "^131.0.1",
     "@supabase/supabase-js": "^2.108.2",
+    "compression": "^1.8.1",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "ethers": "^6.17.0",

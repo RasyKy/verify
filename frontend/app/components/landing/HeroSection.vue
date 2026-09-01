@@ -13,6 +13,36 @@
  * never enough to compete with the input for attention — and it flattens the
  * moment the field is focused, so nothing moves while someone is typing.
  */
+/**
+ * Measured, not assumed: a real Lighthouse run against a production build
+ * identified `.foliage` below — the hero's CSS background-image, not the
+ * <h1> — as this page's actual LCP element, with ~3.4s of its LCP time
+ * (desktop) sitting in "resource load delay". A CSS background-image is
+ * only discovered after the browser builds the CSSOM and computes styles —
+ * later than an <img> the HTML preload scanner could find immediately.
+ * This preload closes exactly that gap, matching the desktop/mobile
+ * breakpoint the CSS below already uses so each viewport only fetches the
+ * image it will actually render.
+ */
+useHead({
+  link: [
+    {
+      rel: 'preload',
+      as: 'image',
+      href: '/bg-hero.webp',
+      fetchpriority: 'high',
+      media: '(min-width: 961px)',
+    },
+    {
+      rel: 'preload',
+      as: 'image',
+      href: '/bg-hero-sm.webp',
+      fetchpriority: 'high',
+      media: '(max-width: 960px)',
+    },
+  ],
+})
+
 const certId = ref('')
 const qrModalOpen = ref(false)
 // The search bar owns its own focus styling; the hero tracks focus only to
