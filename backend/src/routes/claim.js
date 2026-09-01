@@ -56,28 +56,25 @@ const EMPTY_PREVIEW = {
 };
 
 async function loadClaimContext(adminClient, token) {
-  const tokenRow = unwrap(
+  // One round-trip via an embedded select, not two sequential ones — the
+  // certificate lookup only ever needs tokenRow.certificate_id, so there
+  // was nothing to parallelize (a genuine dependency), but PostgREST can
+  // still fetch both in a single query the same way CERT_SELECT does
+  // elsewhere in this codebase (services/certificate.js).
+  const row = unwrap(
     await adminClient
       .from('claim_tokens')
-      .select('id, certificate_id, expires_at, used_at, sent_to')
+      .select(
+        'id, certificate_id, expires_at, used_at, sent_to, certificates ( id, student_name, student_email, course_name, holder_id, claim_state, organizations ( name ) )'
+      )
       .eq('token_hash', hashToken(token))
       .maybeSingle(),
     'load claim token'
   );
-  if (!tokenRow) return null;
+  if (!row) return null;
 
-  const cert = unwrap(
-    await adminClient
-      .from('certificates')
-      .select(
-        'id, student_name, student_email, course_name, holder_id, claim_state, organizations ( name )'
-      )
-      .eq('id', tokenRow.certificate_id)
-      .maybeSingle(),
-    'load certificate for claim'
-  );
-
-  return { tokenRow, cert };
+  const { certificates: cert, ...tokenRow } = row;
+  return { tokenRow, cert: cert ?? null };
 }
 
 export function createClaimRouter({

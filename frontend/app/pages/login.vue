@@ -95,6 +95,28 @@ async function proceedAfterSignIn() {
   if (destination) await navigateTo(destination)
 }
 
+/**
+ * signInWithPassword() resolving does not mean useSupabaseUser() has
+ * caught up yet — @nuxtjs/supabase updates it from Supabase's own
+ * onAuthStateChange listener, which can land a tick or more after the
+ * sign-in promise itself resolves. Navigating immediately risks
+ * auth.global.ts's route guard running while `user` is still stale, seeing
+ * "signed out", and bouncing straight back to /login — which looks exactly
+ * like the button did nothing (confirmed live via console tracing: on a
+ * failing attempt, useSupabaseSession() had already synced by this point,
+ * but useSupabaseUser() — the one the guard actually reads — had not; they
+ * do not update atomically together). This closes the race instead of
+ * requiring a second click. Bounded so a genuine edge case can't hang the
+ * button forever — if it times out, behavior is unchanged from before
+ * this fix.
+ */
+async function waitForSessionSync(timeoutMs = 1500) {
+  const deadline = Date.now() + timeoutMs
+  while (!supaUser.value && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 25))
+  }
+}
+
 async function onSubmit() {
   if (!email.value || !password.value) return
   loading.value = true
@@ -109,6 +131,7 @@ async function onSubmit() {
       error.value = true
       password.value = ''
     } else {
+      await waitForSessionSync()
       await proceedAfterSignIn()
     }
   } finally {

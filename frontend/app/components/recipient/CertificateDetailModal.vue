@@ -1,6 +1,11 @@
 <script setup lang="ts">
-import QrcodeVue from 'qrcode.vue'
 import type { HolderCertificate } from '~/composables/useHolderCertificates'
+
+// Lazy, not a static import: renders inside <ClientOnly> already, but a
+// static import still bundles the ~20KB library into every recipient-
+// dashboard visit's chunk whether or not this modal is ever opened. Same
+// pattern as the QR *scanner* in components/verify/QrScannerModal.vue.
+const QrcodeVue = defineAsyncComponent(() => import('qrcode.vue'))
 
 const props = defineProps<{ open: boolean; cert: HolderCertificate | null }>()
 const emit = defineEmits<{ 'update:open': [value: boolean] }>()
@@ -36,12 +41,48 @@ function downloadUrl(format: 'pdf' | 'png') {
 // Content-Disposition: attachment, so it renders inline instead of
 // triggering a save dialog. Lets the holder see the actual template
 // (branding, layout) their institution chose, not just a data card.
+// size=full here (unlike the card grid's size=thumb): this is the closest
+// look a holder gets without actually downloading, worth the full render.
 const previewLoaded = ref(false)
 const previewFailed = ref(false)
+const previewAttempt = ref(0)
+let previewRetryTimer: ReturnType<typeof setTimeout> | undefined
+
 watch(() => props.cert?.id, () => {
   previewLoaded.value = false
   previewFailed.value = false
+  previewAttempt.value = 0
+  clearTimeout(previewRetryTimer)
 })
+
+onBeforeUnmount(() => clearTimeout(previewRetryTimer))
+
+/**
+ * The render endpoint is a live, uncached Puppeteer screenshot — a cold
+ * backend or a momentarily-queued render can fail the very first attempt
+ * even though the same certificate renders fine a moment later (see
+ * CertificateCard.vue for the full reasoning). One automatic retry after a
+ * short delay covers that invisibly; retryPreview() is the manual escape
+ * hatch if it fails twice.
+ */
+const previewUrl = computed(() => {
+  if (!props.cert) return ''
+  const base = downloadUrl('png')
+  return previewAttempt.value > 0 ? `${base}&retry=${previewAttempt.value}` : base
+})
+
+function onPreviewError() {
+  if (previewAttempt.value < 1) {
+    previewRetryTimer = setTimeout(() => { previewAttempt.value++ }, 1400)
+  } else {
+    previewFailed.value = true
+  }
+}
+
+function retryPreview() {
+  previewFailed.value = false
+  previewAttempt.value++
+}
 
 // LinkedIn's certification "Add to Profile" flow, not the generic link-share
 // flow — this pre-fills a Licenses & Certifications entry with the cert's own
@@ -80,16 +121,17 @@ function formatTimestamp(dateStr: string) {
              what downloading actually produces. -->
         <div class="preview-frame">
           <div v-if="!previewLoaded && !previewFailed" class="preview-skeleton" />
-          <p v-if="previewFailed" class="preview-fallback">
-            Preview unavailable right now. The PDF/PNG downloads below still work.
-          </p>
+          <div v-if="previewFailed" class="preview-fallback">
+            <p>Preview unavailable right now. The PDF/PNG downloads below still work.</p>
+            <button type="button" class="preview-retry" @click="retryPreview">Retry</button>
+          </div>
           <img
             v-show="previewLoaded"
-            :src="downloadUrl('png')"
+            :src="previewUrl"
             :alt="`${cert.course_name} certificate`"
             class="preview-image"
             @load="previewLoaded = true"
-            @error="previewFailed = true"
+            @error="onPreviewError"
           >
         </div>
 
@@ -286,12 +328,35 @@ function formatTimestamp(dateStr: string) {
   position: absolute;
   inset: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   padding: 0 24px;
   text-align: center;
   font-size: 12.5px;
   color: var(--text-tertiary);
+}
+
+.preview-fallback p {
+  margin: 0;
+}
+
+.preview-retry {
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--accent-text);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.preview-retry:hover {
+  color: var(--accent);
 }
 
 @media (prefers-reduced-motion: reduce) {

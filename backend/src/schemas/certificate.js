@@ -126,9 +126,14 @@ export const qrQuerySchema = z.object({
   size: z.coerce.number().int().min(64).max(1024).default(320),
 });
 
-/** GET /api/certificates/:id/download — rendered PDF or PNG document. */
+/**
+ * GET /api/certificates/:id/download — rendered PDF or PNG document.
+ * `size: 'thumb'` only affects the PNG branch (a lower-resolution render for
+ * dashboard card previews) — harmless, ignored for `format: 'pdf'`.
+ */
 export const downloadQuerySchema = z.object({
   format: z.enum(['pdf', 'png']).default('pdf'),
+  size: z.enum(['full', 'thumb']).default('full'),
 });
 
 /** GET /api/dashboard?range= */

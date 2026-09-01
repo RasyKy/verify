@@ -4,6 +4,7 @@
  * without binding a port. (The code this replaces called listen() from two
  * different files.)
  */
+import compression from 'compression';
 import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
@@ -66,6 +67,15 @@ export function createApp() {
       maxAge: 86_400,
     })
   );
+
+  // Default filter/threshold are the right call here, not just the lazy
+  // choice: it's mime-db-driven, so it already skips image/png and
+  // application/pdf — this API's two binary response types (certificate
+  // downloads, QR PNGs) — while compressing what actually dominates traffic:
+  // JSON (every route), the QR SVG variant, and the Swagger HTML/JS. Below
+  // the 1kb default threshold requests pass through untouched, so small
+  // responses don't pay gzip's per-request overhead for nothing.
+  app.use(compression());
 
   // 10kb: certificate payloads are a handful of short strings. A generous
   // limit here is free memory-exhaustion surface (T-04).
