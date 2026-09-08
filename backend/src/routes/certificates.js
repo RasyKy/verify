@@ -24,7 +24,7 @@ import QRCode from 'qrcode';
 
 import { env } from '../config/env.js';
 import { certificateService as defaultService } from '../services/certificate.js';
-import { certificateRenderService as defaultRenderService } from '../services/certificateRender.js';
+import { certificateRenderCanvasService as defaultRenderService } from '../services/certificateRenderCanvas.js';
 import { logger } from '../lib/logger.js';
 import {
   requireAuth,
