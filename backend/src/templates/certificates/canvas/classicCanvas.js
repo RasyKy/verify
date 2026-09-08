@@ -22,6 +22,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 import { fitFontSize, formatDate, monogramFor } from '../shared.js';
+import { loadRemoteImage } from './remoteImage.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ASSETS_DIR = path.join(__dirname, '..', 'assets');
@@ -154,25 +155,32 @@ export async function drawClassic(ctx, data) {
     signatoryTitle,
   } = data;
 
+  // Kicked off before any drawing so the (independent) logo and signature
+  // fetches run concurrently rather than one blocking the other — both are
+  // memoized by URL (see remoteImage.js), so this also means a burst of
+  // first-ever renders for the same organization shares one fetch each.
+  const logoPromise = logoUrl
+    ? loadRemoteImage(logoUrl).catch(() => null)
+    : null;
+  const signaturePromise = signatureUrl
+    ? loadRemoteImage(signatureUrl).catch(() => null)
+    : null;
+
   const bg = await getBackground();
   ctx.drawImage(bg, 0, 0, 1600, 1131);
 
   // ── Seal: institution logo, or a monogram fallback ──
-  if (logoUrl) {
-    try {
-      const logo = await loadImage(await fetchBuffer(logoUrl));
-      const size = 78;
-      drawContain(
-        ctx,
-        logo,
-        SEAL_CENTER.x - size / 2,
-        SEAL_CENTER.y - size / 2,
-        size,
-        size
-      );
-    } catch {
-      drawMonogram();
-    }
+  const logo = logoPromise ? await logoPromise : null;
+  if (logo) {
+    const size = 78;
+    drawContain(
+      ctx,
+      logo,
+      SEAL_CENTER.x - size / 2,
+      SEAL_CENTER.y - size / 2,
+      size,
+      size
+    );
   } else {
     drawMonogram();
   }
@@ -294,22 +302,18 @@ export async function drawClassic(ctx, data) {
   ctx.restore();
 
   // ── Footer (fixed position, independent of everything above) ──
-  if (signatureUrl) {
-    try {
-      // Real bug, caught live with an actual uploaded signature (this path
-      // was untested until then — earlier verification only used
-      // signatureUrl: null): drawContainBottomLeft's `yTop` is the box's
-      // TOP, and it bottom-aligns the image WITHIN [yTop, yTop+maxH] — so
-      // passing SIG_LINE_TOP-6 as yTop put the image's bottom at
-      // SIG_LINE_TOP-6+64, well BELOW the rule, overlapping the signatory
-      // name drawn right after it. The box's top must be
-      // SIG_LINE_TOP-6-64 so its bottom lands at SIG_LINE_TOP-6, 6px above
-      // the rule (the original's margin-bottom:6px on .sig-image).
-      const sig = await loadImage(await fetchBuffer(signatureUrl));
-      drawContainBottomLeft(ctx, sig, 158, SIG_LINE_TOP - 6 - 64, 300, 64);
-    } catch {
-      /* no signature drawn — the rule alone still reads fine */
-    }
+  // Real bug, caught live with an actual uploaded signature (this path was
+  // untested until then — earlier verification only used
+  // signatureUrl: null): drawContainBottomLeft's `yTop` is the box's TOP,
+  // and it bottom-aligns the image WITHIN [yTop, yTop+maxH] — so passing
+  // SIG_LINE_TOP-6 as yTop put the image's bottom at SIG_LINE_TOP-6+64,
+  // well BELOW the rule, overlapping the signatory name drawn right after
+  // it. The box's top must be SIG_LINE_TOP-6-64 so its bottom lands at
+  // SIG_LINE_TOP-6, 6px above the rule (the original's margin-bottom:6px
+  // on .sig-image).
+  const sig = signaturePromise ? await signaturePromise : null;
+  if (sig) {
+    drawContainBottomLeft(ctx, sig, 158, SIG_LINE_TOP - 6 - 64, 300, 64);
   }
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
@@ -367,10 +371,4 @@ function drawContainBottomLeft(ctx, img, x, yTop, maxW, maxH) {
   const dw = img.width * ratio;
   const dh = img.height * ratio;
   ctx.drawImage(img, x, yTop + (maxH - dh), dw, dh);
-}
-
-async function fetchBuffer(url) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`fetch failed: ${res.status}`);
-  return Buffer.from(await res.arrayBuffer());
 }
