@@ -42,6 +42,7 @@ import {
   drawEditorial,
   EDITORIAL_QR_INNER,
 } from '../templates/certificates/canvas/editorialCanvas.js';
+import { loadRemoteImage } from '../templates/certificates/canvas/remoteImage.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -64,23 +65,14 @@ const PORTED_TEMPLATES = {
 };
 
 // The brand mark centered on every QR code — same file, same URL, for every
-// certificate ever rendered, so it's fetched once per process and cached
-// rather than once per render the way the QR pattern itself has to be.
-let brandMarkPromise = null;
+// certificate ever rendered. loadRemoteImage() memoizes it by URL on the
+// same shared cache the org logo/signature loaders use (remoteAssetImageCache
+// in lib/cache.js), so it's fetched once per process rather than once per
+// render, with a failed fetch evicted rather than pinned (see that cache's
+// wrap() behavior).
 function getBrandMark() {
-  if (!brandMarkPromise) {
-    brandMarkPromise = (async () => {
-      const { loadImage } = await import('@napi-rs/canvas');
-      const url = new URL('/favicon.svg', env.publicAppUrl).href;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`fetch favicon failed: ${res.status}`);
-      return loadImage(Buffer.from(await res.arrayBuffer()));
-    })().catch((err) => {
-      brandMarkPromise = null; // let the next render retry rather than cache a failure
-      throw err;
-    });
-  }
-  return brandMarkPromise;
+  const url = new URL('/favicon.svg', env.publicAppUrl).href;
+  return loadRemoteImage(url);
 }
 
 /**

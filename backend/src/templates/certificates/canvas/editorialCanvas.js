@@ -26,6 +26,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 import { fitFontSize, formatDate, monogramFor } from '../shared.js';
+import { loadRemoteImage } from './remoteImage.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ASSETS_DIR = path.join(__dirname, '..', 'assets');
@@ -129,12 +130,6 @@ function drawContain(ctx, img, x, y, w, h, align = 'left') {
   ctx.drawImage(img, dx, y + (h - dh), dw, dh);
 }
 
-async function fetchBuffer(url) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`fetch failed: ${res.status}`);
-  return Buffer.from(await res.arrayBuffer());
-}
-
 export async function drawEditorial(ctx, data) {
   ensureFonts();
   const {
@@ -149,32 +144,39 @@ export async function drawEditorial(ctx, data) {
     signatoryTitle,
   } = data;
 
+  // Kicked off before any drawing so the (independent) logo and signature
+  // fetches run concurrently rather than one blocking the other — both are
+  // memoized by URL (see remoteImage.js), so this also means a burst of
+  // first-ever renders for the same organization shares one fetch each.
+  const logoPromise = logoUrl
+    ? loadRemoteImage(logoUrl).catch(() => null)
+    : null;
+  const signaturePromise = signatureUrl
+    ? loadRemoteImage(signatureUrl).catch(() => null)
+    : null;
+
   const bg = await getBackground();
   ctx.drawImage(bg, 0, 0, 1600, 1131);
 
   // ── Masthead logo / monogram fallback (left side; position fixed) ──
-  if (logoUrl) {
-    try {
-      const logo = await loadImage(await fetchBuffer(logoUrl));
-      // Original: height:64, vertically centered in the masthead row via
-      // align-items:center; drop-shadow is the CSS's "safety net" for rare
-      // dark-artwork logos — ctx.filter genuinely supports this (verified).
-      ctx.save();
-      ctx.filter = 'drop-shadow(0 0 2px rgba(255, 255, 255, 0.32))';
-      const h = 64;
-      const w = Math.min(300, (logo.width / logo.height) * h);
-      drawContain(
-        ctx,
-        logo,
-        LOGO_SLOT.left,
-        LOGO_SLOT.top + (LOGO_SLOT.size - h) / 2,
-        w,
-        h
-      );
-      ctx.restore();
-    } catch {
-      drawLogoFallback();
-    }
+  const logo = logoPromise ? await logoPromise : null;
+  if (logo) {
+    // Original: height:64, vertically centered in the masthead row via
+    // align-items:center; drop-shadow is the CSS's "safety net" for rare
+    // dark-artwork logos — ctx.filter genuinely supports this (verified).
+    ctx.save();
+    ctx.filter = 'drop-shadow(0 0 2px rgba(255, 255, 255, 0.32))';
+    const h = 64;
+    const w = Math.min(300, (logo.width / logo.height) * h);
+    drawContain(
+      ctx,
+      logo,
+      LOGO_SLOT.left,
+      LOGO_SLOT.top + (LOGO_SLOT.size - h) / 2,
+      w,
+      h
+    );
+    ctx.restore();
   } else {
     drawLogoFallback();
   }
@@ -300,20 +302,16 @@ export async function drawEditorial(ctx, data) {
   ctx.fillStyle = '#FFFFFF';
   ctx.fillText(certId, VERIFY_TEXT_LEFT, CERT_ID_TOP);
 
-  if (signatureUrl) {
-    try {
-      const sig = await loadImage(await fetchBuffer(signatureUrl));
-      // Ink strokes on a transparent/white ground: inverting to white is
-      // correct on this dark sheet, same as the original CSS filter.
-      ctx.save();
-      ctx.filter = 'brightness(0) invert(1)';
-      const h = 58;
-      const w = Math.min(280, (sig.width / sig.height) * h);
-      drawContain(ctx, sig, SIG_RIGHT - w, SIG_IMAGE_BOTTOM - h, w, h, 'right');
-      ctx.restore();
-    } catch {
-      /* no signature drawn — the rule alone still reads fine */
-    }
+  const sig = signaturePromise ? await signaturePromise : null;
+  if (sig) {
+    // Ink strokes on a transparent/white ground: inverting to white is
+    // correct on this dark sheet, same as the original CSS filter.
+    ctx.save();
+    ctx.filter = 'brightness(0) invert(1)';
+    const h = 58;
+    const w = Math.min(280, (sig.width / sig.height) * h);
+    drawContain(ctx, sig, SIG_RIGHT - w, SIG_IMAGE_BOTTOM - h, w, h, 'right');
+    ctx.restore();
   }
   ctx.textAlign = 'right';
   ctx.textBaseline = 'top';

@@ -21,6 +21,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 import { fitFontSize, formatDate, monogramFor } from '../shared.js';
+import { loadRemoteImage } from './remoteImage.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ASSETS_DIR = path.join(__dirname, '..', 'assets');
@@ -119,12 +120,6 @@ function drawContainBottomLeft(ctx, img, x, yTop, maxW, maxH) {
   ctx.drawImage(img, x, yTop + (maxH - dh), dw, dh);
 }
 
-async function fetchBuffer(url) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`fetch failed: ${res.status}`);
-  return Buffer.from(await res.arrayBuffer());
-}
-
 export async function drawModern(ctx, data) {
   ensureFonts();
   const {
@@ -139,18 +134,25 @@ export async function drawModern(ctx, data) {
     signatoryTitle,
   } = data;
 
+  // Kicked off before any drawing so the (independent) logo and signature
+  // fetches run concurrently rather than one blocking the other — both are
+  // memoized by URL (see remoteImage.js), so this also means a burst of
+  // first-ever renders for the same organization shares one fetch each.
+  const logoPromise = logoUrl
+    ? loadRemoteImage(logoUrl).catch(() => null)
+    : null;
+  const signaturePromise = signatureUrl
+    ? loadRemoteImage(signatureUrl).catch(() => null)
+    : null;
+
   const bg = await getBackground();
   ctx.drawImage(bg, 0, 0, 1600, 1131);
 
   // ── Masthead logo / monogram fallback (position fixed; content dynamic) ──
   const MASTHEAD_RIGHT = 1504;
-  if (logoUrl) {
-    try {
-      const logo = await loadImage(await fetchBuffer(logoUrl));
-      drawContain(ctx, logo, MASTHEAD_RIGHT - 340, 80 - 8, 340, 68, 'right');
-    } catch {
-      drawLogoFallback();
-    }
+  const logo = logoPromise ? await logoPromise : null;
+  if (logo) {
+    drawContain(ctx, logo, MASTHEAD_RIGHT - 340, 80 - 8, 340, 68, 'right');
   } else {
     drawLogoFallback();
   }
@@ -252,13 +254,9 @@ export async function drawModern(ctx, data) {
   ctx.stroke();
 
   // ── Footer (fixed position, independent of everything above) ──
-  if (signatureUrl) {
-    try {
-      const sig = await loadImage(await fetchBuffer(signatureUrl));
-      drawContainBottomLeft(ctx, sig, MAIN_LEFT, MEDIA_BOTTOM - 72, 300, 72);
-    } catch {
-      /* no signature drawn — the caption alone still reads fine */
-    }
+  const sig = signaturePromise ? await signaturePromise : null;
+  if (sig) {
+    drawContainBottomLeft(ctx, sig, MAIN_LEFT, MEDIA_BOTTOM - 72, 300, 72);
   }
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
