@@ -104,3 +104,24 @@ export class TtlCache {
 
 /** Shared cache for on-chain `verify(hash)` results. */
 export const chainVerifyCache = new TtlCache({ ttlMs: 30_000 });
+
+/**
+ * Shared cache for certificateRenderCanvas.js's rendered PNGs (the
+ * "base" render — background, text, QR — never the status stamp; see that
+ * module's stampOnto() for why). Measured, not assumed, before building
+ * this: a Supabase Storage round-trip for the same purpose was ~200ms,
+ * SLOWER than just rendering fresh (44-108ms) — see this session's design
+ * notes. An in-process cache has none of that network cost and correctly
+ * serves the actual hot path (the same certificate's dashboard card
+ * reloading repeatedly in one session). 30 minutes because staleness isn't
+ * a correctness concern here the way it is for chainVerifyCache above —
+ * the cache key already folds in every field that can change without a new
+ * certificate id (see certificateRenderCanvas.js's renderCacheKey()), so a
+ * stale HIT is structurally impossible, not just unlikely. 100 entries
+ * caps memory on Render's small instance — full-size PNGs run
+ * ~0.5-1.8MB each.
+ */
+export const certificateRenderCache = new TtlCache({
+  ttlMs: 30 * 60_000,
+  maxEntries: 100,
+});
