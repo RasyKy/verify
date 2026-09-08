@@ -125,3 +125,37 @@ export const certificateRenderCache = new TtlCache({
   ttlMs: 30 * 60_000,
   maxEntries: 100,
 });
+
+/**
+ * Shared cache for DECODED remote images used while rendering a certificate —
+ * an organization's logo and signature (see templates/certificates/canvas/
+ * remoteImage.js) and the QR brand mark (certificateRenderCanvas.js).
+ *
+ * Distinct from certificateRenderCache above: that one caches a finished
+ * certificate PNG per certId, this one caches an Image per URL. The reason
+ * it's worth a separate cache rather than relying on the PNG cache alone:
+ * organizationAssets.js's uploadAsset() stores logo/signature at a STABLE key
+ * per organization (`{orgId}/{kind}.{ext}`), so the same URL is reused across
+ * every certificate that organization has ever issued — without this, every
+ * cache-miss render (a first view, or a 30-minute-stale one) paid a fresh
+ * network round trip to Supabase Storage for an image that a different
+ * certificate's render had already fetched moments earlier. Measured as the
+ * dominant cost separating "fast locally" (dev certs with no real uploaded
+ * branding, so this path never ran) from "not under 100ms" once deployed
+ * (real orgs' certs all resolve a real logoUrl/signatureUrl).
+ *
+ * A re-upload changes the URL (`?v=${Date.now()}` — see organizationAssets.js
+ * uploadAsset()'s comment), so a stale cached bitmap for the OLD url is
+ * merely inert, never served under the new one — the same "no invalidation
+ * needed" property certificateRenderCache's branding-hash key relies on.
+ * `wrap()`'s in-flight-collapsing matters here too: an org's first few
+ * certificates ever being viewed in the same moment result in exactly one
+ * fetch of that org's logo, not one per certificate. 60-minute TTL is
+ * generous since staleness is a non-issue by construction; entries are tiny
+ * in number (bounded by distinct org branding URLs in use, not by
+ * certificate count) so 200 is comfortable headroom, not a tight cap.
+ */
+export const remoteAssetImageCache = new TtlCache({
+  ttlMs: 60 * 60_000,
+  maxEntries: 200,
+});

@@ -1,3 +1,14 @@
+// Every portal page's very first render fires at least one request to this
+// origin (GET /api/auth/me, from the global route guard) — a cross-origin
+// hop from Vercel to Render, so without a preconnect the browser only starts
+// DNS + TCP + TLS for it once that request is actually issued. Computed here
+// (module scope, same env access `apiBase` below already relies on) rather
+// than hardcoded, so a non-default NUXT_PUBLIC_API_BASE (a preview
+// deployment, a different Render env) still preconnects to the right host.
+const apiOrigin = new URL(
+  process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:3001'
+).origin
+
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
@@ -56,6 +67,12 @@ export default defineNuxtConfig({
         { rel: 'icon', type: 'image/png', href: '/logo.png' },
         { rel: 'apple-touch-icon', href: '/logo.png' },
         { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' },
+
+        // useApi() sends a bearer token, not cookies, so the actual fetch is
+        // an anonymous CORS request — crossorigin:'' here so the browser can
+        // reuse this exact preconnected connection instead of opening a
+        // second one when that request goes out.
+        { rel: 'preconnect', href: apiOrigin, crossorigin: '' },
 
         // Bricolage Grotesque carries the headings; the body stays on the
         // system stack, which needs no network round trip.
