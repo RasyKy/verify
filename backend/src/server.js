@@ -10,7 +10,7 @@ import cron from 'node-cron';
 import { createApp } from './app.js';
 import { env } from './config/env.js';
 import { logger } from './lib/logger.js';
-import { certificateRenderService } from './services/certificateRender.js';
+import { certificateRenderCanvasService } from './services/certificateRenderCanvas.js';
 import {
   EXPIRY_SWEEP_CRON,
   expiryNotificationsJob,
@@ -22,11 +22,11 @@ const app = createApp();
 // discovered when a request needs them.
 for (const warning of env.warnings) logger.warn(warning);
 
-// Not awaited — the server binds and starts accepting requests immediately
-// either way. This just moves the render browser's launch latency off
-// whichever request would otherwise have been first to need it. See
-// certificateRender.js's warmUp() for the failure-handling reasoning.
-certificateRenderService.warmUp();
+// A no-op now that every template is canvas-rendered (see
+// certificateRenderCanvas.js's warmUp() for why) — kept as a call site so a
+// future unported template's Puppeteer fallback would still get the same
+// startup-time warm-up this line used to provide unconditionally.
+certificateRenderCanvasService.warmUp();
 
 const server = app.listen(env.PORT, () => {
   logger.info(`Verify backend listening on :${env.PORT}`, {
