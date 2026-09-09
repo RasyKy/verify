@@ -200,16 +200,17 @@ export function renderModern(data) {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 56px;
+    gap: 60px;
     padding-top: 40px;
   }
   /*
    * The shared-baseline mechanism. Fixed height, contents bottom-aligned:
    * a short signature and a tall QR both finish at the same y, so the
-   * caption blocks that follow them start level with each other.
+   * caption blocks that follow them start level with each other. Height
+   * matches .qr-image exactly, same as before — grown together.
    */
   .f-media {
-    height: 132px;
+    height: 176px;
     display: flex;
     align-items: flex-end;
   }
@@ -219,17 +220,17 @@ export function renderModern(data) {
     border-top: 1px solid rgba(11, 11, 12, 0.22);
   }
   .f-label {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
     letter-spacing: 0.18em;
     text-transform: uppercase;
     color: ${ACCENT};
   }
-  .f-value { font-size: 19px; font-weight: 700; color: ${INK}; margin-top: 5px; }
-  .f-sub { font-size: 14px; color: #6A6A70; margin-top: 3px; }
+  .f-value { font-size: 22px; font-weight: 700; color: ${INK}; margin-top: 5px; }
+  .f-sub { font-size: 15px; color: #6A6A70; margin-top: 3px; }
 
-  .cell-signature { width: 330px; }
-  .sig-image { height: 72px; max-width: 300px; object-fit: contain; object-position: left bottom; }
+  .cell-signature { width: 350px; }
+  .sig-image { height: 92px; max-width: 320px; object-fit: contain; object-position: left bottom; }
 
   .cell-date { width: 260px; }
 
@@ -238,38 +239,44 @@ export function renderModern(data) {
    * a real label, and a monospace ID at a size a person can actually read
    * off paper and type in — not grey 10px text hidden in a corner.
    */
-  .cell-verify { flex: 1; max-width: 470px; }
-  .verify-media { display: flex; align-items: flex-end; gap: 20px; }
+  .cell-verify { flex: 1; max-width: 520px; }
+  .verify-media { display: flex; align-items: flex-end; gap: 24px; }
   .qr-wrap { position: relative; flex-shrink: 0; }
   /*
-   * box-sizing:border-box: the 3px border + 8px padding on each side eat
-   * into the declared box before any QR pixel is drawn — 132px leaves
-   * ~110px of real module grid, enough headroom for the centred mark.
+   * Bumped from 132px to 176px (~33% larger): a real-world scan complaint —
+   * a phone camera needed the browser zoomed in to lock onto it — traced to
+   * the QR simply occupying too little of the frame at typical on-screen
+   * display sizes, not to error-correction or contrast. box-sizing:border-box
+   * means the 3px border + 8px padding on each side eat into the box before
+   * any QR pixel is drawn — 176px leaves ~154px of real module grid (up
+   * from ~110px).
    */
-  .qr-image { display: block; width: 132px; height: 132px; border: 3px solid ${INK}; padding: 8px; background: #fff; }
+  .qr-image { display: block; width: 176px; height: 176px; border: 3px solid ${INK}; padding: 8px; background: #fff; }
   /*
    * qrDataUrl is generated at errorCorrectionLevel 'H' (~30% correctable)
    * specifically so this overlay stays scannable — verified by decoding a
-   * real render back with jsQR, not by eye.
+   * real render back with jsQR, not by eye. Logo grown to 28px alongside
+   * the 176px QR to hold the same proportion rather than shrinking relative
+   * to the now-larger code.
    */
   .qr-logo {
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 22px;
-    height: 22px;
+    width: 28px;
+    height: 28px;
     object-fit: contain;
     background: #fff;
-    border-radius: 4px;
+    border-radius: 5px;
     padding: 2px;
     box-shadow: 0 0 0 3px #fff;
   }
   .verify-side { padding-bottom: 4px; }
-  .verify-hint { font-size: 14px; color: #6A6A70; line-height: 1.45; }
+  .verify-hint { font-size: 15px; color: #6A6A70; line-height: 1.45; }
   .cert-id {
     font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-    font-size: 14px;
+    font-size: 16px;
     letter-spacing: 0.02em;
     color: ${INK};
     margin-top: 8px;

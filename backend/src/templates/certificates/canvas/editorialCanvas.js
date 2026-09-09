@@ -63,31 +63,38 @@ function getBackground() {
 }
 
 /**
- * Anchors measured off a real browser layout of editorial.js's HTML:
- *   masthead.bottom = 179   (statement/motif center below this)
- *   middle           { top:179, height:656 }
- *   verifyBand.top   = 879
- *   qrImage          { top:906, left:119, width:124, height:124 }
+ * Anchors re-measured off a real browser layout of editorial.js's HTML after
+ * the QR/footer size bump (a real-world scan complaint — a phone camera
+ * needed the browser zoomed in to lock onto it — traced to the QR simply
+ * occupying too little of the frame, not to error-correction or contrast).
+ * masthead.bottom / MIDDLE_TOP are unchanged (that CSS wasn't touched);
+ * MIDDLE_HEIGHT shrank because verify-band is bottom-anchored — growing it
+ * eats into `.middle`'s flex:1 space from below, not from above.
+ *
+ *   masthead.bottom = 179   (statement/motif center below this, unchanged)
+ *   middle           { top:179, height:612 }
+ *   verifyBand.top   = 835
+ *   qrImage          { top:864, left:123, width:164, height:164 }
  *     -> inner QR content area (padding:10 each side, no border):
- *        { top:916, left:129, width:104, height:104 }
- *   verifyTitle.top  = 930.5  (static "VERIFIED ON-CHAIN", baked in)
- *   certId.top       = 956.5, left:273
- *   sigCell          { right:1481 }, sig-image slot height:58, bottom:971.5
- *   sigRule.top      = 971.5
- *   sigName.top      = 981.5
+ *        { top:874, left:133, width:144, height:144 }
+ *   verifyTitle.top  = 904    (static "VERIFIED ON-CHAIN", baked in)
+ *   certId.top       = 932, left:321
+ *   sigCell          { right:1477 }, sig-image slot bottom:946.5
+ *   sigRule.top      = 946.5
+ *   sigName.top      = 956.5
  */
 const MIDDLE_TOP = 179; // == masthead.bottom, the statement/motif cascade starts here
-const MIDDLE_HEIGHT = 656;
+const MIDDLE_HEIGHT = 612;
 const STATEMENT_LEFT = 88;
 const STATEMENT_MAX_WIDTH = 1000;
 const LOGO_SLOT = { top: 78, left: 88, size: 76 };
-const QR_OUTER = { top: 906, left: 119, size: 124 };
-const QR_INNER = { top: 916, left: 129, size: 104 };
-const VERIFY_TEXT_LEFT = 273;
-const CERT_ID_TOP = 956.5;
-const SIG_RIGHT = 1481;
-const SIG_IMAGE_BOTTOM = 971.5;
-const SIG_NAME_TOP = 981.5;
+const QR_OUTER = { top: 864, left: 123, size: 164 };
+const QR_INNER = { top: 874, left: 133, size: 144 };
+const VERIFY_TEXT_LEFT = 321;
+const CERT_ID_TOP = 932;
+const SIG_RIGHT = 1477;
+const SIG_IMAGE_BOTTOM = 946.5;
+const SIG_NAME_TOP = 956.5;
 
 /** Shrinks font size (in 1px steps) until `text` fits within `maxWidth`. */
 function shrinkToFit(
@@ -298,7 +305,7 @@ export async function drawEditorial(ctx, data) {
   // ── Verify band (fixed position, independent of everything above) ──
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
-  ctx.font = '400 21px "JetBrains Mono"';
+  ctx.font = '400 24px "JetBrains Mono"';
   ctx.fillStyle = '#FFFFFF';
   ctx.fillText(certId, VERIFY_TEXT_LEFT, CERT_ID_TOP);
 
@@ -308,19 +315,19 @@ export async function drawEditorial(ctx, data) {
     // correct on this dark sheet, same as the original CSS filter.
     ctx.save();
     ctx.filter = 'brightness(0) invert(1)';
-    const h = 58;
+    const h = 76;
     const w = Math.min(280, (sig.width / sig.height) * h);
     drawContain(ctx, sig, SIG_RIGHT - w, SIG_IMAGE_BOTTOM - h, w, h, 'right');
     ctx.restore();
   }
   ctx.textAlign = 'right';
   ctx.textBaseline = 'top';
-  ctx.font = '700 17px Inter';
+  ctx.font = '700 19px Inter';
   ctx.fillStyle = '#FFFFFF';
   ctx.fillText(signatoryName ?? '', SIG_RIGHT, SIG_NAME_TOP);
-  ctx.font = '400 13px Inter';
+  ctx.font = '400 14px Inter';
   ctx.fillStyle = MUTED;
-  ctx.fillText(signatoryTitle ?? '', SIG_RIGHT, SIG_NAME_TOP + 17 * 1.2 + 2);
+  ctx.fillText(signatoryTitle ?? '', SIG_RIGHT, SIG_NAME_TOP + 19 * 1.2 + 2);
 
   // QR pattern + brand mark are drawn by the caller (certificateRenderCanvas.js) — see QR_INNER above.
 }
