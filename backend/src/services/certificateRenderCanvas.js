@@ -101,9 +101,20 @@ async function drawQr(ctx, verifyUrl, qrInner) {
   // one spot instead of taking down the whole page. Isolated here so the
   // same failure now degrades to "QR without the little logo," not "no
   // certificate at all."
+  // Generated well above qrInner.size (a fixed 400px source, regardless of
+  // the ~100-160px logical box it lands in) so drawImage always DOWNSCALES
+  // into place, never upscales. Verified, not assumed: editorial's QR
+  // (qrInner.size 144, matching the previous logic's 1:1-ish generation
+  // size) failed to decode with jsQR at the "full" 2x render size — the
+  // canvas's own bilinear interpolation upscaling a 144px source into a
+  // 288px physical destination blurred module edges just enough to trip up
+  // the decoder, even though classic/modern's slightly different sizes
+  // happened not to. Downscaling from an oversized source is the standard
+  // fix (and the safer direction generally) — re-verified with jsQR after.
+  const QR_SOURCE_SIZE = 400;
   const [qrPngBuffer, mark] = await Promise.all([
     QRCode.toBuffer(verifyUrl, {
-      width: qrInner.size,
+      width: QR_SOURCE_SIZE,
       margin: 0,
       errorCorrectionLevel: 'H',
     }),

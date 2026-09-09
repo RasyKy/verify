@@ -80,23 +80,32 @@ function getBackground() {
 /**
  * Real anchor points measured off an actual browser layout of classic.js's
  * HTML (Puppeteer + getBoundingClientRect(), not hand-estimated), in the
- * template's native 1600x1131 logical pixel space:
+ * template's native 1600x1131 logical pixel space. Re-measured after bumping
+ * the QR + footer sizes (a real-world scan complaint — a phone camera needed
+ * the browser zoomed in to lock onto it — traced to the QR simply occupying
+ * too little of the frame, not to error-correction or contrast). Everything
+ * above the footer (seal, headline) is unchanged: the footer sits at the
+ * bottom of a flex column via margin-top:auto, so growing it only changes
+ * where IT starts, never anything drawn above it.
  *
  *   seal            { top:114, left:742, width:116, height:116 } -> center (800,172)
  *   headline.bottom = 340                 (student-name cascade starts here)
- *   sigLine.top     = 950                 (signature rule y)
- *   dateValue.top   = 973
- *   qrImage         { top:862, left:1217, width:130, height:130 }
+ *   sigLine.top     = 957                 (signature rule y)
+ *   dateValue.top   = 967
+ *   qrImage         { top:818, left:1197, width:170, height:170 }
  *     -> inner QR content area (border:6 + padding:8 = 14 inset each side):
- *        { top:876, left:1231, width:102, height:102 }
- *   certId.top      = 1109                (bottom:22px absolute -> 1131-22)
+ *        { top:832, left:1211, width:142, height:142 }
+ *   certId.top      = 1109                (bottom:22px absolute -> 1131-22,
+ *                                           unaffected by font-size — the
+ *                                           box's BOTTOM edge is what's
+ *                                           pinned, not measured directly)
  */
 const CX = 800; // horizontal center of the 1600-wide canvas
 const HEADLINE_BOTTOM = 340;
-const SIG_LINE_TOP = 950;
-const DATE_VALUE_TOP = 973;
-const QR_OUTER = { top: 862, left: 1217, size: 130 };
-const QR_INNER = { top: 876, left: 1231, size: 102 };
+const SIG_LINE_TOP = 957;
+const DATE_VALUE_TOP = 967;
+const QR_OUTER = { top: 818, left: 1197, size: 170 };
+const QR_INNER = { top: 832, left: 1211, size: 142 };
 const CERT_ID_TOP = 1109;
 const SEAL_CENTER = { x: 800, y: 172 };
 
@@ -306,25 +315,25 @@ export async function drawClassic(ctx, data) {
   // untested until then — earlier verification only used
   // signatureUrl: null): drawContainBottomLeft's `yTop` is the box's TOP,
   // and it bottom-aligns the image WITHIN [yTop, yTop+maxH] — so passing
-  // SIG_LINE_TOP-6 as yTop put the image's bottom at SIG_LINE_TOP-6+64,
+  // SIG_LINE_TOP-8 as yTop put the image's bottom at SIG_LINE_TOP-8+84,
   // well BELOW the rule, overlapping the signatory name drawn right after
-  // it. The box's top must be SIG_LINE_TOP-6-64 so its bottom lands at
-  // SIG_LINE_TOP-6, 6px above the rule (the original's margin-bottom:6px
+  // it. The box's top must be SIG_LINE_TOP-8-84 so its bottom lands at
+  // SIG_LINE_TOP-8, 8px above the rule (the original's margin-bottom:8px
   // on .sig-image).
   const sig = signaturePromise ? await signaturePromise : null;
   if (sig) {
-    drawContainBottomLeft(ctx, sig, 158, SIG_LINE_TOP - 6 - 64, 300, 64);
+    drawContainBottomLeft(ctx, sig, 158, SIG_LINE_TOP - 8 - 84, 300, 84);
   }
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
-  ctx.font = '700 21px "EB Garamond"';
+  ctx.font = '700 24px "EB Garamond"';
   ctx.fillStyle = '#2b2417';
   ctx.fillText(signatoryName ?? '', 158 + 160, SIG_LINE_TOP + 10);
-  ctx.font = '14px "EB Garamond"';
+  ctx.font = '16px "EB Garamond"';
   ctx.fillStyle = '#5c4a22';
-  ctx.fillText(signatoryTitle ?? '', 158 + 160, SIG_LINE_TOP + 10 + 21 + 3);
+  ctx.fillText(signatoryTitle ?? '', 158 + 160, SIG_LINE_TOP + 10 + 24 + 3);
 
-  ctx.font = '700 21px "EB Garamond"';
+  ctx.font = '700 24px "EB Garamond"';
   ctx.fillStyle = '#2b2417';
   ctx.fillText(formatDate(completionDate), 640 + 160, DATE_VALUE_TOP);
 
@@ -335,23 +344,25 @@ export async function drawClassic(ctx, data) {
   ctx.fillStyle = '#6b5a30';
   ctx.textBaseline = 'top';
   const labelText = 'CERTIFICATE ID';
-  ctx.font = '700 11px "EB Garamond"';
+  // Letter-spacing matches .cert-id span's CSS: 0.16em * 13px = 2.08.
+  const labelSpacing = 2.08;
+  ctx.font = '700 13px "EB Garamond"';
   const labelWidth = [...labelText].reduce(
-    (w, ch) => w + ctx.measureText(ch).width + 1.76,
+    (w, ch) => w + ctx.measureText(ch).width + labelSpacing,
     0
   );
-  ctx.font = '13px "JetBrains Mono"';
+  ctx.font = '15px "JetBrains Mono"';
   const valueWidth = ctx.measureText(`  ${certId}`).width;
   const totalWidth = labelWidth + valueWidth;
   let cx = CX - totalWidth / 2;
   ctx.textAlign = 'left';
-  ctx.font = '700 11px "EB Garamond"';
+  ctx.font = '700 13px "EB Garamond"';
   ctx.fillStyle = GOLD_DEEP;
   for (const ch of labelText) {
     ctx.fillText(ch, cx, CERT_ID_TOP + 2);
-    cx += ctx.measureText(ch).width + 1.76;
+    cx += ctx.measureText(ch).width + labelSpacing;
   }
-  ctx.font = '13px "JetBrains Mono"';
+  ctx.font = '15px "JetBrains Mono"';
   ctx.fillStyle = '#6b5a30';
   ctx.fillText(`  ${certId}`, cx, CERT_ID_TOP);
 }
