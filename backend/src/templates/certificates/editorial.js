@@ -248,37 +248,46 @@ export function renderEditorial(data) {
     margin-top: 44px;
     display: flex;
     align-items: center;
-    gap: 30px;
-    padding: 26px 30px;
+    gap: 34px;
+    padding: 28px 34px;
     border: 1px solid rgba(63, 217, 196, 0.34);
     border-radius: 10px;
     background: linear-gradient(180deg, ${PANEL} 0%, rgba(13, 20, 28, 0.6) 100%);
   }
   .qr-wrap { position: relative; flex-shrink: 0; }
-  /* box-sizing:border-box: a 124px box less 10px padding a side = ~104px of real QR grid. */
-  .qr-image { display: block; width: 124px; height: 124px; background: #fff; padding: 10px; border-radius: 6px; }
+  /*
+   * Bumped from 124px to 164px (~32% larger): a real-world scan complaint —
+   * a phone camera needed the browser zoomed in to lock onto it — traced to
+   * the QR simply occupying too little of the frame at typical on-screen
+   * display sizes, not to error-correction or contrast. box-sizing:border-box:
+   * a 164px box less 10px padding a side = ~144px of real QR grid (up from
+   * ~104px).
+   */
+  .qr-image { display: block; width: 164px; height: 164px; background: #fff; padding: 10px; border-radius: 8px; }
   /*
    * qrDataUrl is generated at errorCorrectionLevel 'H' (~30% correctable)
    * specifically so this centred mark stays scannable — verified by decoding
-   * a real render back with jsQR, not by eye.
+   * a real render back with jsQR, not by eye. Logo grown to 26px alongside
+   * the 164px QR to hold the same proportion rather than shrinking relative
+   * to the now-larger code.
    */
   .qr-logo {
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 20px;
-    height: 20px;
+    width: 26px;
+    height: 26px;
     object-fit: contain;
     background: #fff;
-    border-radius: 4px;
+    border-radius: 5px;
     padding: 2px;
     box-shadow: 0 0 0 3px #fff;
   }
   .verify-main { flex: 1; min-width: 0; }
   .verify-title {
     font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 700;
     letter-spacing: 0.2em;
     text-transform: uppercase;
@@ -286,13 +295,13 @@ export function renderEditorial(data) {
   }
   .cert-id {
     font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-    font-size: 21px;
+    font-size: 24px;
     letter-spacing: 0.01em;
     color: #FFFFFF;
-    margin-top: 9px;
+    margin-top: 10px;
     word-break: break-all;
   }
-  .verify-hint { font-size: 13px; color: ${MUTED}; margin-top: 8px; }
+  .verify-hint { font-size: 14px; color: ${MUTED}; margin-top: 9px; }
 
   .band-divider { width: 1px; align-self: stretch; background: rgba(63, 217, 196, 0.22); flex-shrink: 0; }
 
@@ -301,10 +310,10 @@ export function renderEditorial(data) {
    * Signatures are ink strokes on a transparent or white ground, so forcing
    * them white is the one case where inverting is correct on a dark sheet.
    */
-  .sig-image { height: 58px; max-width: 280px; object-fit: contain; object-position: right bottom; filter: brightness(0) invert(1); margin-bottom: 8px; }
+  .sig-image { height: 76px; max-width: 280px; object-fit: contain; object-position: right bottom; filter: brightness(0) invert(1); margin-bottom: 8px; }
   .sig-rule { border-top: 1px solid rgba(201, 214, 220, 0.35); padding-top: 9px; }
-  .sig-name { font-size: 17px; font-weight: 700; color: #FFFFFF; }
-  .sig-title { font-size: 13px; color: ${MUTED}; margin-top: 2px; }
+  .sig-name { font-size: 19px; font-weight: 700; color: #FFFFFF; }
+  .sig-title { font-size: 14px; color: ${MUTED}; margin-top: 2px; }
 </style>
 </head>
 <body>

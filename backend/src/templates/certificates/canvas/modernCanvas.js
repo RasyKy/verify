@@ -65,27 +65,38 @@ function getBackground() {
 }
 
 /**
- * Anchors measured off a real browser layout of modern.js's HTML:
- *   masthead.bottom = 127   (eyebrow + rule; statement centers below this)
- *   statementSlot    { top:127, bottom:829, height:702 }
- *   footer.top       = 829
- *   sigMedia.bottom  = 1001  (869 + f-media's fixed 132px height)
- *   dateMedia.bottom = 1001  (same f-media height, all three cells share it)
- *   qrImage          { top:869, left:1034, width:132, height:132 }
+ * Anchors re-measured off a real browser layout of modern.js's HTML after
+ * the QR/footer size bump (a real-world scan complaint — a phone camera
+ * needed the browser zoomed in to lock onto it — traced to the QR simply
+ * occupying too little of the frame, not to error-correction or contrast).
+ *
+ * Re-measuring this also fixed a pre-existing, unrelated drift: the OLD
+ * masthead.bottom constant here was 127, but a fresh measurement of the
+ * (unchanged) masthead CSS puts it at 175 — the `.top-band` strip above
+ * `.main` was evidently added after this constant was first measured and
+ * never reconciled. Harmless in practice (STATEMENT_HEIGHT's generous slack
+ * meant the statement block merely centered a bit low rather than visibly
+ * colliding with anything), but fixed here rather than carried forward.
+ *
+ *   masthead.bottom = 175   (eyebrow + rule; statement centers below this)
+ *   statementSlot    { top:175, bottom:759, height:584 }
+ *   footer.top       = 759
+ *   sigMedia.bottom  = 975   (799 + f-media's fixed 176px height)
+ *   dateMedia.bottom = 975   (same f-media height, all three cells share it)
+ *   qrImage          { top:799, left:984, width:176, height:176 }
  *     -> inner QR content area (border:3 + padding:8 = 11 inset each side):
- *        { top:880, left:1045, width:110, height:110 }
- *   captionRuleY     = 1015  (mediaBottom + margin-top:14)
- *   labelTop         = 1027  (ruleY + padding-top:12)
+ *        { top:810, left:995, width:154, height:154 }
+ *   labelTop         = 1002  (f-label's own top, measured directly)
  */
 const MAIN_LEFT = 96;
-const STATEMENT_TOP = 127;
-const STATEMENT_HEIGHT = 702;
+const STATEMENT_TOP = 175;
+const STATEMENT_HEIGHT = 584;
 const SPINE_X = MAIN_LEFT; // statement's own left edge = main's content edge
 const TEXT_LEFT = SPINE_X + 4 /* border */ + 48; /* padding-left */
-const MEDIA_BOTTOM = 1001;
-const LABEL_TOP = 1027;
-const QR_OUTER = { top: 869, left: 1034, size: 132 };
-const QR_INNER = { top: 880, left: 1045, size: 110 };
+const MEDIA_BOTTOM = 975;
+const LABEL_TOP = 1002;
+const QR_OUTER = { top: 799, left: 984, size: 176 };
+const QR_INNER = { top: 810, left: 995, size: 154 };
 
 /** Shrinks font size (in 1px steps) until `text` fits within `maxWidth`. */
 function shrinkToFit(
@@ -256,32 +267,44 @@ export async function drawModern(ctx, data) {
   // ── Footer (fixed position, independent of everything above) ──
   const sig = signaturePromise ? await signaturePromise : null;
   if (sig) {
-    drawContainBottomLeft(ctx, sig, MAIN_LEFT, MEDIA_BOTTOM - 72, 300, 72);
+    drawContainBottomLeft(ctx, sig, MAIN_LEFT, MEDIA_BOTTOM - 92, 320, 92);
   }
+  // Vertical offsets below the baked-in .f-label ("Signed by" / "Completed" /
+  // "Certificate ID") mirror that label's own CSS: font-size 12px * line-
+  // height 1.2 = 14.4, then each value's own margin-top.
+  const LABEL_LINE_HEIGHT = 12 * 1.2;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
-  ctx.font = '700 19px Inter';
+  ctx.font = '700 22px Inter';
   ctx.fillStyle = INK;
-  ctx.fillText(signatoryName ?? '', MAIN_LEFT, LABEL_TOP + 13.2 + 5);
-  ctx.font = '400 14px Inter';
+  ctx.fillText(
+    signatoryName ?? '',
+    MAIN_LEFT,
+    LABEL_TOP + LABEL_LINE_HEIGHT + 5
+  );
+  ctx.font = '400 15px Inter';
   ctx.fillStyle = '#6A6A70';
   ctx.fillText(
     signatoryTitle ?? '',
     MAIN_LEFT,
-    LABEL_TOP + 13.2 + 5 + 19 * 1.2 + 3
+    LABEL_TOP + LABEL_LINE_HEIGHT + 5 + 22 * 1.2 + 3
   );
 
-  ctx.font = '700 19px Inter';
+  ctx.font = '700 22px Inter';
   ctx.fillStyle = INK;
-  ctx.fillText(formatDate(completionDate), 600, LABEL_TOP + 13.2 + 5);
+  ctx.fillText(
+    formatDate(completionDate),
+    600,
+    LABEL_TOP + LABEL_LINE_HEIGHT + 5
+  );
 
   // QR pattern + brand mark are drawn by the caller (certificateRenderCanvas.js) — see QR_INNER above.
 
   // cert-id sits BELOW the (baked-in) "Certificate ID" label, left-aligned
   // to the cell — not beside the QR, which is on the row above it.
-  ctx.font = '400 14px "JetBrains Mono"';
+  ctx.font = '400 16px "JetBrains Mono"';
   ctx.fillStyle = INK;
-  ctx.fillText(certId, QR_OUTER.left, LABEL_TOP + 11 * 1.2 + 8);
+  ctx.fillText(certId, QR_OUTER.left, LABEL_TOP + LABEL_LINE_HEIGHT + 8);
 }
 
 export const MODERN_QR_INNER = QR_INNER;

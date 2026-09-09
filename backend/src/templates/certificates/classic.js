@@ -223,46 +223,50 @@ export function renderClassic(data) {
     justify-content: space-between;
   }
   .sig-block { text-align: center; width: 320px; }
-  .sig-image { height: 64px; object-fit: contain; margin-bottom: 6px; }
+  .sig-image { height: 84px; object-fit: contain; margin-bottom: 8px; }
   .sig-line { border-top: 1px solid ${GOLD_DEEP}; padding-top: 10px; }
-  .sig-name { font-size: 21px; font-weight: 700; color: #2b2417; }
-  .sig-title { font-size: 14px; color: #5c4a22; letter-spacing: 0.03em; margin-top: 3px; }
+  .sig-name { font-size: 24px; font-weight: 700; color: #2b2417; }
+  .sig-title { font-size: 16px; color: #5c4a22; letter-spacing: 0.03em; margin-top: 3px; }
 
   .date-block { text-align: center; width: 320px; }
-  .date-value { font-size: 21px; font-weight: 700; color: #2b2417; }
-  .date-caption { font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; color: ${GOLD_DEEP}; margin-top: 6px; }
+  .date-value { font-size: 24px; font-weight: 700; color: #2b2417; }
+  .date-caption { font-size: 15px; letter-spacing: 0.14em; text-transform: uppercase; color: ${GOLD_DEEP}; margin-top: 6px; }
 
   .qr-block { text-align: center; width: 320px; }
   .qr-wrap { position: relative; display: inline-block; }
   /*
-   * Sized up from the pre-logo 96px: box-sizing:border-box means the 6px
-   * border + 8px padding on every side eat into the box before any QR
-   * pixel is drawn, so at 96px the actual module grid was only ~68px —
-   * too little resolution for a centered logo to sit on without blotting
-   * out a disproportionate share of it. 130px leaves ~102px of real QR.
+   * Bumped from 130px to 170px (~31% larger): a real-world scan complaint —
+   * a phone camera needed the browser zoomed in to lock onto it — traced to
+   * the QR simply occupying too little of the frame at typical on-screen
+   * display sizes, not to error-correction or contrast. box-sizing:border-box
+   * means the 6px border + 8px padding on every side eat into the box before
+   * any QR pixel is drawn, so 170px leaves ~142px of real module grid (up
+   * from ~102px), still comfortably proportioned for the centered logo.
    */
-  .qr-image { width: 130px; height: 130px; border: 6px solid #fff; box-shadow: 0 0 0 1px ${GOLD}; border-radius: 10px; padding: 8px; background: #fff; }
+  .qr-image { width: 170px; height: 170px; border: 6px solid #fff; box-shadow: 0 0 0 1px ${GOLD}; border-radius: 12px; padding: 8px; background: #fff; }
   /*
    * The QR is generated at errorCorrectionLevel 'H' (~30% correctable)
    * specifically so this overlay is safe. Verified, not assumed: rendered
    * a real certificate and decoded the QR back with jsQR — at the previous
    * 96px/26px pairing it did NOT decode; at 130px image / 22px logo it does,
-   * with margin to spare.
+   * with margin to spare. Logo grown to 28px alongside the 170px QR to hold
+   * the same proportion (~20% of the real module grid) rather than shrinking
+   * relative to the now-larger code.
    */
   .qr-logo {
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 22px;
-    height: 22px;
+    width: 28px;
+    height: 28px;
     object-fit: contain;
     background: #fff;
-    border-radius: 5px;
+    border-radius: 6px;
     padding: 3px;
     box-shadow: 0 0 0 3px #fff;
   }
-  .qr-caption { font-size: 13px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: ${GOLD_DEEP}; margin-top: 10px; }
+  .qr-caption { font-size: 15px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: ${GOLD_DEEP}; margin-top: 12px; }
   /*
    * Legible, not a 6px whisper. On-chain verifiability is the product's
    * whole claim, so the identifier a verifier actually types in gets real
@@ -275,11 +279,11 @@ export function renderClassic(data) {
     bottom: 22px;
     text-align: center;
     font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-    font-size: 13px;
+    font-size: 15px;
     letter-spacing: 0.08em;
     color: #6b5a30;
   }
-  .cert-id span { color: ${GOLD_DEEP}; letter-spacing: 0.16em; text-transform: uppercase; font-size: 11px; }
+  .cert-id span { color: ${GOLD_DEEP}; letter-spacing: 0.16em; text-transform: uppercase; font-size: 13px; }
 </style>
 </head>
 <body>
